@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { STORAGE_KEY, demoCopy, memoryStorage, renderApp } from './helpers';
@@ -31,19 +31,6 @@ describe('Dashboard', () => {
       .toEqual(['Classic Burger', '€13.08', '€12.00', 'cost unknown', '—']);
     // Dishes that do not use beef are still calculated.
     expect(within(screen.getByRole('link', { name: 'Tomato Soup' }).closest('tr') as HTMLElement).getAllByRole('cell')[3]?.textContent).toBe('€0.56');
-  });
-});
-
-describe('Ingredients stub', () => {
-  it('shows the current price per kg/l/pc, excl. VAT', async () => {
-    renderApp();
-    await act(async () => {
-      window.location.hash = '#/ingredients';
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    const row = (await screen.findByText('Beef mince 80/20')).closest('tr') as HTMLElement;
-    expect(within(row).getAllByRole('cell')[1]?.textContent).toBe('€17.00/kg');
-    expect(screen.getByText(/Supplier price excl\. VAT, as on the invoice/)).toBeTruthy();
   });
 });
 

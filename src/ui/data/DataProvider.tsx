@@ -10,7 +10,15 @@ type CommandOutput = MenuDocument | { document: MenuDocument };
 
 export type CommandResult<R> =
   | { ok: true; value: R }
-  | { ok: false; error: string; code: string };
+  | { ok: false; error: string; code: string; details: readonly string[] };
+
+export interface ExecuteOptions {
+  /**
+   * Show a failure in the banner at the top of the page (default). A form that shows the
+   * error next to its own Save button passes `false` to avoid saying it twice.
+   */
+  report?: boolean;
+}
 
 interface DataContextValue {
   state: DataState;
@@ -18,7 +26,7 @@ interface DataContextValue {
    * Run a store command OUTSIDE the reducer. On success the new document replaces the
    * one on screen; on failure the document stays as it was and the error is shown.
    */
-  execute<R extends CommandOutput>(command: (store: Store) => R): CommandResult<R>;
+  execute<R extends CommandOutput>(command: (store: Store) => R, options?: ExecuteOptions): CommandResult<R>;
   dismissError(): void;
 }
 
@@ -70,7 +78,10 @@ export function DataProvider(props: DataProviderProps) {
   const [state, dispatch] = useReducer(dataReducer, loaded.state);
   const { store } = loaded;
 
-  const execute = useCallback(<R extends CommandOutput>(command: (store: Store) => R): CommandResult<R> => {
+  const execute = useCallback(<R extends CommandOutput>(
+    command: (store: Store) => R,
+    { report = true }: ExecuteOptions = {},
+  ): CommandResult<R> => {
     try {
       if (store === null) {
         throw new StoreError('not-loaded', 'Data is not loaded, so nothing can be changed.');
@@ -80,8 +91,15 @@ export function DataProvider(props: DataProviderProps) {
       return { ok: true, value };
     } catch (error) {
       const message = describe(error);
-      dispatch({ type: 'commandFailed', message });
-      return { ok: false, error: message, code: error instanceof StoreError ? error.code : 'unexpected' };
+      if (report) {
+        dispatch({ type: 'commandFailed', message });
+      }
+      return {
+        ok: false,
+        error: message,
+        code: error instanceof StoreError ? error.code : 'unexpected',
+        details: error instanceof StoreError ? error.details : [],
+      };
     }
   }, [store]);
 

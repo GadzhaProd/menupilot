@@ -1,5 +1,5 @@
 import { StrictMode, type ReactNode } from 'react';
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import demo from '../../data/demo.json';
 import { App } from '@/ui/App';
 import { DataProvider } from '@/ui/data/DataProvider';
@@ -42,4 +42,36 @@ export function renderApp(
 /** A copy of the demo document that is easy to edit in a test. */
 export function demoCopy() {
   return structuredClone(demo) as typeof demo;
+}
+
+/** Navigate like a click on a link: set the hash and let the router react. */
+export async function go(hash: string) {
+  await act(async () => {
+    window.location.hash = hash;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+type Doc = ReturnType<typeof demoCopy>;
+
+/** A small valid document for the manual example in 03 section 6 (tomatoes, spices, no recipes). */
+export function sauceDoc(): Doc {
+  const doc = demoCopy();
+  const price = (cents: number) => [{ seq: 1, recordedAt: '2026-09-01T12:00:00.000Z', packPriceCents: cents, packSizeMilli: 1_000_000 }];
+  doc.ingredients = [
+    { id: 'ing_tomato', name: 'Tomatoes', unit: 'g', prices: price(200) },
+    { id: 'ing_spice', name: 'Spice mix', unit: 'g', prices: price(1000) },
+    { id: 'ing_noprice', name: 'Saffron', unit: 'g', prices: [] },
+  ];
+  doc.recipes = [];
+  doc.scenarios = [];
+  return doc;
+}
+
+export function storageWith(doc: Doc) {
+  return memoryStorage({ [STORAGE_KEY]: JSON.stringify(doc) });
+}
+
+export function savedDocument(storage: ReturnType<typeof memoryStorage>) {
+  return JSON.parse(storage.data.get(STORAGE_KEY) ?? 'null') as Doc;
 }
