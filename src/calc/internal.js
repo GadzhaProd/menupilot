@@ -80,6 +80,15 @@ function parseStrictIsoInstant(value, name) {
   return (localSeconds - offsetSeconds) * NANOSECONDS_PER_SECOND + fractionalNanoseconds;
 }
 
+/** Validate a strict ISO timestamp with an explicit timezone.
+ * @param {string} value Timestamp to validate.
+ * @param {string} [name='timestamp'] Field name used in the error.
+ * @returns {void}
+ */
+export function assertStrictIsoTimestamp(value, name = 'timestamp') {
+  parseStrictIsoInstant(value, name);
+}
+
 /**
  * Select a price using strict timestamp parsing; used by the public costing API.
  * @param {{seq:number, recordedAt:string}[]} prices
