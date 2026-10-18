@@ -214,7 +214,28 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     /** Insert or replace a dish or prep (matched by id; a missing id is generated). */
     saveRecipe(recipe) {
       const id = recipe.id ?? createId('rcp');
-      return { id, document: change((draft) => upsert(draft.recipes, { ...structuredClone(recipe), id })) };
+      return {
+        id,
+        document: change((draft) => {
+          const previous = draft.recipes.find((entry) => entry.id === id);
+          const outputUnitChanged = previous?.kind === 'prep'
+            && recipe.kind === 'prep'
+            && previous.outputUnit !== recipe.outputUnit;
+
+          if (outputUnitChanged) {
+            const users = recipeUsers(draft, 'prep', id);
+            if (users.length > 0) {
+              throw new StoreError(
+                'in-use',
+                `Cannot change '${previous.name}' output unit: it is used by ${users.join(', ')}.`,
+                users,
+              );
+            }
+          }
+
+          upsert(draft.recipes, { ...structuredClone(recipe), id });
+        }),
+      };
     },
 
     /**
