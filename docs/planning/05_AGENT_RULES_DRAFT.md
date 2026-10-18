@@ -19,11 +19,12 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 - Build only what the current stage in docs/planning/04_IMPLEMENTATION_PLAN.md asks for.
 - Out of scope unless the owner approves: AI features, POS, invoices/OCR, inventory,
   auth, multi-location, billing, analytics, new currencies.
-- Never add a dependency without stating why in the report. Prefer Node built-ins.
+- Use only the approved exact-version dependencies and commit the lockfile: react, react-dom, vite, @vitejs/plugin-react, typescript, tailwindcss, @tailwindcss/vite, vitest, jsdom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom. For shadcn use only needed Radix primitives, class-variance-authority, clsx, tailwind-merge, lucide-react. No other dependency (including framer-motion) without coordinator approval; never use --force/--legacy-peer-deps.
 
 ## Money and numbers (non-negotiable)
 - Money is stored as integer euro cents. Never store or sum money as floats.
-- No runtime dependencies and no build step without the owner's approval.
+- UI stack: Vite + React 19 + strict TypeScript + Tailwind v4 + shadcn/ui. Core `src/calc/` and `src/store/` remains JS+JSDoc; screens in `src/ui/`, shadcn components in `src/components/ui/`, alias `@` → `src`.
+- Keep a thin TS adapter in `src/ui/domain/*.ts` for explicit readonly document, calc-result (including BigInt fields), and store-method types. `npm run typecheck` is `tsc --noEmit` and required in CI.
 - Intermediate costs use integer micro-euros; round half away from zero only at the points
   defined in docs/planning/03_ARCHITECTURE.md (Rounding rules).
 - All calculations use prices EXCLUDING VAT. Label every price "incl. VAT" or "excl. VAT".
@@ -35,6 +36,7 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
   parse user decimals from strings, never via parseFloat.
 - All formulas live in src/calc/ (pure functions, no I/O, no DOM). UI never
   re-implements a formula.
+- Store is the sole source of truth. Call store methods outside reducers; on success dispatch `documentReplaced`, on failure show the error and keep the displayed document unchanged. Reducers are pure. Form drafts are component-local; calc results are derived with `useMemo`, never stored or serialized. JSON/localStorage contain only document, baseline, and safe-integer overrides. Format money with existing formatters; never convert BigInt to Number.
 
 ## Data integrity
 - The simulator never changes real ingredients, prices or recipes. Scenarios are
@@ -54,6 +56,9 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 ## Tests
 - Calculation changes: write or update a failing test in test/calc first (TDD).
 - Bug fix: reproduce, add a regression test, fix the cause, run npm test.
+- `test:core` runs node:test only for `test/calc` and `test/store` via explicit globs/paths; `test:ui` runs `vitest run` only for UI tests (jsdom + Testing Library). `npm test` runs both and fails if either fails. Avoid `node --test test/` (Node 25 directory behavior).
+- `npm run check` runs typecheck, test, and build. CI runs it and deploys GitHub Pages on push to main; production base is `/menupilot/`. Verify production preview under that subpath.
+- Each UI stage requires real-browser checking with bb browser-automation: desktop and 375 px screenshots, keyboard/focus in dialogs, and field errors. Playwright is post-MVP.
 - Tests use in-memory storage only. No external services, no network.
 - Never report tests as passed without running them; show the actual output.
 
@@ -72,11 +77,19 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 Ideas (base units, yield %, ex-tax costing) are inspired by
 kitchen-costing-for-claude-code (MIT, Enterprise DNA). No code is copied unless
 noted in README "Acknowledgements" with the MIT notice.
+
+## 21st.dev components
+- Access 21st.dev only through `sh scripts/21st.sh`; never expose its key in client code, `VITE_*`, or logs.
+- Copy a component only with an explicit MIT, Apache-2.0, BSD, or ISC license. Keep the full license with author and URL at `third_party/21st/<slug>/LICENSE`, add a source/license comment and `THIRD_PARTY_NOTICES.md` entry; include existing Apache NOTICE. If licensing is absent or unclear, do not copy or rewrite its code; use another component or build with shadcn primitives.
+- Check peer deps, Tailwind v3 config, Next.js imports, dynamic classes, and CSS variables before adoption.
+
+## Runtime support
+- Set Node `engines` and README to the minimum required by installed Vite. Target Safari 16.4+, Chrome 111+, Firefox 128+.
 ```
 
 ---
 
 ## Как это встроить
 1. На этапе 0 реализации создать `AGENTS.md` (текст выше) и `CLAUDE.md` с одной строкой `@AGENTS.md`.
-2. Правила, которые зависят от архитектуры (папки `src/calc/`, правила округления), сверять с утверждённой версией `03_ARCHITECTURE.md`; при изменении архитектуры обновлять оба файла в одном коммите.
-3. Файл держать коротким (до ~80 строк): детали живут в `docs/planning/`, агент читает их по ссылке.
+2. Правила, зависящие от архитектуры, включая JS-ядро, TS-границу, стек UI и округление, сверять с `03_ARCHITECTURE.md`; при изменениях обновлять оба документа одним коммитом.
+3. Действующий `AGENTS.md` держать коротким (около 100 строк максимум): подробности — в `docs/planning/`. `CLAUDE.md` остаётся ровно одной строкой `@AGENTS.md`.

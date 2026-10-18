@@ -15,37 +15,45 @@ MenuPilot v1 — это **статическое браузерное прило
 ## 2. Стек
 | Слой | Выбор | Почему |
 |---|---|---|
-| Язык | JavaScript (ES-модули) + JSDoc-типы | Работает в браузере без сборки, тесты на Node без зависимостей |
-| UI | HTML + CSS + vanilla JS, маленькое хранилище состояния | 3–4 экрана, фреймворк не нужен |
+| UI и сборка | Vite + React 19 + TypeScript (`strict`) + Tailwind CSS v4 + shadcn/ui | Статическая сборка для GitHub Pages; алиас `@` → `src` |
+| Ядро | `src/calc/` и `src/store/` — JavaScript + JSDoc | Существующее поведение расчётов и хранилища сохраняется |
 | Хранение | `localStorage`, ключ `menupilot:v1`, версия формата | Хватает для малых данных, сохраняется между перезапусками |
 | Расчёты | `src/calc/` — чистые функции, `BigInt` | Точность и детерминизм |
-| Тесты | `node:test` + `node:assert` (встроены в Node ≥ 20) | Ноль зависимостей |
-| Локальный запуск | `scripts/serve.mjs` на `node:http` (около 30 строк) | ES-модули не открываются через `file://` |
-| Деплой | GitHub Pages | Бесплатно, без сервера |
+| Типовая граница | `src/ui/domain/*.ts`, readonly-типы документа, результатов и store | UI получает проверенные типы без переписывания ядра |
+| Тесты | `node:test` для core; Vitest + jsdom + Testing Library для UI | Раздельные команды и общий `npm test` |
+| Деплой | GitHub Actions → GitHub Pages | Production base `/menupilot/` |
 
-**Внешних зависимостей нет ни одной.**
+Зависимости фиксируются точными версиями в `package.json` и lockfile. Допустимые пакеты перечислены в `AGENTS.md`; новые зависимости вне списка требуют одобрения координатора.
 
 ## 3. Схема
 ```
  Браузер
  ┌──────────────────────────────────────────────────────────┐
- │  UI (src/ui/)                                             │
+ │  React UI (src/ui/)                                        │
  │  Dashboard · Ingredients · Recipe · Profit Simulator      │
- │        │  читает/меняет                   │ вызывает      │
- │        ▼                                  ▼               │
- │  State + Store (src/store/)        Calc (src/calc/)       │
+ │        │ типизированный адаптер              │             │
+ │        ▼                                     ▼             │
+ │  Store (src/store/, JS)              Calc (src/calc/, JS) │
  │  валидация, версия, экспорт/импорт  чистые функции, BigInt │
  │        │                                                  │
  │        ▼                                                  │
  │  localStorage  "menupilot:v1"  (JSON)                     │
  └──────────────────────────────────────────────────────────┘
 ```
-Правила зависимостей: `calc` ни от чего не зависит; `store` использует только валидацию; `ui` использует `store` и `calc`. Формулы существуют **только** в `calc`.
+Правила зависимостей: `calc` ни от чего не зависит; `store` использует только валидацию; React UI обращается к `store` через тонкую границу `src/ui/domain/*.ts`, а к `calc` — для производных значений. Формулы существуют **только** в `calc`.
+
+### Контракт UI ↔ store
+Store — единственный источник истины. Команда UI вызывает метод store вне reducer; при успехе отправляет `dispatch({ type: 'documentReplaced', document })`, при ошибке показывает сообщение и оставляет документ на экране прежним. Reducer чистый и безопасен при повторном вызове React StrictMode. Черновики форм живут в локальном состоянии компонентов. Результаты `calc` с полями `BigInt` вычисляются как производные (`useMemo`), не сохраняются и не сериализуются. В JSON/localStorage находятся только документ, baseline и overrides с безопасными целыми. Деньги показываются существующими форматтерами, без преобразования `BigInt` в `Number`.
 
 ## 4. Модули и файлы
 ```
-index.html                  каркас, навигация (hash-роутинг: #/, #/ingredients, #/recipe/:id, #/simulator/:id)
-styles.css
+index.html                  точка входа Vite
+vite.config.ts              React plugin, алиас @, base /menupilot/
+src/main.tsx                 запуск React и hash-роутера
+src/ui/                      экраны и UI-логика; маршруты #/, #/ingredients, #/recipe/:id, #/simulator/:id
+src/components/ui/           используемые shadcn/ui-компоненты
+src/ui/domain/                TS-типы и типизированный адаптер к JS-ядру
+src/index.css                 Tailwind CSS v4
 src/calc/money.js           parseMoneyToCents("12,50"); roundDiv (half away from zero); formatEURFromCents / formatEURFromMicro
 src/calc/units.js           parseQuantityToMilli (kg→g, l→ml); запрет смешения масса/объём/штуки
 src/calc/costing.js         selectPriceAtDate, ingredientLineCostMicro, netPriceMicro, monthlyContributionCents, metrics, packUnitPriceDisplay
@@ -53,11 +61,18 @@ src/calc/prep.js            recipeBatchCostMicro, batchCostMicro, prepLineCostMi
 src/calc/simulate.js        simulate(baselineSnapshot, overrides) → metrics; compare(baseline, scenarios)
 src/store/schema.js         валидация документа и сущностей, версия формата
 src/store/store.js          load/save/export/import, демо-данные, сброс
-src/ui/*.js                 экраны и небольшие помощники отображения
-data/demo.json              демо-ресторан (Нидерланды, EUR)
-test/*.test.js              тесты
-scripts/serve.mjs           локальный статический сервер
+data/demo.json              демо-ресторан (Нидерланды, EUR), импортируется через Vite
+test/calc/*.test.js          node:test для расчётов
+test/store/*.test.js         node:test для хранилища
+test/ui/                     Vitest + jsdom + Testing Library
+scripts/21st.sh              безопасный вход в 21st.dev CLI
+.github/workflows/pages.yml typecheck, test, build и Pages deploy на push в main
 ```
+
+`npm run typecheck` запускает `tsc --noEmit` и обязателен в CI. Node minimum фиксируется в `engines` по требованию установленной версии Vite и повторяется в README. Поддерживаемые браузеры: Safari 16.4+, Chrome 111+, Firefox 128+.
+
+### Сторонние компоненты и лицензии
+21st.dev используется только через `sh scripts/21st.sh`; ключ не попадает в клиентский код, `VITE_*` или логи. Код компонента копируется только при явной лицензии MIT, Apache-2.0, BSD или ISC: полный текст с автором и ссылкой хранится в `third_party/21st/<slug>/LICENSE`, в файле компонента есть атрибуция, а компонент внесён в `THIRD_PARTY_NOTICES.md`. Для Apache-2.0 сохраняется также имеющийся NOTICE. Если лицензии нет или она неясна, код не копировать и не переписывать по нему: выбрать другой компонент либо собрать своё на shadcn-примитивах. Перед использованием проверить peer dependencies, Tailwind v3-конфиги, импорты Next.js, динамические классы и CSS-переменные.
 
 ## 5. Данные (документ в localStorage)
 ```js
@@ -152,3 +167,7 @@ scripts/serve.mjs           локальный статический серве
 | Цена меню и НДС | Ввод с НДС, ставка на блюдо: 9% по умолчанию, 21% для алкоголя; расчёт без НДС |
 | Вложенные рецепты | Заготовки включены в v1 |
 | Публикация | Публичный GitHub разрешён |
+| UI на React | Vite + React 19 + TypeScript strict + Tailwind v4 + shadcn/ui; утверждено владельцем и Opus с учётом критики Sol в @thread:thr_fx3nks64rw |
+| Типы и тесты UI | Тонкая TS-граница над JS-ядром; раздельные core/UI тесты и обязательный typecheck в CI |
+| 21st.dev | Использовать только через `scripts/21st.sh`, копировать код только при разрешительной лицензии по правилам §4 |
+| Pages | Hash-маршрутизация и production base `/menupilot/`; GitHub Actions проверяет и публикует сборку |
