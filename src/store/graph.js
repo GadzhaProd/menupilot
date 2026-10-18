@@ -40,50 +40,101 @@ function prepChildren(recipe, recipeById) {
     .filter((child) => child?.kind === 'prep');
 }
 
-/** Depth-first search over prep references; reports each cycle once. */
-function findCycles(catalog, path, errors, recipeById) {
-  const state = new Map();
-  const stack = [];
-  let found = false;
-  const visit = (recipe) => {
-    state.set(recipe.id, 'visiting');
-    stack.push(recipe);
-    for (const child of prepChildren(recipe, recipeById)) {
-      if (state.get(child.id) === 'visiting') {
-        const cycle = [...stack.slice(stack.indexOf(child)), child].map(label).join(' -> ');
-        const index = catalog.recipes.findIndex((entry) => entry?.id === child.id);
-        fail(errors, `${path ? `${path}.` : ''}recipes[${index}]`, `prep cycle ${cycle}`);
-        found = true;
-      } else if (!state.has(child.id)) {
-        visit(child);
-      }
-    }
-    stack.pop();
-    state.set(recipe.id, 'done');
-  };
-  for (const recipe of recipeById.values()) {
-    if (!state.has(recipe.id)) {
-      visit(recipe);
-    }
-  }
-  return found;
+const MAX_CYCLE_NAMES_SHOWN = 8;
+
+function describeCycle(recipes) {
+  const names = recipes.map(label);
+  const shown = names.length > MAX_CYCLE_NAMES_SHOWN
+    ? [...names.slice(0, MAX_CYCLE_NAMES_SHOWN), `... (${names.length - 1} preps in the cycle)`, names.at(-1)]
+    : names;
+  return shown.join(' -> ');
 }
 
-function checkDepth(catalog, path, errors, recipeById) {
-  const nesting = new Map();
-  const depthOf = (recipe) => {
-    if (!nesting.has(recipe.id)) {
-      const below = Math.max(0, ...prepChildren(recipe, recipeById).map(depthOf));
-      nesting.set(recipe.id, below + (recipe.kind === 'prep' ? 1 : 0));
-    }
-    return nesting.get(recipe.id);
+/**
+ * Iterative depth-first search over prep references (no recursion, so a huge input
+ * cannot overflow the stack). Reports each cycle once and returns the preps/dishes
+ * in post-order (children before parents) plus whether a cycle was found.
+ */
+function walkPrepGraph(catalog, path, errors, recipeById) {
+  const state = new Map();
+  const postOrder = [];
+  let cycleFound = false;
+  const enter = (recipe) => {
+    state.set(recipe.id, 'visiting');
+    return { recipe, children: prepChildren(recipe, recipeById), next: 0 };
   };
+  for (const root of recipeById.values()) {
+    if (state.has(root.id)) {
+      continue;
+    }
+    const stack = [enter(root)];
+    while (stack.length > 0) {
+      const frame = stack.at(-1);
+      if (frame.next === frame.children.length) {
+        state.set(frame.recipe.id, 'done');
+        postOrder.push(frame.recipe);
+        stack.pop();
+        continue;
+      }
+      const child = frame.children[frame.next];
+      frame.next += 1;
+      if (state.get(child.id) === 'visiting') {
+        const members = [...stack.slice(stack.findIndex((entry) => entry.recipe === child)).map((entry) => entry.recipe), child];
+        const index = catalog.recipes.findIndex((entry) => entry?.id === child.id);
+        fail(errors, `${path ? `${path}.` : ''}recipes[${index}]`, `prep cycle ${describeCycle(members)}`);
+        cycleFound = true;
+      } else if (!state.has(child.id)) {
+        stack.push(enter(child));
+      }
+    }
+  }
+  return { postOrder, cycleFound };
+}
+
+function checkDepth(catalog, path, errors, recipeById, postOrder) {
+  const nesting = new Map();
+  for (const recipe of postOrder) {
+    const below = Math.max(0, ...prepChildren(recipe, recipeById).map((child) => nesting.get(child.id)));
+    nesting.set(recipe.id, below + (recipe.kind === 'prep' ? 1 : 0));
+  }
   catalog.recipes.forEach((recipe, index) => {
-    if (isObject(recipe) && recipeById.get(recipe.id) === recipe && depthOf(recipe) > MAX_PREP_DEPTH) {
+    if (isObject(recipe) && recipeById.get(recipe.id) === recipe && nesting.get(recipe.id) > MAX_PREP_DEPTH) {
       fail(errors, `${path ? `${path}.` : ''}recipes[${index}]`,
-        `prep nesting depth is ${depthOf(recipe)}; the maximum is ${MAX_PREP_DEPTH}`);
+        `prep nesting depth is ${nesting.get(recipe.id)}; the maximum is ${MAX_PREP_DEPTH}`);
     }
   });
+}
+
+/**
+ * Ids of the recipes (the dish itself plus every prep below it) and ingredients that
+ * `rootId` uses, directly or through preps. Iterative; safe on cyclic input.
+ * @returns {{ recipeIds: Set<string>, ingredientIds: Set<string> }}
+ */
+export function reachableFrom(recipeById, rootId) {
+  const recipeIds = new Set([rootId]);
+  const ingredientIds = new Set();
+  const pending = [rootId];
+  while (pending.length > 0) {
+    for (const ref of validRefs(recipeById.get(pending.pop()))) {
+      if (ref.kind === 'ingredient') {
+        ingredientIds.add(ref.id);
+      } else if (ref.kind === 'prep' && !recipeIds.has(ref.id) && recipeById.has(ref.id)) {
+        recipeIds.add(ref.id);
+        pending.push(ref.id);
+      }
+    }
+  }
+  return { recipeIds, ingredientIds };
+}
+
+export function indexRecipes(recipes) {
+  const recipeById = new Map();
+  for (const recipe of recipes.filter(isObject)) {
+    if (!recipeById.has(recipe.id)) {
+      recipeById.set(recipe.id, recipe);
+    }
+  }
+  return recipeById;
 }
 
 /**
@@ -93,14 +144,10 @@ function checkDepth(catalog, path, errors, recipeById) {
  */
 export function checkRecipeGraph(catalog, path, errors) {
   const ingredientIds = new Set(catalog.ingredients.filter(isObject).map((entry) => entry.id));
-  const recipeById = new Map();
-  for (const recipe of catalog.recipes.filter(isObject)) {
-    if (!recipeById.has(recipe.id)) {
-      recipeById.set(recipe.id, recipe);
-    }
-  }
+  const recipeById = indexRecipes(catalog.recipes);
   checkReferences(catalog, path, errors, ingredientIds, recipeById);
-  if (!findCycles(catalog, path, errors, recipeById)) {
-    checkDepth(catalog, path, errors, recipeById);
+  const { postOrder, cycleFound } = walkPrepGraph(catalog, path, errors, recipeById);
+  if (!cycleFound) {
+    checkDepth(catalog, path, errors, recipeById, postOrder);
   }
 }

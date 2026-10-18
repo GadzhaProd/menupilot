@@ -173,11 +173,76 @@ test('cannot delete a used ingredient or prep; unused ones are deleted', () => {
   assertStoreError(() => store.deleteRecipe('d1'), 'not-found');
 });
 
-test('deleting a dish also removes its scenarios', () => {
+test('deleting a dish with scenarios is refused unless deleteScenarios is set', () => {
   const base = smallDocument();
+  base.scenarios = [makeScenario(base, 'd1', {}, 'sc1'), { ...makeScenario(base, 'd1', {}, 'sc2'), name: 'Second' }];
+  const { storage, store } = seeded(base);
+  const before = store.getDocument();
+  const raw = storage.data.get(STORAGE_KEY);
+  assert.throws(() => store.deleteRecipe('d1'), (error) => {
+    assert.ok(error instanceof StoreError);
+    assert.equal(error.code, 'in-use');
+    assert.deepEqual(error.details, ['Cheaper beef', 'Second']);
+    assert.match(error.message, /scenarios.*Cheaper beef, Second/);
+    return true;
+  });
+  assert.throws(() => store.deleteRecipe('d1', { deleteScenarios: false }), (error) => error.code === 'in-use');
+  assert.equal(store.getDocument(), before);
+  assert.equal(storage.data.get(STORAGE_KEY), raw);
+
+  const after = store.deleteRecipe('d1', { deleteScenarios: true });
+  assert.equal(after.scenarios.length, 0);
+  assert.equal(after.recipes.some((r) => r.id === 'd1'), false);
+});
+
+test('a dish without scenarios is deleted normally; other scenarios survive', () => {
+  const base = smallDocument();
+  base.recipes.push(dish('d2', [line('l1', 'ingredient', 'i2')]));
   base.scenarios = [makeScenario(base, 'd1')];
   const { store } = seeded(base);
-  assert.equal(store.deleteRecipe('d1').scenarios.length, 0);
+  const after = store.deleteRecipe('d2');
+  assert.equal(after.scenarios.length, 1);
+});
+
+test('demo is a required option and must be valid (fail fast)', () => {
+  assertStoreError(() => createStore(memoryStorage()), 'bad-options', /demo/);
+  assertStoreError(() => createStore(memoryStorage(), { demo: null }), 'bad-options', /demo/);
+  assertStoreError(() => createStore(memoryStorage(), { demo: { version: 1 } }), 'invalid');
+  assertStoreError(() => createStore(null, { demo: readDemo() }), 'bad-options', /storage/);
+});
+
+test('import and save reject price records from the future; tolerance is 5 minutes', () => {
+  const { storage, store } = seeded();
+  const before = store.getDocument();
+  const raw = storage.data.get(STORAGE_KEY);
+  const withFuture = (recordedAt) => {
+    const doc = smallDocument();
+    doc.ingredients[0].prices[0].recordedAt = recordedAt;
+    return doc;
+  };
+  const future = withFuture('2026-11-01T10:05:01.000Z');
+  assertStoreError(() => store.importJSON(JSON.stringify(future)), 'invalid', /recordedAt.*future/);
+  assertStoreError(() => store.save(future), 'invalid', /recordedAt.*future/);
+  assert.equal(store.getDocument(), before);
+  assert.equal(storage.data.get(STORAGE_KEY), raw);
+  assert.doesNotThrow(() => store.importJSON(JSON.stringify(withFuture('2026-11-01T10:05:00.000Z'))));
+});
+
+test('import larger than the size limit is refused', () => {
+  const { store } = seeded();
+  const before = store.getDocument();
+  assertStoreError(() => store.importJSON(' '.repeat(5_000_001)), 'invalid', /too large/i);
+  assert.equal(store.getDocument(), before);
+});
+
+test('a stored document with a slightly-future price still loads and can be edited', () => {
+  const doc = smallDocument();
+  doc.ingredients[0].prices[0].recordedAt = '2026-11-01T11:00:00.000Z';
+  const { store } = seeded(doc);
+  const next = store.updateIngredient('i1', { name: 'Renamed' });
+  assert.equal(next.ingredients[0].name, 'Renamed');
+  const priced = store.addPrice('i1', { packPriceCents: 1, packSizeMilli: 1 });
+  assert.equal(priced.ingredients[0].prices[1].recordedAt, '2026-11-01T11:00:00.000Z');
 });
 
 test('saveRecipe rejects cycles, self reference, depth 6, dish-as-prep and kind mismatch', () => {

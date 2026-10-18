@@ -75,7 +75,7 @@ test('Classic Burger reproduces the spec example: EUR 4.20 -> 4.85, -0.65 per po
 test('shifted demo gives the same numbers relative to a later "now"', () => {
   const later = '2027-06-01T08:30:00.000Z';
   const doc = shiftDemoDates(readDemo(), later);
-  assert.deepEqual(validateDocument(doc).errors, []);
+  assert.deepEqual(validateDocument(doc, { now: later }).errors, []);
   const { oldCost, newCost } = burgerNumbers(doc, later, 30);
   assert.equal(oldCost, 4_200_000n);
   assert.equal(newCost, 4_850_000n);

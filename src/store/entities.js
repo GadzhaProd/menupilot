@@ -1,5 +1,5 @@
 import {
-  checkArray, checkId, checkInstant, checkInt, checkKeys, checkText, checkUniqueIds, fail, field,
+  LIMITS, checkArray, checkId, checkInstant, checkInt, checkKeys, checkSize, checkText, checkUniqueIds, fail, field,
   instantNotAfter, isObject, toResult,
 } from './check.js';
 import { checkRecipeGraph } from './graph.js';
@@ -13,8 +13,8 @@ function isEarlier(a, b) {
   return instantNotAfter(a, b) && !instantNotAfter(b, a);
 }
 
-function checkPrices(prices, path, errors) {
-  if (!checkArray(prices, path, errors)) {
+function checkPrices(prices, path, errors, ctx) {
+  if (!checkArray(prices, path, errors) || !checkSize(prices, LIMITS.pricesPerIngredient, path, errors)) {
     return;
   }
   let previousSeq = null;
@@ -41,11 +41,14 @@ function checkPrices(prices, path, errors) {
         fail(errors, field(here, 'recordedAt'), `must not be earlier than the previous record (${previousAt})`);
       }
       previousAt = price.recordedAt;
+      if (ctx.latestRecordedAt && !instantNotAfter(price.recordedAt, ctx.latestRecordedAt)) {
+        fail(errors, field(here, 'recordedAt'), 'must not be in the future');
+      }
     }
   });
 }
 
-export function checkIngredient(ingredient, path, errors) {
+export function checkIngredient(ingredient, path, errors, ctx = {}) {
   if (!isObject(ingredient)) {
     fail(errors, path, 'must be an object');
     return;
@@ -56,7 +59,7 @@ export function checkIngredient(ingredient, path, errors) {
   if (!BASE_UNITS.includes(ingredient.unit)) {
     fail(errors, field(path, 'unit'), 'must be g, ml or pc (kg and l are converted when entered)');
   }
-  checkPrices(ingredient.prices, field(path, 'prices'), errors);
+  checkPrices(ingredient.prices, field(path, 'prices'), errors, ctx);
 }
 
 function checkLine(line, path, errors) {
@@ -81,7 +84,7 @@ function checkLine(line, path, errors) {
 }
 
 function checkLines(lines, path, errors) {
-  if (!checkArray(lines, path, errors)) {
+  if (!checkArray(lines, path, errors) || !checkSize(lines, LIMITS.linesPerRecipe, path, errors)) {
     return;
   }
   lines.forEach((line, index) => checkLine(line, `${path}[${index}]`, errors));
@@ -131,14 +134,19 @@ export function checkRecipe(recipe, path, errors) {
   }
 }
 
-/** Check `{ ingredients, recipes }` as a whole: entities, unique ids, references, cycles, depth. */
-export function checkCatalog(catalog, path, errors) {
+/**
+ * Check `{ ingredients, recipes }` as a whole: entities, unique ids, references, cycles, depth.
+ * `ctx.latestRecordedAt` (optional ISO instant) rejects price records after it.
+ */
+export function checkCatalog(catalog, path, errors, ctx = {}) {
   const ingredientsPath = field(path, 'ingredients');
   const recipesPath = field(path, 'recipes');
-  const ingredientsOk = checkArray(catalog.ingredients, ingredientsPath, errors);
-  const recipesOk = checkArray(catalog.recipes, recipesPath, errors);
+  const ingredientsOk = checkArray(catalog.ingredients, ingredientsPath, errors)
+    && checkSize(catalog.ingredients, LIMITS.ingredients, ingredientsPath, errors);
+  const recipesOk = checkArray(catalog.recipes, recipesPath, errors)
+    && checkSize(catalog.recipes, LIMITS.recipes, recipesPath, errors);
   if (ingredientsOk) {
-    catalog.ingredients.forEach((entry, index) => checkIngredient(entry, `${ingredientsPath}[${index}]`, errors));
+    catalog.ingredients.forEach((entry, index) => checkIngredient(entry, `${ingredientsPath}[${index}]`, errors, ctx));
     checkUniqueIds(catalog.ingredients, ingredientsPath, errors);
   }
   if (recipesOk) {

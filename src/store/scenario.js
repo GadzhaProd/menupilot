@@ -1,15 +1,36 @@
 import {
-  checkArray, checkId, checkInstant, checkInt, checkKeys, checkText, checkUniqueIds, fail, field,
-  isObject, toResult,
+  LIMITS, checkArray, checkId, checkInstant, checkInt, checkKeys, checkSize, checkText, checkUniqueIds,
+  fail, field, isObject, toResult,
 } from './check.js';
 import { checkCatalog } from './entities.js';
+import { indexRecipes, reachableFrom } from './graph.js';
 
 const OVERRIDE_FIELDS = ['menuPriceInclVatCents', 'monthlyVolume', 'ingredientPriceCents', 'lineQtyMilli'];
 
 const isSet = (value) => value !== undefined && value !== null;
 
+/** The baseline holds exactly the dish and the preps and ingredients reachable from it. */
+function checkBaselineIsMinimal(baseline, path, errors) {
+  const recipeById = indexRecipes(baseline.recipes);
+  if (recipeById.get(baseline.recipeId)?.kind !== 'dish') {
+    fail(errors, field(path, 'recipeId'), `'${baseline.recipeId}' must be a dish in the baseline`);
+    return;
+  }
+  const { recipeIds, ingredientIds } = reachableFrom(recipeById, baseline.recipeId);
+  baseline.recipes.forEach((recipe, index) => {
+    if (!recipeIds.has(recipe.id)) {
+      fail(errors, `${field(path, 'recipes')}[${index}]`, `'${recipe.id}' is not used by the dish`);
+    }
+  });
+  baseline.ingredients.forEach((ingredient, index) => {
+    if (!ingredientIds.has(ingredient.id)) {
+      fail(errors, `${field(path, 'ingredients')}[${index}]`, `'${ingredient.id}' is not used by the dish`);
+    }
+  });
+}
+
 /** Baseline snapshot: a mini document { takenAt, recipeId, ingredients, recipes }. */
-export function checkBaseline(baseline, path, errors) {
+export function checkBaseline(baseline, path, errors, ctx = {}) {
   if (!isObject(baseline)) {
     fail(errors, path, 'must be an object');
     return;
@@ -18,12 +39,9 @@ export function checkBaseline(baseline, path, errors) {
   checkInstant(baseline.takenAt, field(path, 'takenAt'), errors);
   checkId(baseline.recipeId, field(path, 'recipeId'), errors);
   const before = errors.length;
-  checkCatalog(baseline, path, errors);
+  checkCatalog(baseline, path, errors, ctx);
   if (errors.length === before) {
-    const dish = baseline.recipes.find((recipe) => recipe.id === baseline.recipeId);
-    if (dish?.kind !== 'dish') {
-      fail(errors, field(path, 'recipeId'), `'${baseline.recipeId}' must be a dish in the baseline`);
-    }
+    checkBaselineIsMinimal(baseline, path, errors);
   }
 }
 
@@ -80,7 +98,7 @@ function checkOverrides(overrides, baseline, path, errors) {
   }
 }
 
-export function checkScenario(scenario, path, errors) {
+export function checkScenario(scenario, path, errors, ctx = {}) {
   if (!isObject(scenario)) {
     fail(errors, path, 'must be an object');
     return;
@@ -90,22 +108,22 @@ export function checkScenario(scenario, path, errors) {
   checkText(scenario.name, field(path, 'name'), errors);
   checkInstant(scenario.createdAt, field(path, 'createdAt'), errors);
   checkId(scenario.recipeId, field(path, 'recipeId'), errors);
-  checkBaseline(scenario.baseline, field(path, 'baseline'), errors);
+  checkBaseline(scenario.baseline, field(path, 'baseline'), errors, ctx);
   if (isObject(scenario.baseline) && scenario.recipeId !== scenario.baseline.recipeId) {
     fail(errors, field(path, 'recipeId'), 'must be the dish of the baseline (baseline.recipeId)');
   }
   checkOverrides(scenario.overrides, scenario.baseline, field(path, 'overrides'), errors);
 }
 
-export function checkScenarios(scenarios, path, errors) {
-  if (checkArray(scenarios, path, errors)) {
-    scenarios.forEach((scenario, index) => checkScenario(scenario, `${path}[${index}]`, errors));
+export function checkScenarios(scenarios, path, errors, ctx = {}) {
+  if (checkArray(scenarios, path, errors) && checkSize(scenarios, LIMITS.scenarios, path, errors)) {
+    scenarios.forEach((scenario, index) => checkScenario(scenario, `${path}[${index}]`, errors, ctx));
     checkUniqueIds(scenarios, path, errors);
   }
 }
 
-export function validateScenario(scenario, path = 'scenario') {
+export function validateScenario(scenario, path = 'scenario', ctx = {}) {
   const errors = [];
-  checkScenario(scenario, path, errors);
+  checkScenario(scenario, path, errors, ctx);
   return toResult(errors);
 }

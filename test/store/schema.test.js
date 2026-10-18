@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { recipeCost } from '../../src/calc/costing.js';
+import { checkRecipeGraph } from '../../src/store/graph.js';
+import { LIMITS } from '../../src/store/check.js';
 import {
-  validateDocument, validateIngredient, validateRecipe, validateScenario,
+  FUTURE_TOLERANCE_MS, validateDocument, validateIngredient, validateRecipe, validateScenario,
 } from '../../src/store/schema.js';
 import {
   clone, dish, ingredient, line, makeScenario, prep, readDemo, smallDocument,
@@ -186,4 +188,85 @@ test('scenario ids must be unique and entity validators are reusable', () => {
   assert.deepEqual(validateIngredient(ingredient('x')).errors, []);
   assert.ok(validateIngredient({ id: 'x' }, 'ingredient').errors.length > 0);
   assert.deepEqual(validateRecipe(prep('x', [])).errors, []);
+});
+
+function chainOfPreps(count) {
+  return Array.from({ length: count }, (_, index) => prep(
+    `p${index}`,
+    [index === 0 ? line('l1', 'ingredient', 'i1') : line('l1', 'prep', `p${index - 1}`)],
+  ));
+}
+
+test('very deep graphs give validation errors, not a stack overflow', () => {
+  const deep = 12_000;
+  // Listed top-level first, so a recursive walk would go the full depth at once.
+  const catalog = { ingredients: [ingredient('i1')], recipes: chainOfPreps(deep).reverse() };
+  const depthErrors = [];
+  assert.doesNotThrow(() => checkRecipeGraph(catalog, '', depthErrors));
+  assert.ok(depthErrors.some((message) => /depth is 12000; the maximum is 5/.test(message)));
+
+  const ring = chainOfPreps(deep);
+  ring[0].lines = [line('l1', 'prep', `p${deep - 1}`)];
+  ring.reverse();
+  const cycleErrors = [];
+  assert.doesNotThrow(() => checkRecipeGraph({ ingredients: [ingredient('i1')], recipes: ring }, '', cycleErrors));
+  assert.equal(cycleErrors.filter((message) => /prep cycle/.test(message)).length, 1);
+  assert.ok(cycleErrors[0].length < 500, 'long cycles are abbreviated');
+});
+
+test('size limits: huge imports are rejected before any graph work', () => {
+  const doc = smallDocument();
+  doc.recipes = chainOfPreps(12_000);
+  let result;
+  assert.doesNotThrow(() => { result = validateDocument(doc); });
+  assert.ok(result.errors.some((message) => /recipes: has 12000 entries; at most 2000 are supported/.test(message)));
+
+  const manyLines = smallDocument();
+  manyLines.recipes[0].lines = Array.from({ length: LIMITS.linesPerRecipe + 1 }, (_, i) => line(`x${i}`, 'ingredient', 'i1'));
+  assert.ok(validateDocument(manyLines).errors.some((message) => /recipes\[0\]\.lines: has 201 entries/.test(message)));
+
+  const manyPrices = smallDocument();
+  manyPrices.ingredients[0].prices = Array.from({ length: LIMITS.pricesPerIngredient + 1 }, (_, i) => ({
+    seq: i + 1, recordedAt: '2026-01-01T00:00:00.000Z', packPriceCents: 1, packSizeMilli: 1,
+  }));
+  assert.ok(validateDocument(manyPrices).errors.some((message) => /prices: has \d+ entries/.test(message)));
+
+  const at = smallDocument();
+  at.recipes = chainOfPreps(LIMITS.recipes - 1);
+  at.recipes.push(dish('d1', [line('l1', 'prep', 'p1')]));
+  assert.ok(!validateDocument(at).errors.some((message) => /at most/.test(message)));
+});
+
+test('baseline contains exactly the dish and what it reaches', () => {
+  const base = smallDocument();
+  const good = makeScenario(base, 'd1');
+  const check = (mutate, pattern) => {
+    const scenario = clone(good);
+    mutate(scenario);
+    const errors = validateScenario(scenario).errors;
+    assert.ok(errors.some((message) => pattern.test(message)), `${pattern}: ${errors.join(' | ')}`);
+  };
+  check((s) => { s.baseline.ingredients.push(ingredient('i2')); }, /baseline\.ingredients\[1\].*'i2'.*not used by the dish/);
+  check((s) => { s.baseline.recipes.push(prep('p9', [line('l1', 'ingredient', 'i1')])); }, /baseline\.recipes\[2\].*'p9'.*not used by the dish/);
+  check((s) => { s.baseline.recipes.push(dish('d2', [])); }, /baseline\.recipes\[2\].*'d2'.*not used by the dish/);
+});
+
+test('recordedAt in the future is rejected only when a clock is supplied (5 min tolerance)', () => {
+  const now = '2026-06-01T12:00:00.000Z';
+  const withPriceAt = (recordedAt) => {
+    const doc = smallDocument();
+    doc.ingredients[0].prices[0].recordedAt = recordedAt;
+    return doc;
+  };
+  assert.equal(FUTURE_TOLERANCE_MS, 5 * 60_000);
+  assert.deepEqual(validateDocument(withPriceAt('2030-01-01T00:00:00.000Z')).errors, []);
+  assert.deepEqual(validateDocument(withPriceAt('2026-06-01T12:04:59.000Z'), { now }).errors, []);
+  assert.deepEqual(validateDocument(withPriceAt('2026-06-01T12:05:00.000Z'), { now }).errors, []);
+  const errors = validateDocument(withPriceAt('2026-06-01T12:05:01.000Z'), { now }).errors;
+  assert.match(errors[0], /^ingredients\[0\]\.prices\[0\]\.recordedAt: .*future/);
+  assert.ok(validateDocument(withPriceAt('2026-06-01T14:05:00+01:00'), { now }).errors.length === 1);
+  const scenarioDoc = smallDocument();
+  scenarioDoc.scenarios = [makeScenario(scenarioDoc, 'd1')];
+  scenarioDoc.scenarios[0].baseline.ingredients[0].prices[0].recordedAt = '2027-01-01T00:00:00.000Z';
+  assert.ok(validateDocument(scenarioDoc, { now }).errors.some((message) => /baseline.*future/.test(message)));
 });

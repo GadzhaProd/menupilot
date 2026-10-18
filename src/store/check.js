@@ -2,6 +2,18 @@ import { selectPriceAtDate } from '../calc/costing.js';
 
 const MAX_REPORTED_ERRORS = 50;
 
+/**
+ * Size limits that keep imports and validation cheap (a restaurant needs far less).
+ * They apply to the document and, separately, to every scenario baseline.
+ */
+export const LIMITS = {
+  ingredients: 2000,
+  recipes: 2000,
+  linesPerRecipe: 200,
+  pricesPerIngredient: 2000,
+  scenarios: 200,
+};
+
 export const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 /** Join a path and a field name: join('recipes[1]', 'portions') -> 'recipes[1].portions'. */
@@ -85,6 +97,15 @@ export function checkKeys(object, allowed, path, errors, notAllowedHere = {}) {
 export function checkArray(value, path, errors) {
   if (!Array.isArray(value)) {
     fail(errors, path, 'must be an array');
+    return false;
+  }
+  return true;
+}
+
+/** Report arrays longer than `max`; callers skip detailed checks when this returns false. */
+export function checkSize(items, max, path, errors) {
+  if (items.length > max) {
+    fail(errors, path, `has ${items.length} entries; at most ${max} are supported`);
     return false;
   }
   return true;

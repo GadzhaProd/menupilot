@@ -1,7 +1,7 @@
 import { instantNotAfter, isObject } from './check.js';
 import { shiftDemoDates } from './demo.js';
 import { StoreError } from './errors.js';
-import { FORMAT_VERSION, assertValidDocument, emptyDocument } from './schema.js';
+import { FORMAT_VERSION, assertValidDocument } from './schema.js';
 
 export { StoreError };
 export const STORAGE_KEY = 'menupilot:v1';
@@ -29,8 +29,13 @@ function writeError(error) {
     `The change could not be saved (${error?.message ?? 'unknown error'}). Your previous data is unchanged.`);
 }
 
+const MAX_DOCUMENT_CHARS = 5_000_000; // about the size of a whole localStorage quota
+
 /** Parse and validate document text from storage or from an imported file. */
-function parseDocumentText(text, source) {
+function parseDocumentText(text, source, options) {
+  if (typeof text !== 'string' || text.length > MAX_DOCUMENT_CHARS) {
+    throw new StoreError('invalid', `${source} is too large or not text (limit ${MAX_DOCUMENT_CHARS} characters).`);
+  }
   let doc;
   try {
     doc = JSON.parse(text);
@@ -41,7 +46,7 @@ function parseDocumentText(text, source) {
     throw new StoreError('unsupported-version',
       `${source} uses data format version ${JSON.stringify(doc.version)}, but this app supports version ${FORMAT_VERSION}.`);
   }
-  assertValidDocument(doc);
+  assertValidDocument(doc, options);
   return doc;
 }
 
@@ -74,14 +79,25 @@ function upsert(list, entry) {
 }
 
 /**
- * Create the store over a localStorage-like object (getItem/setItem/removeItem).
+ * Create the store over a localStorage-like object (getItem/setItem).
  * Documents returned by the store are deep-frozen; every change builds a new copy
  * and replaces the stored document only after validation and a successful write.
  * @param {{getItem:Function, setItem:Function}} storage
- * @param {{now?:()=>Date|number|string, demo?:object, createId?:(prefix:string)=>string}} [options]
- *   `demo` is the parsed data/demo.json (the store itself does no file or network I/O).
+ * @param {object} options
+ * @param {object} options.demo REQUIRED: the parsed data/demo.json (the UI fetches it);
+ *   the store itself does no file or network I/O. Must be a valid document.
+ * @param {()=>Date|number|string} [options.now] Clock; default `() => new Date()`.
+ * @param {(prefix:string)=>string} [options.createId] Id generator; default random hex.
+ * @throws {StoreError} bad-options if storage or demo is missing; invalid if demo is not valid.
  */
-export function createStore(storage, { now = () => new Date(), demo = emptyDocument(), createId = randomId } = {}) {
+export function createStore(storage, { now = () => new Date(), demo, createId = randomId } = {}) {
+  if (typeof storage?.getItem !== 'function' || typeof storage?.setItem !== 'function') {
+    throw new StoreError('bad-options', 'createStore needs a localStorage-like storage with getItem and setItem.');
+  }
+  if (!isObject(demo)) {
+    throw new StoreError('bad-options', 'createStore needs the parsed data/demo.json as the `demo` option.');
+  }
+  assertValidDocument(demo);
   let current = null;
   const isoNow = () => new Date(now()).toISOString();
 
@@ -92,9 +108,12 @@ export function createStore(storage, { now = () => new Date(), demo = emptyDocum
     return current;
   }
 
-  /** Validate, write, and only then publish `candidate` as the current document. */
-  function persist(candidate) {
-    assertValidDocument(candidate);
+  /**
+   * Validate, write, and only then publish `candidate` as the current document.
+   * `checkFuture` also rejects price records from the future (used for save and import).
+   */
+  function persist(candidate, { checkFuture = false } = {}) {
+    assertValidDocument(candidate, checkFuture ? { now: isoNow() } : undefined);
     const text = JSON.stringify(candidate);
     try {
       storage.setItem(STORAGE_KEY, text);
@@ -122,7 +141,7 @@ export function createStore(storage, { now = () => new Date(), demo = emptyDocum
 
   function demoDocument() {
     const doc = shiftDemoDates(demo, isoNow());
-    assertValidDocument(doc);
+    assertValidDocument(doc, { now: isoNow() });
     return doc;
   }
 
@@ -153,7 +172,7 @@ export function createStore(storage, { now = () => new Date(), demo = emptyDocum
     /** Replace the whole document (validated, then written). */
     save(doc) {
       loaded();
-      return persist(structuredClone(doc));
+      return persist(structuredClone(doc), { checkFuture: true });
     },
 
     addIngredient({ id = createId('ing'), name, unit, price }) {
@@ -198,11 +217,20 @@ export function createStore(storage, { now = () => new Date(), demo = emptyDocum
       return { id, document: change((draft) => upsert(draft.recipes, { ...structuredClone(recipe), id })) };
     },
 
-    /** Delete a recipe; a prep that is still used is refused, a dish takes its scenarios with it. */
-    deleteRecipe(id) {
+    /**
+     * Delete a recipe. A prep that is still used is refused ('in-use'). A dish that has
+     * scenarios is refused too (error.details = scenario names) unless
+     * `{ deleteScenarios: true }` is passed, which removes those scenarios with it.
+     */
+    deleteRecipe(id, { deleteScenarios = false } = {}) {
       return change((draft) => {
         const target = findOrThrow(draft.recipes, id, 'recipe');
         refuseIfUsed(recipeUsers(draft, 'prep', id), target.name);
+        const scenarios = draft.scenarios.filter((entry) => entry.recipeId === id);
+        if (scenarios.length > 0 && !deleteScenarios) {
+          const names = scenarios.map((entry) => entry.name);
+          throw new StoreError('in-use', `Cannot delete '${target.name}': it has saved scenarios (${names.join(', ')}).`, names);
+        }
         draft.recipes = draft.recipes.filter((entry) => entry.id !== id);
         draft.scenarios = draft.scenarios.filter((entry) => entry.recipeId !== id);
       });
@@ -231,7 +259,7 @@ export function createStore(storage, { now = () => new Date(), demo = emptyDocum
     /** Replace all data with a backup file. Any error leaves current data untouched. */
     importJSON(text) {
       loaded();
-      return persist(parseDocumentText(text, 'The imported file'));
+      return persist(parseDocumentText(text, 'The imported file', { now: isoNow() }));
     },
 
     resetToDemo() {
