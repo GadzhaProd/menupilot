@@ -123,3 +123,7 @@ All notices and licences: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 ## Demo data
 
 The demo restaurant, its dishes, suppliers and prices are fictional.
+
+## License
+
+MenuPilot is released under the [MIT License](LICENSE) © 2026 GadzhaProd. Third-party code keeps its own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
