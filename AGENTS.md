@@ -12,8 +12,6 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 
 ## Money and numbers (non-negotiable)
 - Money is stored as integer euro cents. Never store or sum money as floats.
-- UI stack: Vite + React 19 + strict TypeScript + Tailwind v4 + shadcn/ui. Core `src/calc/` and `src/store/` remains JS+JSDoc; screens in `src/ui/`, shadcn components in `src/components/ui/`, alias `@` → `src`.
-- Keep a thin TS adapter in `src/ui/domain/*.ts` for explicit readonly document, calc-result (including BigInt fields), and store-method types. `npm run typecheck` is `tsc --noEmit` and required in CI.
 - Intermediate costs use integer micro-euros; round half away from zero only at the points
   defined in docs/planning/03_ARCHITECTURE.md (Rounding rules).
 - All calculations use prices EXCLUDING VAT. Label every price "incl. VAT" or "excl. VAT".
@@ -25,6 +23,10 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
   parse user decimals from strings, never via parseFloat.
 - All formulas live in src/calc/ (pure functions, no I/O, no DOM). UI never
   re-implements a formula.
+
+## UI stack
+- UI stack: Vite + React 19 + strict TypeScript + Tailwind v4 + shadcn/ui. Core `src/calc/` and `src/store/` remains JS+JSDoc; screens in `src/ui/`, shadcn components in `src/components/ui/`, alias `@` → `src`.
+- Keep a thin TS adapter in `src/ui/domain/*.ts` for explicit readonly document, calc-result (including BigInt fields), and store-method types. `npm run typecheck` is `tsc --noEmit` and required in CI.
 - Store is the sole source of truth. Call store methods outside reducers; on success dispatch `documentReplaced`, on failure show the error and keep the displayed document unchanged. Reducers are pure. Form drafts are component-local; calc results are derived with `useMemo`, never stored or serialized. JSON/localStorage contain only document, baseline, and safe-integer overrides. Format money with existing formatters; never convert BigInt to Number.
 
 ## Data integrity
