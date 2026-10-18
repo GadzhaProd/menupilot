@@ -72,6 +72,7 @@ noted in README "Acknowledgements" with the MIT notice.
 ## 21st.dev components
 - Access 21st.dev only through `sh scripts/21st.sh`; never expose its key in client code, `VITE_*`, or logs.
 - Copy a component only with an explicit MIT, Apache-2.0, BSD, or ISC license. Keep the full license with author and URL at `third_party/21st/<slug>/LICENSE`, add a source/license comment and `THIRD_PARTY_NOTICES.md` entry; include existing Apache NOTICE. If licensing is absent or unclear, do not copy or rewrite its code; use another component or build with shadcn primitives.
+- Check the license with `sh scripts/21st.sh license <url path from search --json>` (the CLI itself does not show licenses). Only `License: mit|apache-2.0|bsd|isc` may be copied; `unknown` may not. For the LICENSE file use the standard text with the author/library as copyright holder and the component URL.
 - Check peer deps, Tailwind v3 config, Next.js imports, dynamic classes, and CSS variables before adoption.
 
 ## Runtime support
