@@ -1,8 +1,10 @@
+import { BASIS_POINTS, MICRO_EUROS_PER_CENT } from './constants.js';
 import { roundDiv } from './money.js';
 import { normalizeUnit } from './units.js';
 
-const MICRO_EUROS_PER_CENT = 10_000n;
-const BASIS_POINTS = 10_000n;
+const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+const ISO_INSTANT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|([+-])(\d{2}):(\d{2}))$/;
+const NANOSECONDS_PER_SECOND = 1_000_000_000n;
 
 /**
  * Validate a stored integer and return its exact BigInt form.
@@ -18,48 +20,97 @@ export function safeInteger(value, name, minimum) {
   return BigInt(value);
 }
 
-function parseTimestamp(value, name) {
+function isLeapYear(year) {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function daysInMonth(year, month) {
+  const days = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return days[month - 1];
+}
+
+function daysSinceUnixEpoch(year, month, day) {
+  const adjustedYear = year - (month <= 2 ? 1 : 0);
+  const era = Math.floor(adjustedYear / 400);
+  const yearOfEra = adjustedYear - era * 400;
+  const shiftedMonth = month + (month > 2 ? -3 : 9);
+  const dayOfYear = Math.floor((153 * shiftedMonth + 2) / 5) + day - 1;
+  const dayOfEra = yearOfEra * 365
+    + Math.floor(yearOfEra / 4)
+    - Math.floor(yearOfEra / 100)
+    + dayOfYear;
+  return era * 146_097 + dayOfEra - 719_468;
+}
+
+function parseStrictIsoInstant(value, name) {
+  const errorMessage = `${name} must be a strict ISO timestamp with time zone.`;
   if (typeof value !== 'string') {
-    throw new TypeError(`${name} must be an ISO date string.`);
+    throw new TypeError(errorMessage);
   }
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) {
-    throw new TypeError(`${name} must be a valid date.`);
+
+  const match = ISO_INSTANT_PATTERN.exec(value);
+  if (!match) {
+    throw new TypeError(errorMessage);
   }
-  return timestamp;
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const hour = Number.parseInt(match[4], 10);
+  const minute = Number.parseInt(match[5], 10);
+  const second = Number.parseInt(match[6], 10);
+  const offsetHour = match[10] ? Number.parseInt(match[10], 10) : 0;
+  const offsetMinute = match[11] ? Number.parseInt(match[11], 10) : 0;
+  if (
+    month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month) ||
+    hour > 23 || minute > 59 || second > 59 || offsetHour > 23 || offsetMinute > 59
+  ) {
+    throw new TypeError(errorMessage);
+  }
+
+  const offsetDirection = match[9] === '+' ? 1n : -1n;
+  const offsetSeconds = match[9]
+    ? offsetDirection * (BigInt(offsetHour) * 3_600n + BigInt(offsetMinute) * 60n)
+    : 0n;
+  const localSeconds = BigInt(daysSinceUnixEpoch(year, month, day)) * 86_400n
+    + BigInt(hour) * 3_600n
+    + BigInt(minute) * 60n
+    + BigInt(second);
+  const fractionalNanoseconds = BigInt((match[7] ?? '').padEnd(9, '0') || '0');
+  return (localSeconds - offsetSeconds) * NANOSECONDS_PER_SECOND + fractionalNanoseconds;
 }
 
 /**
- * Select the latest price not after `asOf`, ordered by recordedAt and then seq.
- * Without `asOf`, selects the latest record. Returns null when no record qualifies.
+ * Select a price using strict timestamp parsing; used by the public costing API.
  * @param {{seq:number, recordedAt:string}[]} prices
- * @param {string} [asOf] Inclusive ISO timestamp cutoff.
+ * @param {string} [asOf]
  * @returns {{seq:number, recordedAt:string, packPriceCents:number, packSizeMilli:number}|null}
  */
-export function selectPriceAtDate(prices, asOf) {
+export function selectPriceAtDateInternal(prices, asOf) {
   if (!Array.isArray(prices)) {
     throw new TypeError('Price history must be an array.');
   }
-  const cutoff = asOf === undefined ? null : parseTimestamp(asOf, 'asOf');
+  const cutoff = asOf === undefined ? null : parseStrictIsoInstant(asOf, 'asOf');
   let selected = null;
-  let selectedTimestamp = null;
+  let selectedTimestampNanoseconds = null;
+  let selectedSequence = null;
 
   for (const price of prices) {
     if (!price || typeof price !== 'object') {
       throw new TypeError('Each price history record must be an object.');
     }
-    const timestamp = parseTimestamp(price.recordedAt, 'recordedAt');
+    const timestampNanoseconds = parseStrictIsoInstant(price.recordedAt, 'recordedAt');
     const sequence = safeInteger(price.seq, 'seq', 0);
-    if (cutoff !== null && timestamp > cutoff) {
+    if (cutoff !== null && timestampNanoseconds > cutoff) {
       continue;
     }
     if (
-      selected === null ||
-      timestamp > selectedTimestamp ||
-      (timestamp === selectedTimestamp && sequence > BigInt(selected.seq))
+      selected === null || timestampNanoseconds > selectedTimestampNanoseconds ||
+      (timestampNanoseconds === selectedTimestampNanoseconds && sequence > selectedSequence)
     ) {
       selected = price;
-      selectedTimestamp = timestamp;
+      selectedTimestampNanoseconds = timestampNanoseconds;
+      selectedSequence = sequence;
     }
   }
 
@@ -67,40 +118,37 @@ export function selectPriceAtDate(prices, asOf) {
 }
 
 /**
- * Validate a quantity in milli-units, yield in basis points, and optional line unit.
- * @param {{netQtyMilli:number, yieldBp:number, unit?:string}} line
- * @param {'g'|'ml'|'pc'} targetUnit Referenced ingredient or prep base unit.
+ * Validate the stored milli-quantity and basis-point yield on a recipe line.
+ * The line quantity is already in the referenced ingredient or prep base unit.
+ * @param {{netQtyMilli:number, yieldBp:number}} line
  * @returns {void}
  */
-export function validateLine(line, targetUnit) {
+export function validateLineAmounts(line) {
   if (!line || typeof line !== 'object') {
     throw new TypeError('Recipe line must be an object.');
   }
   safeInteger(line.netQtyMilli, 'netQtyMilli', 1);
   safeInteger(line.yieldBp, 'yieldBp', 1);
-  if (line.yieldBp > 10_000) {
-    throw new TypeError('yieldBp must not exceed 10000.');
-  }
-  if (line.unit !== undefined && normalizeUnit(line.unit) !== targetUnit) {
-    throw new TypeError(`Line unit ${line.unit} does not match referenced unit ${targetUnit}.`);
+  if (BigInt(line.yieldBp) > BASIS_POINTS) {
+    throw new TypeError(`yieldBp must not exceed ${BASIS_POINTS}.`);
   }
 }
 
 /**
- * Calculate one ingredient recipe line in integer micro-euros.
+ * Calculate an ingredient line for internal use by prep recursion.
  * @param {{unit:string, prices:object[]}} ingredient
- * @param {{netQtyMilli:number, yieldBp:number, unit?:string}} line
+ * @param {{netQtyMilli:number, yieldBp:number}} line
  * @param {{asOf?:string}} [options]
  * @returns {bigint|null} Cost in micro-euros, or null when price is unknown.
  */
-export function ingredientLineCostMicro(ingredient, line, { asOf } = {}) {
+export function ingredientLineCostMicroInternal(ingredient, line, { asOf } = {}) {
   if (!ingredient || typeof ingredient !== 'object') {
     throw new TypeError('Ingredient must be an object.');
   }
-  const ingredientUnit = normalizeUnit(ingredient.unit);
-  validateLine(line, ingredientUnit);
+  normalizeUnit(ingredient.unit);
+  validateLineAmounts(line);
   const priceHistory = ingredient.prices ?? [];
-  const price = selectPriceAtDate(priceHistory, asOf);
+  const price = selectPriceAtDateInternal(priceHistory, asOf);
   if (price === null) {
     return null;
   }

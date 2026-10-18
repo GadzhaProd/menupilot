@@ -1,25 +1,24 @@
 import { formatEURFromCents, roundDiv } from './money.js';
-import { normalizeUnit } from './units.js';
+import { normalizeUnit, unitPriceSuffix } from './units.js';
 import {
-  ingredientLineCostMicro,
+  ingredientLineCostMicroInternal,
   safeInteger,
-  validateLine,
+  validateLineAmounts,
 } from './internal.js';
+import { BASIS_POINTS, MICRO_EUROS_PER_CENT } from './constants.js';
 
-const BASIS_POINTS = 10_000n;
 const MAX_PREP_DEPTH = 5;
-const MICRO_EUROS_PER_CENT = 10_000n;
 
-function lineCostFromPrepBatchMicro(line, prep, batchCostMicro) {
-  const outputUnit = normalizeUnit(prep.outputUnit);
-  validateLine(line, outputUnit);
+function lineCostFromPrepBatchMicro(line, prep, prepBatchCostMicroValue) {
+  normalizeUnit(prep.outputUnit);
+  validateLineAmounts(line);
   const outputMilli = safeInteger(prep.outputMilli, 'outputMilli', 1);
-  if (batchCostMicro === null) {
+  if (prepBatchCostMicroValue === null) {
     return null;
   }
 
   return roundDiv(
-    batchCostMicro * BigInt(line.netQtyMilli) * BASIS_POINTS,
+    prepBatchCostMicroValue * BigInt(line.netQtyMilli) * BASIS_POINTS,
     outputMilli * BigInt(line.yieldBp),
   );
 }
@@ -45,7 +44,7 @@ function calculateRecipeLinesCostMicro(recipe, data, options, prepStack, prepDep
       if (!ingredient) {
         throw new TypeError(`Unknown ingredient reference: ${line.ref.id}.`);
       }
-      lineCostMicro = ingredientLineCostMicro(ingredient, line, options);
+      lineCostMicro = ingredientLineCostMicroInternal(ingredient, line, options);
     } else if (line.ref.kind === 'prep') {
       const nestedPrep = data.recipes.find(
         (entry) => entry.id === line.ref.id && entry.kind === 'prep',
@@ -140,7 +139,7 @@ export function batchCostMicro(prep, data, options = {}) {
 
 /**
  * Calculate a recipe line that references a prep batch.
- * @param {{ref:{kind:'prep', id:string}, netQtyMilli:number, yieldBp:number, unit?:string}} line
+ * @param {{ref:{kind:'prep', id:string}, netQtyMilli:number, yieldBp:number}} line Quantity uses the prep output base unit.
  * @param {{kind:'prep', id:string, outputMilli:number, outputUnit:string, lines:object[]}} prep
  * @param {{ingredients:object[], recipes:object[]}} data Document arrays.
  * @param {{asOf?:string}} [options]
@@ -156,26 +155,25 @@ export function prepLineCostMicro(line, prep, data, options = {}) {
 
 /**
  * Display a prep batch cost per kg, l, or pc, rounded to cents once.
- * @param {bigint|null} batchCostMicro Prep batch cost in micro-euros.
+ * @param {bigint|null} knownBatchCostMicro Prep batch cost in micro-euros.
  * @param {number} outputMilli Prep yield in thousandths of the output base unit.
  * @param {string} outputUnit Prep output unit: g/kg, ml/l, or pc.
  * @returns {string|null} Display value such as "€1.80/kg", or null when unknown.
  */
-export function prepUnitCostDisplay(batchCostMicro, outputMilli, outputUnit) {
+export function prepUnitCostDisplay(knownBatchCostMicro, outputMilli, outputUnit) {
   const sizeMilli = safeInteger(outputMilli, 'outputMilli', 1);
   const baseUnit = normalizeUnit(outputUnit);
-  if (batchCostMicro === null) {
+  if (knownBatchCostMicro === null) {
     return null;
   }
-  if (typeof batchCostMicro !== 'bigint' || batchCostMicro < 0n) {
+  if (typeof knownBatchCostMicro !== 'bigint' || knownBatchCostMicro < 0n) {
     throw new TypeError('Prep batch cost must be a non-negative BigInt or null.');
   }
 
   const displayFactorMilli = baseUnit === 'pc' ? 1_000n : 1_000_000n;
-  const suffix = baseUnit === 'g' ? '/kg' : baseUnit === 'ml' ? '/l' : '/pc';
   const unitPriceCents = roundDiv(
-    batchCostMicro * displayFactorMilli,
+    knownBatchCostMicro * displayFactorMilli,
     sizeMilli * MICRO_EUROS_PER_CENT,
   );
-  return `${formatEURFromCents(unitPriceCents)}${suffix}`;
+  return `${formatEURFromCents(unitPriceCents)}${unitPriceSuffix(baseUnit)}`;
 }

@@ -1,13 +1,36 @@
 import { formatEURFromCents, roundDiv } from './money.js';
-import { normalizeUnit } from './units.js';
+import { normalizeUnit, unitPriceSuffix } from './units.js';
 import { recipeBatchCostMicro } from './prep.js';
-import { safeInteger } from './internal.js';
+import {
+  ingredientLineCostMicroInternal,
+  safeInteger,
+  selectPriceAtDateInternal,
+} from './internal.js';
+import { BASIS_POINTS, MICRO_EUROS_PER_CENT } from './constants.js';
 
-export { ingredientLineCostMicro, selectPriceAtDate } from './internal.js';
 export { batchCostMicro, prepLineCostMicro, prepUnitCostDisplay } from './prep.js';
 
-const BASIS_POINTS = 10_000n;
-const MICRO_EUROS_PER_CENT = 10_000n;
+/**
+ * Select the latest valid price at or before a strict ISO timestamp cutoff.
+ * Without `asOf`, selects the latest record. Ties use the larger sequence.
+ * @param {{seq:number, recordedAt:string, packPriceCents:number, packSizeMilli:number}[]} prices
+ * @param {string} [asOf] ISO timestamp including a time zone, such as 2025-01-01T00:00:00Z.
+ * @returns {{seq:number, recordedAt:string, packPriceCents:number, packSizeMilli:number}|null}
+ */
+export function selectPriceAtDate(prices, asOf) {
+  return selectPriceAtDateInternal(prices, asOf);
+}
+
+/**
+ * Calculate one ingredient line in integer micro-euros.
+ * @param {{unit:string, prices:object[]}} ingredient
+ * @param {{netQtyMilli:number, yieldBp:number}} line Quantity uses the ingredient's base unit.
+ * @param {{asOf?:string}} [options]
+ * @returns {bigint|null} Cost in micro-euros, or null when price is unknown.
+ */
+export function ingredientLineCostMicro(ingredient, line, options = {}) {
+  return ingredientLineCostMicroInternal(ingredient, line, options);
+}
 
 /**
  * Calculate the menu price excluding VAT in micro-euros.
@@ -37,24 +60,35 @@ export function monthlyContributionCents(contributionMicro, monthlyVolume) {
 
 /**
  * Calculate contribution and percentage metrics from recipe cost and menu price.
- * Percentages are rounded to tenths; null means unknown or not applicable.
- * @param {{recipeCostPerPortionMicro:bigint|null, menuPriceInclVatCents:number, vatRateBp:number, monthlyVolume?:number}} input
- * @returns {{priceExclVatMicro:bigint, recipeCostPerPortionMicro:bigint|null, contributionMicro:bigint|null, foodCostTenthsPct:bigint|null, contributionMarginTenthsPct:bigint|null, monthlyContributionCents:bigint|null}}
+ * Percentages are rounded to tenths. Null percentages are explained by `status`:
+ * cost-unknown means a missing cost; price-zero means division is not applicable.
+ * @param {{recipeCostPerPortionMicro:bigint|null, menuPriceInclVatCents:number, vatRateBp:number, monthlyVolume?:number|null}} input
+ * @returns {{status:'ready'|'cost-unknown'|'price-zero', priceExclVatMicro:bigint, recipeCostPerPortionMicro:bigint|null, contributionMicro:bigint|null, foodCostTenthsPct:bigint|null, contributionMarginTenthsPct:bigint|null, monthlyContributionCents:bigint|null}}
  */
 export function metrics({ recipeCostPerPortionMicro, menuPriceInclVatCents, vatRateBp, monthlyVolume } = {}) {
   if (recipeCostPerPortionMicro !== null && typeof recipeCostPerPortionMicro !== 'bigint') {
     throw new TypeError('Recipe cost must be a BigInt in micro-euros or null.');
   }
   const priceExclVatMicro = netPriceMicro(menuPriceInclVatCents, vatRateBp);
-  if (monthlyVolume !== undefined) {
+  const volumeWasProvided = monthlyVolume !== null && monthlyVolume !== undefined;
+  if (volumeWasProvided) {
     safeInteger(monthlyVolume, 'monthlyVolume', 0);
   }
 
   const contributionMicro = recipeCostPerPortionMicro === null
     ? null
     : priceExclVatMicro - recipeCostPerPortionMicro;
-  const percentagesAvailable = contributionMicro !== null && priceExclVatMicro !== 0n;
+  let status;
+  if (contributionMicro === null) {
+    status = 'cost-unknown';
+  } else if (priceExclVatMicro === 0n) {
+    status = 'price-zero';
+  } else {
+    status = 'ready';
+  }
+  const percentagesAvailable = status === 'ready';
   return {
+    status,
     priceExclVatMicro,
     recipeCostPerPortionMicro,
     contributionMicro,
@@ -64,7 +98,7 @@ export function metrics({ recipeCostPerPortionMicro, menuPriceInclVatCents, vatR
     contributionMarginTenthsPct: percentagesAvailable
       ? roundDiv(contributionMicro * 1_000n, priceExclVatMicro)
       : null,
-    monthlyContributionCents: contributionMicro !== null && monthlyVolume !== undefined
+    monthlyContributionCents: contributionMicro !== null && volumeWasProvided
       ? monthlyContributionCents(contributionMicro, monthlyVolume)
       : null,
   };
@@ -105,7 +139,7 @@ export function packUnitPriceDisplay(packPriceCents, packSizeMilli, unit) {
   const sizeMilli = safeInteger(packSizeMilli, 'packSizeMilli', 1);
   const baseUnit = normalizeUnit(unit);
   const displayFactorMilli = baseUnit === 'pc' ? 1_000n : 1_000_000n;
-  const suffix = baseUnit === 'g' ? '/kg' : baseUnit === 'ml' ? '/l' : '/pc';
+  const suffix = unitPriceSuffix(baseUnit);
   const unitPriceCents = roundDiv(priceCents * displayFactorMilli, sizeMilli);
   return `${formatEURFromCents(unitPriceCents)}${suffix}`;
 }

@@ -64,11 +64,13 @@ test('converts menu price excl. VAT and calculates the approved contribution exa
   assert.equal(baseline.foodCostTenthsPct, 350n);
   assert.equal(baseline.contributionMarginTenthsPct, 650n);
   assert.equal(baseline.monthlyContributionCents, 234_000n);
+  assert.equal(baseline.status, 'ready');
   assert.equal(current.priceExclVatMicro, 12_000_000n);
   assert.equal(current.contributionMicro, 7_150_000n);
   assert.equal(current.monthlyContributionCents, 214_500n);
   assert.equal(current.monthlyContributionCents - baseline.monthlyContributionCents, -19_500n);
   assert.equal(current.contributionMicro - baseline.contributionMicro, -650_000n);
+  assert.equal(current.status, 'ready');
 });
 
 test('calculates a menu price without 21% VAT in micro-euros', () => {
@@ -81,7 +83,7 @@ test('rounds monthly contribution to cents once and accepts a zero volume', () =
   assert.equal(monthlyContributionCents(1_234_567n, 0), 0n);
 });
 
-test('returns n/a percentage metrics for a zero menu price and unknown values for unknown cost', () => {
+test('distinguishes zero-price n/a percentages from unknown recipe cost', () => {
   const zeroPrice = metrics({
     recipeCostPerPortionMicro: 1_000_000n,
     menuPriceInclVatCents: 0,
@@ -92,6 +94,7 @@ test('returns n/a percentage metrics for a zero menu price and unknown values fo
   assert.equal(zeroPrice.contributionMicro, -1_000_000n);
   assert.equal(zeroPrice.foodCostTenthsPct, null);
   assert.equal(zeroPrice.contributionMarginTenthsPct, null);
+  assert.equal(zeroPrice.status, 'price-zero');
 
   const unknown = metrics({
     recipeCostPerPortionMicro: null,
@@ -104,6 +107,38 @@ test('returns n/a percentage metrics for a zero menu price and unknown values fo
   assert.equal(unknown.foodCostTenthsPct, null);
   assert.equal(unknown.contributionMarginTenthsPct, null);
   assert.equal(unknown.monthlyContributionCents, null);
+  assert.equal(unknown.status, 'cost-unknown');
+});
+
+test('treats null and undefined monthly volume as not supplied', () => {
+  for (const monthlyVolume of [null, undefined]) {
+    const result = metrics({
+      recipeCostPerPortionMicro: 1_000_000n,
+      menuPriceInclVatCents: 1_000,
+      vatRateBp: 900,
+      monthlyVolume,
+    });
+    assert.equal(result.monthlyContributionCents, null);
+  }
+});
+
+test('rounds food-cost and contribution-margin tenths away from zero at half boundaries', () => {
+  const positiveHalf = metrics({
+    recipeCostPerPortionMicro: 9_995n,
+    menuPriceInclVatCents: 1,
+    vatRateBp: 0,
+  });
+  assert.equal(positiveHalf.foodCostTenthsPct, 1_000n);
+  assert.equal(positiveHalf.contributionMarginTenthsPct, 1n);
+
+  const negativeHalf = metrics({
+    recipeCostPerPortionMicro: 10_005n,
+    menuPriceInclVatCents: 1,
+    vatRateBp: 0,
+  });
+  assert.equal(negativeHalf.foodCostTenthsPct, 1_001n);
+  assert.equal(negativeHalf.contributionMicro, -5n);
+  assert.equal(negativeHalf.contributionMarginTenthsPct, -1n);
 });
 
 test('manually recalculates three dishes from ingredient pack prices', () => {
@@ -156,6 +191,23 @@ test('selects the price at or before a date, breaking timestamp ties by sequence
   assert.equal(selectPriceAtDate(prices).seq, 4);
 });
 
+test('compares strict ISO timestamps by timezone offset and sub-millisecond fraction', () => {
+  const offsetPrice = [{
+    seq: 1,
+    recordedAt: '2024-12-31T23:00:00.000Z',
+    packPriceCents: 100,
+    packSizeMilli: 1_000,
+  }];
+  assert.equal(selectPriceAtDate(offsetPrice, '2025-01-01T00:00:00+01:00').seq, 1);
+  assert.equal(selectPriceAtDate(offsetPrice, '2024-12-31T22:00:00-01:00').seq, 1);
+
+  const fractionalPrices = [
+    { seq: 100, recordedAt: '2025-01-01T00:00:00.000000001Z', packPriceCents: 100, packSizeMilli: 1_000 },
+    { seq: 1, recordedAt: '2025-01-01T00:00:00.000000002Z', packPriceCents: 200, packSizeMilli: 1_000 },
+  ];
+  assert.equal(selectPriceAtDate(fractionalPrices).seq, 1);
+});
+
 test('uses the selected historical price when costing a dish as of a date', () => {
   const ingredient = makeIngredient('coffee', 0, 1_000, 'g', [
     { seq: 1, recordedAt: '2025-01-01T00:00:00.000Z', packPriceCents: 100, packSizeMilli: 1_000 },
@@ -194,12 +246,9 @@ test('rejects invalid quantities, yields, portions, and unsafe stored integers',
   assert.throws(() => ingredientLineCostMicro(unsafeIngredient, makeLine('unsafe', 1_000)), /safe integer/i);
 });
 
-test('rejects an explicit line unit that differs from its referenced ingredient', () => {
+test('uses the referenced ingredient base unit and ignores a removed line unit field', () => {
   const flour = makeIngredient('flour', 200, 1_000_000, 'g');
-  assert.throws(
-    () => ingredientLineCostMicro(flour, makeLine('flour', 1_000, 10_000, 'ml')),
-    /does not match referenced unit/i,
-  );
+  assert.equal(ingredientLineCostMicro(flour, makeLine('flour', 1_000, 10_000, 'ml')), 2_000n);
 });
 
 test('keeps empty recipes and missing prices unknown instead of treating them as zero', () => {
@@ -210,6 +259,45 @@ test('keeps empty recipes and missing prices unknown instead of treating them as
   });
   assert.deepEqual(noIngredients, { batchCostMicro: null, costPerPortionMicro: null });
   assert.deepEqual(noPrice, { batchCostMicro: null, costPerPortionMicro: null });
+});
+
+test('treats a recorded zero ingredient price as known zero cost', () => {
+  const freeSalt = makeIngredient('salt', 0, 1_000_000);
+  assert.deepEqual(
+    recipeCost(makeDish([makeLine('salt', 10_000)]), { ingredients: [freeSalt], recipes: [] }),
+    { batchCostMicro: 0n, costPerPortionMicro: 0n },
+  );
+});
+
+test('one unknown line makes the whole dish cost unknown', () => {
+  const known = makeIngredient('known', 100, 1_000_000);
+  const unknown = makeIngredient('unknown', 0, 1_000_000, 'g', []);
+  assert.deepEqual(
+    recipeCost(makeDish([makeLine('known', 10_000), makeLine('unknown', 10_000)]), {
+      ingredients: [known, unknown],
+      recipes: [],
+    }),
+    { batchCostMicro: null, costPerPortionMicro: null },
+  );
+});
+
+test('requires asOf and recordedAt to be strict ISO timestamps with a timezone', () => {
+  const prices = [{ seq: 1, recordedAt: RECORDED_AT, packPriceCents: 100, packSizeMilli: 1_000 }];
+  for (const value of [
+    '2025-01-01',
+    'January 1, 2025',
+    '2025-02-30T00:00:00Z',
+    '2025-01-01T00:00:00+25:00',
+  ]) {
+    assert.throws(() => selectPriceAtDate(prices, value), /strict ISO timestamp with time zone/i, value);
+  }
+  for (const recordedAt of ['2025-01-01', 'January 1, 2025', '2025-02-30T00:00:00Z']) {
+    assert.throws(
+      () => selectPriceAtDate([{ ...prices[0], recordedAt }]),
+      /strict ISO timestamp with time zone/i,
+      recordedAt,
+    );
+  }
 });
 
 test('does not mutate frozen recipe or ingredient data', () => {

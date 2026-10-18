@@ -152,10 +152,51 @@ test('allows five prep levels and rejects a sixth', () => {
   );
 });
 
-test('rejects mismatched units between a prep line and its referenced ingredient', () => {
+test('uses the referenced ingredient base unit and ignores a removed prep-line unit field', () => {
   const flour = ingredient('flour', 200, 1_000_000, 'g');
   const sauce = prep('sauce', 1_000_000, 'g', [line('ingredient', 'flour', 100_000, 10_000, 'ml')]);
-  assert.throws(() => batchCostMicro(sauce, document([flour], [sauce])), /does not match referenced unit/i);
+  assert.equal(batchCostMicro(sauce, document([flour], [sauce])), 200_000n);
+});
+
+test('applies a prep ingredient line yield below one hundred percent', () => {
+  const chicken = ingredient('chicken', 100, 1_000_000);
+  const cooked = prep('cooked', 200_000, 'g', [line('ingredient', 'chicken', 100_000, 5_000)]);
+  assert.equal(batchCostMicro(cooked, document([chicken], [cooked])), 200_000n);
+  assert.equal(prepUnitCostDisplay(batchCostMicro(cooked, document([chicken], [cooked])), 200_000, 'g'), '€1.00/kg');
+});
+
+test('scales prep use by its 2.5 kg batch yield, not by a portion count', () => {
+  const ingredientAtTenEuroPerKg = ingredient('flour', 1_000, 1_000_000);
+  const prepBatch = prep('bulk-flour', 2_500_000, 'g', [line('ingredient', 'flour', 2_500_000)]);
+  const menuDish = dish([line('prep', 'bulk-flour', 500_000)]);
+  const data = document([ingredientAtTenEuroPerKg], [prepBatch, menuDish]);
+
+  assert.equal(batchCostMicro(prepBatch, data), 25_000_000n);
+  assert.equal(prepLineCostMicro(line('prep', 'bulk-flour', 500_000), prepBatch, data), 5_000_000n);
+  assert.equal(recipeCost(menuDish, data).costPerPortionMicro, 5_000_000n);
+});
+
+test('allows a diamond-shaped prep tree to use the same prep in two branches', () => {
+  const salt = ingredient('salt', 100, 1_000_000);
+  const base = prep('base', 1_000_000, 'g', [line('ingredient', 'salt', 1_000_000)]);
+  const left = prep('left', 1_000_000, 'g', [line('prep', 'base', 1_000_000)]);
+  const right = prep('right', 1_000_000, 'g', [line('prep', 'base', 1_000_000)]);
+  const top = prep('top', 1_000_000, 'g', [
+    line('prep', 'left', 1_000_000),
+    line('prep', 'right', 1_000_000),
+  ]);
+  const menuDish = dish([line('prep', 'top', 1_000_000)]);
+
+  assert.equal(recipeCost(menuDish, document([salt], [base, left, right, top, menuDish])).costPerPortionMicro, 2_000_000n);
+});
+
+test('an empty prep referenced by a dish propagates unknown cost', () => {
+  const emptyPrep = prep('empty', 1_000_000, 'g', []);
+  const menuDish = dish([line('prep', 'empty', 10_000)]);
+  assert.deepEqual(
+    recipeCost(menuDish, document([], [emptyPrep, menuDish])),
+    { batchCostMicro: null, costPerPortionMicro: null },
+  );
 });
 
 test('rejects missing references and invalid prep output sizes', () => {
