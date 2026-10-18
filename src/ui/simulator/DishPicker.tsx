@@ -5,11 +5,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useDocument } from '@/ui/data/DataProvider';
 import { dishRows, formatEURFromMicro } from '@/ui/domain/calc';
 import { hrefFor } from '@/ui/router/routes';
+import { useSimulatorSessions } from './session';
 
 /** Step one: choose the dish to try what-if changes on. */
 export function DishPicker() {
   const document = useDocument();
   const dishes = useMemo(() => dishRows(document), [document]);
+  const sessions = useSimulatorSessions();
   const scenarioCount = (dishId: string) => document.scenarios.filter((scenario) => scenario.recipeId === dishId).length;
 
   return (
@@ -30,6 +32,7 @@ export function DishPicker() {
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {dishes.map((dish) => {
             const saved = scenarioCount(dish.id);
+            const unsaved = sessions.unsavedCount(dish.id);
             return (
               <li key={dish.id}>
                 <Card className="h-full gap-0 py-0 transition-shadow focus-within:ring-[3px] focus-within:ring-ring/50 hover:shadow-md">
@@ -54,6 +57,7 @@ export function DishPicker() {
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {saved === 0 ? 'No saved scenarios' : `${saved} saved ${saved === 1 ? 'scenario' : 'scenarios'}`}
+                        {unsaved > 0 ? <span className="font-medium text-amber-700"> · {unsaved} unsaved {unsaved === 1 ? 'scenario' : 'scenarios'}</span> : null}
                       </span>
                     </a>
                   </CardContent>

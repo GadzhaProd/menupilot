@@ -8,6 +8,7 @@ import { RecipePage } from '@/ui/pages/RecipePage';
 import { RecipesPage } from '@/ui/pages/RecipesPage';
 import { SimulatorPage } from '@/ui/pages/SimulatorPage';
 import type { Route } from '@/ui/router/routes';
+import { SimulatorSessionProvider } from '@/ui/simulator/session';
 import { useRoute } from '@/ui/router/useRoute';
 
 const TITLES: Record<Route['name'], string> = {
@@ -52,7 +53,7 @@ export function App() {
 
   return (
     <Shell route={route}>
-      {loadError === null ? <Page route={route} /> : <LoadError message={loadError} />}
+      {loadError === null ? <SimulatorSessionProvider><Page route={route} /></SimulatorSessionProvider> : <LoadError message={loadError} />}
     </Shell>
   );
 }

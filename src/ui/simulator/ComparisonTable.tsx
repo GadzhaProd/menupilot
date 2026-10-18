@@ -62,18 +62,39 @@ const ROWS: Row[] = [
 
 export const DISCLAIMER = 'Scenarios are calculations based on your inputs, not forecasts. Changing quantities may affect quality, food safety or allergen information — check before changing a recipe.';
 
-/** A scenario on older data does not take part in the comparison of monthly figures. */
+/** Why a column cannot be compared on monthly contribution, or null when it can. */
+function leftOutReason(column: Column): string | null {
+  if (!column.run.ok) return 'cannot be calculated';
+  if (column.stale) return 'older prices';
+  const { result } = column.run;
+  if (result.monthlyContributionCents !== null) return null;
+  if (result.status === 'cost-unknown') return 'cost unknown';
+  return result.monthlyVolume === null ? 'no sales estimate' : 'no monthly figure';
+}
+
 const monthlyOf = (column: Column) => ({
   key: column.key,
-  monthlyCents: column.run.ok && !column.stale ? column.run.result.monthlyContributionCents : null,
+  monthlyCents: leftOutReason(column) === null && column.run.ok ? column.run.result.monthlyContributionCents : null,
 });
 
-/** The best column in words: a calculation result, never advice to change a recipe. */
+/**
+ * The best column in words: a calculation result, never advice to change a recipe.
+ * Only columns calculated on today's data with a monthly figure are compared, and at least two are needed.
+ */
 function Highest({ columns }: { columns: readonly Column[] }) {
-  const skipped = columns.some((column) => column.stale);
   const best = highestMonthly(columns.map(monthlyOf));
+  const leftOut = columns.flatMap((column) => {
+    const reason = leftOutReason(column);
+    return reason === null ? [] : [`${column.label} (${reason})`];
+  });
+  const excluded = leftOut.length > 0 ? ` Left out: ${leftOut.join(', ')}.` : '';
   if (best === null) {
-    return <p className="text-sm text-muted-foreground">Enter your sales per month to compare monthly contribution.</p>;
+    return (
+      <p data-testid="highest-monthly" className="rounded-md bg-secondary/60 px-3 py-2 text-sm">
+        <strong>Not enough data to compare monthly results.</strong>
+        {leftOut.length > 0 ? excluded : ' Enter your sales per month to compare monthly contribution.'}
+      </p>
+    );
   }
   const names = columns.filter((column) => best.keys.includes(column.key)).map((column) => column.label);
   const tie = names.length > 1;
@@ -81,19 +102,21 @@ function Highest({ columns }: { columns: readonly Column[] }) {
   return (
     <p data-testid="highest-monthly" className="rounded-md bg-accent/60 px-3 py-2 text-sm">
       {baselineOnly
-        ? <><strong>Baseline</strong> has the highest estimated monthly contribution ({euro(best.cents)}) of the columns shown.</>
+        ? <><strong>Baseline</strong> has the highest estimated monthly contribution ({euro(best.cents)}) of the columns compared.</>
         : tie
           ? <><strong>{names.join(' and ')}</strong> are tied for the highest estimated monthly contribution ({euro(best.cents)}).</>
           : <><strong>{names[0]}</strong> has the highest estimated monthly contribution ({euro(best.cents)}) at your sales estimate.</>}
-      {skipped ? ' Scenarios on older prices are not counted.' : null}
+      {excluded}
     </p>
   );
 }
 
 /** Baseline next to the scenarios, with the difference in euros per portion and per month. */
 export function ComparisonTable({ columns }: { columns: readonly Column[] }) {
-  const best = highestMonthly(columns.map(monthlyOf));
-  const winners = new Set(best !== null && best.keys.length < columns.length ? best.keys : []);
+  const monthly = columns.map(monthlyOf);
+  const best = highestMonthly(monthly);
+  const comparable = monthly.filter((entry) => entry.monthlyCents !== null).length;
+  const winners = new Set(best !== null && best.keys.length < comparable ? best.keys : []);
   const anyStale = columns.some((column) => column.stale);
 
   return (

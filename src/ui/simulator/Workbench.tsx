@@ -16,11 +16,12 @@ import { ComparisonTable, type Column } from './ComparisonTable';
 import { DeleteScenarioDialog } from './DeleteScenarioDialog';
 import { ScenarioCard } from './ScenarioCard';
 import {
-  emptyFields, parseSharedVolume, signature, validateName, type FieldsDraft,
+  emptyFields, parseSharedVolume, validateName, type FieldsDraft,
 } from './scenarioForm';
 import {
-  defaultName, draftsFromSaved, MAX_SCENARIOS, newDraft, scenariosReducer, type ScenarioDraft,
+  defaultName, draftsFromSaved, isUnsaved, MAX_SCENARIOS, newDraft, scenariosReducer, type ScenarioDraft,
 } from './scenarios';
+import { useRememberSession, useSimulatorSessions, type DishSession } from './session';
 
 /** What the store keeps of a draft: the name, the baseline it was calculated on, and its changes. */
 function toScenarioInput(draft: ScenarioDraft, recipeId: string, baseline = draft.baseline, overrides: ScenarioOverrides = draft.applied): ScenarioInput {
@@ -38,6 +39,8 @@ function withSharedVolume(overrides: ScenarioOverrides, shared: number | undefin
   return overrides.monthlyVolume === undefined && shared !== undefined ? { ...overrides, monthlyVolume: shared } : overrides;
 }
 
+const okResult = (run: Run | undefined) => (run?.ok ? run.result : null);
+
 const failedRun = (error: string): Run => ({ ok: false, error });
 
 /** The simulator for one dish: Baseline, up to three scenarios, and the comparison. */
@@ -48,18 +51,25 @@ export function Workbench({ dish }: { dish: Dish }) {
 
   // Baseline is a snapshot taken when the screen opens; it is never edited.
   const [pageBaseline] = useState(() => takeBaseline(document, dish.id, new Date().toISOString()));
+  // Coming back to the dish restores what was being edited (kept in memory only).
+  const sessions = useSimulatorSessions();
+  const [remembered] = useState<DishSession | undefined>(() => sessions.get(dish.id));
   const [drafts, dispatch] = useReducer(
     scenariosReducer,
     undefined,
-    () => draftsFromSaved(document.scenarios.filter((scenario: Scenario) => scenario.recipeId === dish.id)),
+    () => remembered?.drafts ?? draftsFromSaved(document.scenarios.filter((scenario: Scenario) => scenario.recipeId === dish.id)),
   );
-  const [volumeText, setVolumeText] = useState(dishHasVolume ? String(dish.monthlyVolume) : '');
-  const [sharedVolume, setSharedVolume] = useState<number | undefined>(dishHasVolume ? dish.monthlyVolume ?? undefined : undefined);
-  const [volumeError, setVolumeError] = useState<string | undefined>();
+  const [volumeText, setVolumeText] = useState(remembered?.volumeText ?? (dishHasVolume ? String(dish.monthlyVolume) : ''));
+  const [sharedVolume, setSharedVolume] = useState<number | undefined>(
+    remembered ? remembered.sharedVolume : dishHasVolume ? dish.monthlyVolume ?? undefined : undefined,
+  );
+  const [volumeError, setVolumeError] = useState<string | undefined>(remembered?.volumeError);
   const [problems, setProblems] = useState<Record<string, string | null>>({});
   const [attempts, setAttempts] = useState<Record<string, number>>({});
   const counter = useRef(0);
   const deleting = useDialogState<string>();
+  const session = useMemo(() => ({ drafts, volumeText, sharedVolume, volumeError }), [drafts, volumeText, sharedVolume, volumeError]);
+  useRememberSession(dish.id, session);
 
   const setProblem = (key: string, message: string | null) => setProblems((current) => ({ ...current, [key]: message }));
 
@@ -82,13 +92,15 @@ export function Workbench({ dish }: { dish: Dish }) {
     [pageBaseline, sharedVolume],
   );
   const staleKeys = useMemo(
-    () => new Set(drafts.filter((draft) => draft.id !== null && isStale(draft.baseline, document)).map((draft) => draft.key)),
+    () => new Set(drafts.filter((draft) => isStale(draft.baseline, document)).map((draft) => draft.key)),
     [drafts, document],
   );
   const runs = useMemo(
     () => drafts.map((draft) => runScenario(draft.baseline, withSharedVolume(draft.applied, sharedVolume))),
     [drafts, sharedVolume],
   );
+  // What each scenario started from: its own baseline, which may be older than today's.
+  const ownBaselines = useMemo(() => drafts.map((draft) => runScenario(draft.baseline, NO_CHANGES)), [drafts]);
   const deltas = useMemo(
     () => (baselineRun.ok ? compareRuns(baselineRun.result, runs) : runs.map(() => null)),
     [baselineRun, runs],
@@ -108,7 +120,7 @@ export function Workbench({ dish }: { dish: Dish }) {
   function addScenario() {
     if (!pageBaseline.ok || drafts.length >= MAX_SCENARIOS) return;
     counter.current += 1;
-    dispatch({ type: 'added', draft: newDraft(`new-${counter.current}`, defaultName(drafts), pageBaseline.baseline, emptyFields(pageBaseline.baseline)) });
+    dispatch({ type: 'added', draft: newDraft(`new-${Date.now().toString(36)}-${counter.current}`, defaultName(drafts), pageBaseline.baseline, emptyFields(pageBaseline.baseline)) });
   }
 
   function save(draft: ScenarioDraft) {
@@ -116,36 +128,27 @@ export function Workbench({ dish }: { dish: Dish }) {
       setAttempts((current) => ({ ...current, [draft.key]: (current[draft.key] ?? 0) + 1 }));
       return;
     }
-    const input = toScenarioInput(draft, dish.id);
+    // The sales estimate the result was calculated with is saved too, so it can be reproduced.
+    const overrides = withSharedVolume(draft.applied, sharedVolume);
+    const input = toScenarioInput(draft, dish.id, draft.baseline, overrides);
     const result = execute((store) => store.saveScenario(input), { report: false });
     if (result.ok) {
       setProblem(draft.key, null);
-      dispatch({ type: 'saved', key: draft.key, id: result.value.id, createdAt: input.createdAt, savedSignature: signature(draft.name, draft.applied) });
+      dispatch({ type: 'saved', key: draft.key, id: result.value.id, createdAt: input.createdAt, overrides });
     } else {
       setProblem(draft.key, result.error); // the typed values stay in the card
     }
   }
 
+  /** Calculate this scenario on today's data. Only the draft changes; Save writes it. */
   function updateBaseline(draft: ScenarioDraft) {
     const fresh = takeBaseline(document, dish.id, new Date().toISOString());
     if (!fresh.ok) {
       setProblem(draft.key, fresh.error);
       return;
     }
-    const carried = rebaseOverrides(draft.baseline, fresh.baseline, draft.applied);
-    const result = execute(
-      (store) => store.saveScenario(toScenarioInput(draft, dish.id, fresh.baseline, carried.overrides)),
-      { report: false },
-    );
-    if (result.ok) {
-      setProblem(draft.key, null);
-      dispatch({
-        type: 'rebased', key: draft.key, baseline: fresh.baseline, overrides: carried.overrides, notes: carried.dropped,
-        savedSignature: signature(draft.name, carried.overrides),
-      });
-    } else {
-      setProblem(draft.key, result.error);
-    }
+    setProblem(draft.key, null);
+    dispatch({ type: 'rebased', key: draft.key, baseline: fresh.baseline, rebased: rebaseOverrides(draft.baseline, fresh.baseline, draft.applied) });
   }
 
   /** Remove a scenario; a saved one is deleted from the store first. Returns why it failed, if it did. */
@@ -223,10 +226,10 @@ export function Workbench({ dish }: { dish: Dish }) {
                 index={index}
                 run={runs[index] ?? failedRun('No result.')}
                 delta={deltas[index] ?? null}
-                baseline={baselineRun.ok ? baselineRun.result : null}
+                ownBaseline={okResult(ownBaselines[index])}
                 sharedVolume={sharedVolume}
                 stale={staleKeys.has(draft.key)}
-                dirty={signature(draft.name, draft.applied) !== draft.savedSignature}
+                dirty={isUnsaved(draft)}
                 problem={problems[draft.key] ?? null}
                 attempt={attempts[draft.key] ?? 0}
                 onRename={(name) => dispatch({ type: 'renamed', key: draft.key, name })}

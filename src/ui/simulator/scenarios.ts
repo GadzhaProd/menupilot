@@ -5,9 +5,9 @@
  * so a half-typed number never blanks the results.
  */
 import type { Baseline, Scenario } from '@/ui/domain/types';
-import type { ScenarioOverrides } from '@/ui/domain/simulator';
+import type { Rebased, ScenarioOverrides } from '@/ui/domain/simulator';
 import {
-  fieldsFromOverrides, parseFields, priceKey, qtyKey, sanitizeOverrides, signature,
+  emptyFields, fieldsFromOverrides, parseFields, priceKey, qtyKey, sanitizeOverrides, signature,
   type FieldErrors, type FieldsDraft,
 } from './scenarioForm';
 
@@ -31,7 +31,13 @@ export interface ScenarioDraft {
   notes: string[];
   /** Signature of what is saved; null while the scenario was never saved. */
   savedSignature: string | null;
+  /** The baseline was refreshed in this draft and the refresh is not saved yet. */
+  baselineUpdated: boolean;
 }
+
+/** True when something would be lost: never saved, or different from what is saved. */
+export const isUnsaved = (draft: ScenarioDraft) =>
+  draft.baselineUpdated || signature(draft.name, draft.applied) !== draft.savedSignature;
 
 export const slotLetter = (index: number) => SLOT_LETTERS[index] ?? String(index + 1);
 
@@ -58,6 +64,7 @@ export function draftsFromSaved(saved: readonly Scenario[]): ScenarioDraft[] {
         errors: {},
         notes: [],
         savedSignature: signature(scenario.name, overrides),
+        baselineUpdated: false,
       };
     });
 }
@@ -65,7 +72,7 @@ export function draftsFromSaved(saved: readonly Scenario[]): ScenarioDraft[] {
 export function newDraft(key: string, name: string, baseline: Baseline, fields: FieldsDraft): ScenarioDraft {
   return {
     key, id: null, createdAt: null, name, baseline, fields, applied: parseFields(fields, baseline).overrides,
-    errors: {}, notes: [], savedSignature: null,
+    errors: {}, notes: [], savedSignature: null, baselineUpdated: false,
   };
 }
 
@@ -94,8 +101,10 @@ export type ScenarioAction =
   | { type: 'removed'; key: string }
   | { type: 'renamed'; key: string; name: string }
   | { type: 'fieldsChanged'; key: string; fields: FieldsDraft }
-  | { type: 'saved'; key: string; id: string; createdAt: string; savedSignature: string }
-  | { type: 'rebased'; key: string; baseline: Baseline; overrides: ScenarioOverrides; notes: string[]; savedSignature: string }
+  /** `overrides` are the changes as stored (including the sales estimate the result was calculated with). */
+  | { type: 'saved'; key: string; id: string; createdAt: string; overrides: ScenarioOverrides }
+  /** New baseline in the draft only; nothing is saved. */
+  | { type: 'rebased'; key: string; baseline: Baseline; rebased: Rebased }
   | { type: 'notesDismissed'; key: string };
 
 function update(drafts: ScenarioDraft[], key: string, change: (draft: ScenarioDraft) => ScenarioDraft) {
@@ -122,18 +131,36 @@ export function scenariosReducer(drafts: ScenarioDraft[], action: ScenarioAction
       });
     case 'saved':
       return update(drafts, action.key, (draft) => ({
-        ...draft, id: action.id, createdAt: action.createdAt, savedSignature: action.savedSignature,
+        ...draft,
+        id: action.id,
+        createdAt: action.createdAt,
+        applied: action.overrides,
+        fields: { ...draft.fields, volume: action.overrides.monthlyVolume === undefined ? '' : String(action.overrides.monthlyVolume) },
+        savedSignature: signature(draft.name, action.overrides),
+        baselineUpdated: false,
       }));
     case 'rebased':
-      return update(drafts, action.key, (draft) => ({
-        ...draft,
-        baseline: action.baseline,
-        fields: fieldsFromOverrides(action.overrides, action.baseline),
-        applied: action.overrides,
-        errors: {},
-        notes: action.notes,
-        savedSignature: action.savedSignature,
-      }));
+      return update(drafts, action.key, (draft) => {
+        const { rebased } = action;
+        // Keep what was typed (wrong entries too); clear only the fields whose change was dropped.
+        const prices = { ...draft.fields.prices };
+        for (const id of rebased.droppedPriceIds) delete prices[id];
+        const qty = { ...emptyFields(action.baseline).qty };
+        for (const [id, value] of Object.entries(draft.fields.qty)) {
+          if (id in qty && !rebased.droppedLineIds.includes(id)) qty[id] = value;
+        }
+        const fields: FieldsDraft = { ...draft.fields, prices, qty };
+        const parsed = parseFields(fields, action.baseline);
+        return {
+          ...draft,
+          baseline: action.baseline,
+          fields,
+          errors: parsed.errors,
+          applied: keepPrevious(rebased.overrides, parsed.overrides, parsed.errors),
+          notes: rebased.dropped,
+          baselineUpdated: true,
+        };
+      });
     case 'notesDismissed':
       return update(drafts, action.key, (draft) => ({ ...draft, notes: [] }));
   }

@@ -26,8 +26,8 @@ interface ScenarioCardProps {
   index: number;
   run: Run;
   delta: ScenarioDelta | null;
-  /** Baseline today, to show what the fields start from. */
-  baseline: SimulateResult | null;
+  /** This scenario's own baseline (older than today's when it is out of date): what its fields start from. */
+  ownBaseline: SimulateResult | null;
   /** The shared sales estimate this scenario uses unless it has its own. */
   sharedVolume: number | undefined;
   stale: boolean;
@@ -167,7 +167,7 @@ function LineRow({ line, draft, error, onChange }: {
 
 /** One scenario: its name, the changes typed into it, and what they do right now. */
 export function ScenarioCard({
-  draft, index, run, delta, baseline, sharedVolume, stale, dirty, problem, attempt,
+  draft, index, run, delta, ownBaseline, sharedVolume, stale, dirty, problem, attempt,
   onRename, onFields, onSave, onDelete, onUpdateBaseline, onDismissNotes,
 }: ScenarioCardProps) {
   const root = useRef<HTMLElement>(null);
@@ -213,6 +213,11 @@ export function ScenarioCard({
                 <dd className="text-lg font-semibold tabular-nums">{euro(run.result.monthlyContributionCents)}</dd>
                 <dd>{delta && !stale ? <Delta value={delta.monthlyContributionDeltaCents} format={signedEuro} better="higher" /> : null}</dd>
               </div>
+              <div className="col-span-2"><dd className="text-xs text-muted-foreground">
+                {run.result.monthlyVolume === null
+                  ? 'No sales estimate, so no monthly figure.'
+                  : `Calculated with ${run.result.monthlyVolume} sales per month${draft.applied.monthlyVolume === undefined ? ' (shared estimate)' : ' (saved with this scenario)'}.`}
+              </dd></div>
             </dl>
           ) : (
             <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">This scenario cannot be calculated: {run.error}</p>
@@ -224,8 +229,8 @@ export function ScenarioCard({
             <Alert variant="warning">
               <TriangleAlertIcon aria-hidden="true" />
               <AlertDescription>
-                <p className="font-medium">Baseline changed since this scenario was saved</p>
-                <p>A price or recipe is different now, so these numbers use older data. Update the baseline to calculate on today’s data; your changes are kept where they still apply.</p>
+                <p className="font-medium">Baseline changed since this scenario was {draft.id === null ? 'made' : 'saved'}</p>
+                <p>A price or recipe is different now, so these numbers use older data. Update the baseline to calculate on today’s data; your changes are kept where they still apply. Nothing is saved until you press Save.</p>
               </AlertDescription>
               <AlertAction>
                 <Button size="sm" onClick={onUpdateBaseline}><RefreshCwIcon aria-hidden="true" /> Update baseline</Button>
@@ -235,7 +240,7 @@ export function ScenarioCard({
           {draft.notes.length > 0 ? (
             <Alert>
               <AlertDescription>
-                <p className="font-medium">Baseline updated. Some changes no longer apply and were removed:</p>
+                <p className="font-medium">Baseline updated. Some changes no longer apply and were removed (save to keep this):</p>
                 <ul className="list-disc pl-5">
                   {draft.notes.map((note) => <li key={note}>{note}</li>)}
                 </ul>
@@ -246,7 +251,7 @@ export function ScenarioCard({
 
           <FormField
             label="Menu price (incl. VAT, €)"
-            hint={baseline ? `Baseline: ${euro(baseline.menuPriceInclVatCents)} incl. VAT. Leave empty to keep it.` : undefined}
+            hint={ownBaseline ? `In this scenario's baseline: ${euro(ownBaseline.menuPriceInclVatCents)} incl. VAT. Leave empty to keep it.` : undefined}
             error={errors.menuPrice}
           >
             {(control) => (
@@ -255,7 +260,7 @@ export function ScenarioCard({
                 inputMode="decimal"
                 autoComplete="off"
                 value={fields.menuPrice}
-                placeholder={baseline ? euro(baseline.menuPriceInclVatCents).slice(1) : undefined}
+                placeholder={ownBaseline ? euro(ownBaseline.menuPriceInclVatCents).slice(1) : undefined}
                 onChange={(event) => onFields({ ...fields, menuPrice: event.target.value })}
               />
             )}

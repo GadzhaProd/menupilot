@@ -131,7 +131,7 @@ export function validateName(name: string): string | null {
 }
 export const NAME_MAX_LENGTH = MAX_NAME;
 
-/** Stable text of the changes, to tell whether anything differs from what is saved. */
+/** Stable text of the name and changes, to tell whether anything differs from what is saved. */
 export function signature(name: string, overrides: ScenarioOverrides): string {
   const sorted = (map: Record<string, number>) => Object.keys(map).sort().map((key) => [key, map[key]]);
   return JSON.stringify([
