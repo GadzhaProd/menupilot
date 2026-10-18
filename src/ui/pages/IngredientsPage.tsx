@@ -18,17 +18,17 @@ export function IngredientsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Current supplier prices</CardTitle>
-          <CardDescription>Supplier price excl. VAT, as on the invoice.</CardDescription>
+          <CardDescription>Supplier price excl. VAT, as on the invoice. Shown per kg, l or pc.</CardDescription>
         </CardHeader>
         <CardContent>
           {ingredients.length === 0 ? (
             <p className="text-sm text-muted-foreground">No ingredients yet.</p>
           ) : (
-            <Table className="min-w-[24rem]">
+            <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ingredient</TableHead>
-                  <TableHead className="text-right">Price excl. VAT (per kg, l or pc)</TableHead>
+                  <TableHead className="whitespace-normal">Ingredient</TableHead>
+                  <TableHead className="whitespace-normal text-right">Price excl. VAT</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -36,7 +36,7 @@ export function IngredientsPage() {
                   const price = selectPriceAtDate(ingredient.prices);
                   return (
                     <TableRow key={ingredient.id}>
-                      <TableCell className="font-medium">{ingredient.name}</TableCell>
+                      <TableCell className="font-medium whitespace-normal">{ingredient.name}</TableCell>
                       <TableCell className="text-right">
                         {price === null
                           ? <span className="text-muted-foreground">no price yet</span>
