@@ -77,9 +77,9 @@ describe('routing in the app', () => {
     expect(screen.getByText(/this recipe does not exist/i)).toBeTruthy();
     await go('#/simulator/does_not_exist');
     expect(screen.getByText(/this dish does not exist/i)).toBeTruthy();
-    // A prep is not a dish, so it cannot be simulated.
+    // A prep is not a dish, so it cannot be simulated: the page says so instead of "not found".
     await go('#/simulator/prep_burger_sauce');
-    expect(await heading('Not found')).toBeTruthy();
+    expect(await heading(/is a prep/)).toBeTruthy();
   });
 
   it('follows Back and Forward', async () => {
