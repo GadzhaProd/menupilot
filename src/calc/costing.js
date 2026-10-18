@@ -1,39 +1,13 @@
 import { formatEURFromCents, roundDiv } from './money.js';
 import { normalizeUnit } from './units.js';
-import { safeInteger, selectPriceAtDate, validateLine } from './internal.js';
+import { recipeBatchCostMicro } from './prep.js';
+import { safeInteger } from './internal.js';
 
-export { selectPriceAtDate };
+export { ingredientLineCostMicro, selectPriceAtDate } from './internal.js';
+export { batchCostMicro, prepLineCostMicro, prepUnitCostDisplay } from './prep.js';
 
 const BASIS_POINTS = 10_000n;
 const MICRO_EUROS_PER_CENT = 10_000n;
-
-/**
- * Calculate one ingredient line in integer micro-euros, or null when its price is unknown.
- * @param {{unit:string, prices:object[]}} ingredient
- * @param {{netQtyMilli:number, yieldBp:number, unit?:string}} line
- * @param {{asOf?:string}} [options]
- * @returns {bigint|null} Cost in micro-euros.
- */
-export function ingredientLineCostMicro(ingredient, line, { asOf } = {}) {
-  if (!ingredient || typeof ingredient !== 'object') {
-    throw new TypeError('Ingredient must be an object.');
-  }
-  const ingredientUnit = normalizeUnit(ingredient.unit);
-  validateLine(line, ingredientUnit);
-  const priceHistory = ingredient.prices ?? [];
-  const price = selectPriceAtDate(priceHistory, asOf);
-  if (price === null) {
-    return null;
-  }
-
-  const packPriceCents = safeInteger(price.packPriceCents, 'packPriceCents', 0);
-  const packSizeMilli = safeInteger(price.packSizeMilli, 'packSizeMilli', 1);
-  const quantityMilli = BigInt(line.netQtyMilli);
-  const yieldBp = BigInt(line.yieldBp);
-  const numerator = packPriceCents * MICRO_EUROS_PER_CENT * quantityMilli * BASIS_POINTS;
-  const denominator = packSizeMilli * yieldBp;
-  return roundDiv(numerator, denominator);
-}
 
 /**
  * Calculate the menu price excluding VAT in micro-euros.
@@ -109,35 +83,8 @@ export function recipeCost(recipe, data, { asOf } = {}) {
     throw new TypeError('recipeCost expects a dish recipe.');
   }
   const portions = safeInteger(recipe.portions, 'portions', 1);
-  if (!Array.isArray(recipe.lines)) {
-    throw new TypeError('Recipe lines must be an array.');
-  }
-  if (!data || !Array.isArray(data.ingredients)) {
-    throw new TypeError('Calculation data must contain an ingredients array.');
-  }
-  if (recipe.lines.length === 0) {
-    return { batchCostMicro: null, costPerPortionMicro: null };
-  }
-
-  let totalCostMicro = 0n;
-  let hasUnknownLine = false;
-  for (const line of recipe.lines) {
-    if (!line.ref || line.ref.kind !== 'ingredient' || typeof line.ref.id !== 'string') {
-      throw new TypeError('Dish line must reference an ingredient.');
-    }
-    const ingredient = data.ingredients.find((entry) => entry.id === line.ref.id);
-    if (!ingredient) {
-      throw new TypeError(`Unknown ingredient reference: ${line.ref.id}.`);
-    }
-    const lineCost = ingredientLineCostMicro(ingredient, line, { asOf });
-    if (lineCost === null) {
-      hasUnknownLine = true;
-    } else {
-      totalCostMicro += lineCost;
-    }
-  }
-
-  if (hasUnknownLine) {
+  const totalCostMicro = recipeBatchCostMicro(recipe, data, { asOf });
+  if (totalCostMicro === null) {
     return { batchCostMicro: null, costPerPortionMicro: null };
   }
   return {

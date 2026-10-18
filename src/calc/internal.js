@@ -1,4 +1,8 @@
+import { roundDiv } from './money.js';
 import { normalizeUnit } from './units.js';
+
+const MICRO_EUROS_PER_CENT = 10_000n;
+const BASIS_POINTS = 10_000n;
 
 /**
  * Validate a stored integer and return its exact BigInt form.
@@ -80,4 +84,32 @@ export function validateLine(line, targetUnit) {
   if (line.unit !== undefined && normalizeUnit(line.unit) !== targetUnit) {
     throw new TypeError(`Line unit ${line.unit} does not match referenced unit ${targetUnit}.`);
   }
+}
+
+/**
+ * Calculate one ingredient recipe line in integer micro-euros.
+ * @param {{unit:string, prices:object[]}} ingredient
+ * @param {{netQtyMilli:number, yieldBp:number, unit?:string}} line
+ * @param {{asOf?:string}} [options]
+ * @returns {bigint|null} Cost in micro-euros, or null when price is unknown.
+ */
+export function ingredientLineCostMicro(ingredient, line, { asOf } = {}) {
+  if (!ingredient || typeof ingredient !== 'object') {
+    throw new TypeError('Ingredient must be an object.');
+  }
+  const ingredientUnit = normalizeUnit(ingredient.unit);
+  validateLine(line, ingredientUnit);
+  const priceHistory = ingredient.prices ?? [];
+  const price = selectPriceAtDate(priceHistory, asOf);
+  if (price === null) {
+    return null;
+  }
+
+  const packPriceCents = safeInteger(price.packPriceCents, 'packPriceCents', 0);
+  const packSizeMilli = safeInteger(price.packSizeMilli, 'packSizeMilli', 1);
+  const quantityMilli = BigInt(line.netQtyMilli);
+  const yieldBp = BigInt(line.yieldBp);
+  const numerator = packPriceCents * MICRO_EUROS_PER_CENT * quantityMilli * BASIS_POINTS;
+  const denominator = packSizeMilli * yieldBp;
+  return roundDiv(numerator, denominator);
 }
