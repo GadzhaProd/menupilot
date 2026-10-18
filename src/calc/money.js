@@ -1,4 +1,5 @@
-const MICRO_EUROS_PER_CENT = 10_000n;
+import { MICRO_EUROS_PER_CENT } from './constants.js';
+
 const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 
 /**

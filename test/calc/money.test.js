@@ -33,6 +33,10 @@ test('rounds half away from zero for positive and negative values', () => {
   assert.equal(roundDiv(-3n, 2n), -2n);
   assert.equal(roundDiv(1n, 3n), 0n);
   assert.equal(roundDiv(-1n, 3n), 0n);
+  assert.equal(roundDiv(4_999n, 10_000n), 0n);
+  assert.equal(roundDiv(-4_999n, 10_000n), 0n);
+  assert.equal(roundDiv(5_000n, 10_000n), 1n);
+  assert.equal(roundDiv(-5_000n, 10_000n), -1n);
   assert.equal(roundDiv(2n, -3n), -1n);
 });
 
