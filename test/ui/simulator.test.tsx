@@ -156,7 +156,7 @@ describe('Scenarios recalculate as calc does', () => {
     const u = user();
     await open(`#/simulator/${BURGER}`);
     await addScenario(u);
-    await typeInto(u, scenario('A').getByLabelText(/New pack price of Beef mince/), '14');
+    await typeInto(u, scenario('A').getByLabelText(/New pack price.* of Beef mince/), '14');
     expect(scenario('A').getByText(/That is/).textContent).toContain('€14.00/kg');
 
     const { delta } = expected({ ingredientPriceCents: { ing_beef: 1400 } });
@@ -170,7 +170,7 @@ describe('Scenarios recalculate as calc does', () => {
     await open(`#/simulator/${BURGER}`);
     await addScenario(u);
     for (const [name, price] of Object.entries(OLD_PRICES)) {
-      await typeInto(u, scenario('A').getByLabelText(new RegExp(`New pack price of ${name}`)), price);
+      await typeInto(u, scenario('A').getByLabelText(new RegExp(`New pack price.* of ${name}`)), price);
     }
     expect(cell(/Recipe-based ingredient cost/, 0)).toBe('€4.85');
     expect(cell(/Recipe-based ingredient cost/, 1)).toContain('€4.20');
@@ -291,7 +291,7 @@ describe('The real data never changes', () => {
     await addScenario(u);
     await typeInto(u, scenario('A').getByLabelText(/Menu price \(incl\. VAT/), '15');
     await u.click(scenario('A').getByText('Ingredient prices'));
-    await typeInto(u, scenario('A').getByLabelText(/New pack price of Beef mince/), '20');
+    await typeInto(u, scenario('A').getByLabelText(/New pack price.* of Beef mince/), '20');
     await typeInto(u, scenario('A').getByLabelText(/New net quantity of Beef mince/), '100');
     expect(storage.setCalls).toBe(0);
 
@@ -377,7 +377,7 @@ describe('Baseline changed', () => {
     await open(`#/simulator/${BURGER}`, storage);
     await addScenario(u);
     await u.click(scenario('A').getByText('Ingredient prices'));
-    await typeInto(u, scenario('A').getByLabelText(/New pack price of Beef mince/), '16');
+    await typeInto(u, scenario('A').getByLabelText(/New pack price.* of Beef mince/), '16');
     await u.click(scenario('A').getByRole('button', { name: 'Save scenario' }));
   }
 
@@ -406,7 +406,7 @@ describe('Baseline changed', () => {
     const saved = savedScenarios(storage)[0];
     expect(saved?.overrides.ingredientPriceCents).toEqual({ ing_beef: 1600 });
     expect(saved?.baseline.ingredients.find((entry) => entry.id === 'ing_mayo')?.prices.at(-1)?.packPriceCents).toBe(500);
-    expect(scenario('A').getByLabelText(/New pack price of Beef mince/)).toHaveProperty('value', '16.00');
+    expect(scenario('A').getByLabelText(/New pack price.* of Beef mince/)).toHaveProperty('value', '16.00');
     expect(screen.queryByText(/older prices/)).toBeNull();
   });
 

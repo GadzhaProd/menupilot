@@ -70,6 +70,7 @@ const monthlyOf = (column: Column) => ({
 
 /** The best column in words: a calculation result, never advice to change a recipe. */
 function Highest({ columns }: { columns: readonly Column[] }) {
+  const skipped = columns.some((column) => column.stale);
   const best = highestMonthly(columns.map(monthlyOf));
   if (best === null) {
     return <p className="text-sm text-muted-foreground">Enter your sales per month to compare monthly contribution.</p>;
@@ -84,6 +85,7 @@ function Highest({ columns }: { columns: readonly Column[] }) {
         : tie
           ? <><strong>{names.join(' and ')}</strong> are tied for the highest estimated monthly contribution ({euro(best.cents)}).</>
           : <><strong>{names[0]}</strong> has the highest estimated monthly contribution ({euro(best.cents)}) at your sales estimate.</>}
+      {skipped ? ' Scenarios on older prices are not counted.' : null}
     </p>
   );
 }
@@ -107,7 +109,7 @@ export function ComparisonTable({ columns }: { columns: readonly Column[] }) {
         <Table className="min-w-[34rem]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="sticky left-0 z-10 w-44 bg-card">Per portion, excl. VAT</TableHead>
+              <TableHead className="sticky left-0 z-10 w-32 bg-card sm:w-44">Per portion, excl. VAT</TableHead>
               {columns.map((column) => (
                 <TableHead
                   key={column.key}
@@ -125,8 +127,8 @@ export function ComparisonTable({ columns }: { columns: readonly Column[] }) {
           </TableHeader>
           <TableBody>
             {ROWS.map((row) => (
-              <TableRow key={row.label} className={row.emphasis ? 'bg-secondary/40 font-medium' : undefined}>
-                <TableHead scope="row" className={cn('sticky left-0 z-10 whitespace-normal font-normal', row.emphasis ? 'bg-secondary text-foreground' : 'bg-card text-foreground')}>
+              <TableRow key={row.label} className={row.emphasis ? 'border-t-2 font-medium' : undefined}>
+                <TableHead scope="row" className={cn('sticky left-0 z-10 whitespace-normal font-normal', 'bg-card text-foreground')}>
                   <span className={row.emphasis ? 'font-semibold' : undefined}>{row.label}</span>
                   {row.hint ? <span className="block text-xs font-normal text-muted-foreground">{row.hint}</span> : null}
                 </TableHead>

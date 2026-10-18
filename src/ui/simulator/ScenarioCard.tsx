@@ -88,7 +88,7 @@ function IngredientPriceRow({ info, text, error, onChange }: {
               {earlier ? <> · Before: {packUnitPriceDisplay(earlier.packPriceCents, earlier.packSizeMilli, info.unit)} ({formatDate(earlier.recordedAt)})</> : null}
             </p>
             <FormField
-              label={<>New pack price<span className="sr-only"> of {info.name}</span> (€, excl. VAT)</>}
+              label={<span>New pack price (€, excl. VAT)<span className="sr-only"> of {info.name}</span></span>}
               hint="Supplier price excl. VAT, as on the invoice"
               error={error}
             >
@@ -135,7 +135,7 @@ function LineRow({ line, draft, error, onChange }: {
         <p className="text-sm font-medium">{line.name}</p>
         <p className="text-xs text-muted-foreground">In Baseline: {formatQuantity(line.netQtyMilli, line.unit)} net per portion batch</p>
         <div className="grid grid-cols-[minmax(0,1fr)_5rem] items-start gap-2">
-          <FormField label={<>New net quantity<span className="sr-only"> of {line.name}</span></>} error={error}>
+          <FormField label={<span>New net quantity<span className="sr-only"> of {line.name}</span></span>} error={error}>
             {(control) => (
               <Input
                 {...control}
@@ -147,7 +147,7 @@ function LineRow({ line, draft, error, onChange }: {
               />
             )}
           </FormField>
-          <FormField label={<>Unit<span className="sr-only"> of {line.name}</span></>}>
+          <FormField label={<span>Unit<span className="sr-only"> of {line.name}</span></span>}>
             {(control) => (
               <Select
                 {...control}
