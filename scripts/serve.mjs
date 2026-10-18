@@ -28,6 +28,10 @@ export function createStaticServer(rootDirectory) {
       response.writeHead(400).end();
       return;
     }
+    if (pathname.includes('\0')) {
+      response.writeHead(400).end();
+      return;
+    }
     if (!pathname.startsWith('/') || pathname.split(/[\\/]+/).includes('..')) {
       response.writeHead(404).end();
       return;
