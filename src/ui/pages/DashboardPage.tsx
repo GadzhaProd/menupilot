@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -14,6 +15,7 @@ import { DishImpactTable } from '@/ui/dashboard/DishImpactTable';
 import { PrepCostList } from '@/ui/dashboard/PrepCostList';
 import { SummaryCards } from '@/ui/dashboard/SummaryCards';
 import { formatCents } from '@/ui/dashboard/format';
+import { hrefFor } from '@/ui/router/routes';
 
 function dateDaysAgo(days: number): string {
   const date = new Date();
@@ -85,7 +87,14 @@ export function DashboardPage() {
         </CardHeader>
         <CardContent>
           {data.dishes.length === 0 ? (
-            <p>No dishes yet.</p>
+            <div className="space-y-3 rounded-lg border border-dashed p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                No dishes yet. Add a dish to see how supplier prices change its cost.
+              </p>
+              <Button asChild size="sm">
+                <a href={hrefFor({ name: 'recipe-new', kind: 'dish' })}>Add your first dish</a>
+              </Button>
+            </div>
           ) : (
             <>
               <DishImpactTable
@@ -101,10 +110,10 @@ export function DashboardPage() {
               {formatCents(data.totalMonthlyImpactCents)}
               {data.excludedWithVolume > 0 && ' (incomplete)'}
             </strong>
-            <span>{data.excludedWithoutVolume} dish(es) without volume excluded</span>
+            <span>{data.excludedWithoutVolume} {data.excludedWithoutVolume === 1 ? 'dish' : 'dishes'} without volume excluded</span>
             {data.excludedWithVolume > 0 && (
               <span>
-                {data.excludedWithVolume} dish(es) excluded: {' '}
+                {data.excludedWithVolume} {data.excludedWithVolume === 1 ? 'dish' : 'dishes'} excluded: {' '}
                 {data.excludedReasons.join(', ')}
               </span>
             )}

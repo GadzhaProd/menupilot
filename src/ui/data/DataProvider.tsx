@@ -27,6 +27,8 @@ interface DataContextValue {
    * one on screen; on failure the document stays as it was and the error is shown.
    */
   execute<R extends CommandOutput>(command: (store: Store) => R, options?: ExecuteOptions): CommandResult<R>;
+  /** Ask the store something without changing the document (for example, the backup text). */
+  read<R>(query: (store: Store) => R): CommandResult<R>;
   dismissError(): void;
 }
 
@@ -103,8 +105,24 @@ export function DataProvider(props: DataProviderProps) {
     }
   }, [store]);
 
+  const read = useCallback(<R,>(query: (store: Store) => R): CommandResult<R> => {
+    try {
+      if (store === null) {
+        throw new StoreError('not-loaded', 'Data is not loaded, so nothing can be read.');
+      }
+      return { ok: true, value: query(store) };
+    } catch (error) {
+      return {
+        ok: false,
+        error: describe(error),
+        code: error instanceof StoreError ? error.code : 'unexpected',
+        details: error instanceof StoreError ? error.details : [],
+      };
+    }
+  }, [store]);
+
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
-  const value = useMemo(() => ({ state, execute, dismissError }), [state, execute, dismissError]);
+  const value = useMemo(() => ({ state, execute, read, dismissError }), [state, execute, read, dismissError]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -132,7 +150,7 @@ export function useDocument(): MenuDocument {
 }
 
 /** Stable command runner and error dismissal. */
-export function useCommands(): Pick<DataContextValue, 'execute' | 'dismissError'> {
-  const { execute, dismissError } = useData();
-  return { execute, dismissError };
+export function useCommands(): Pick<DataContextValue, 'execute' | 'read' | 'dismissError'> {
+  const { execute, read, dismissError } = useData();
+  return { execute, read, dismissError };
 }

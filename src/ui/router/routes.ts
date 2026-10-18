@@ -2,6 +2,8 @@
 export type Route =
   | { name: 'dashboard' }
   | { name: 'ingredients' }
+  /** Backup, restore and reset to demo data. */
+  | { name: 'data' }
   /** The list of dishes and preps, with "New dish" / "New prep". */
   | { name: 'recipes' }
   /** `#/recipe/new?kind=dish|prep`: the empty form for a new recipe. */
@@ -18,6 +20,7 @@ export function parseHash(hash: string): Route {
   const parts = path.split('/');
   const [head, id] = parts;
   if (parts.length === 1 && head === 'ingredients') return { name: 'ingredients' };
+  if (parts.length === 1 && head === 'data') return { name: 'data' };
   if (parts.length === 1 && head === 'recipes') return { name: 'recipes' };
   if (parts.length === 2 && head === 'recipe' && id === 'new') {
     const kind = new URLSearchParams(query).get('kind') ?? 'dish';
@@ -38,6 +41,7 @@ export function hrefFor(route: Exclude<Route, { name: 'not-found' }>): string {
   switch (route.name) {
     case 'dashboard': return '#/';
     case 'ingredients': return '#/ingredients';
+    case 'data': return '#/data';
     case 'recipes': return '#/recipes';
     case 'recipe-new': return `#/recipe/new?kind=${route.kind}`;
     case 'recipe': return `#/recipe/${encodeURIComponent(route.id)}`;

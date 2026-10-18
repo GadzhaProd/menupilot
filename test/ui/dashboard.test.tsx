@@ -41,7 +41,7 @@ describe('Dashboard date comparison', () => {
     expect(dishCells('Classic Burger').slice(3, 6)).toEqual([
       'no price on this date', '€4.85', 'no price on this date',
     ]);
-    expect(screen.getByText(/4 dish\(es\) excluded/)).toBeTruthy();
+    expect(screen.getByText(/4 dishes excluded/)).toBeTruthy();
     expect(screen.getByText(/incomplete/)).toBeTruthy();
 
     const datePicker = screen.getByLabelText('Comparison date');

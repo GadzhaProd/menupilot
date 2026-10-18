@@ -15,6 +15,7 @@ describe('parseHash', () => {
     ['#/simulator/dish_classic_burger', { name: 'simulator', id: 'dish_classic_burger' }],
     ['#/simulator', { name: 'simulator', id: null }],
     ['#/recipe/a%20b', { name: 'recipe', id: 'a b' }],
+    ['#/data', { name: 'data' }],
     ['#/recipes', { name: 'recipes' }],
     ['#/recipe/new', { name: 'recipe-new', kind: 'dish' }],
     ['#/recipe/new?kind=dish', { name: 'recipe-new', kind: 'dish' }],
@@ -23,7 +24,7 @@ describe('parseHash', () => {
     expect(parseHash(hash)).toEqual(route);
   });
 
-  it.each(['#/nope', '#/recipe', '#/recipe/new?kind=soup', '#/recipes/x', '#/recipe/a/b', '#/ingredients/x', '#/recipe/%E0%A4%A', '#//recipe//'])(
+  it.each(['#/nope', '#/recipe', '#/recipe/new?kind=soup', '#/recipes/x', '#/data/x', '#/recipe/a/b', '#/ingredients/x', '#/recipe/%E0%A4%A', '#//recipe//'])(
     '%s is not found',
     (hash) => {
       expect(parseHash(hash).name).toBe('not-found');
@@ -35,6 +36,7 @@ describe('parseHash', () => {
       { name: 'dashboard' }, { name: 'ingredients' }, { name: 'recipe', id: 'a b/c' },
       { name: 'simulator', id: 'x' }, { name: 'simulator', id: null },
       { name: 'recipes' }, { name: 'recipe-new', kind: 'dish' }, { name: 'recipe-new', kind: 'prep' },
+      { name: 'data' },
     ] as const) {
       expect(parseHash(hrefFor(route))).toEqual(route);
     }
@@ -62,6 +64,8 @@ describe('routing in the app', () => {
     expect(await heading(/Simulator: Classic Burger/)).toBeTruthy();
     await go('#/recipes');
     expect(await heading('Recipes')).toBeTruthy();
+    await go('#/data');
+    expect(await heading('Data')).toBeTruthy();
     await go('#/recipe/new?kind=prep');
     expect(await heading('New prep')).toBeTruthy();
     await go('#/recipe/new?kind=dish');
