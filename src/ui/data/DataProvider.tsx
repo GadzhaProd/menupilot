@@ -27,8 +27,8 @@ interface DataContextValue {
    * one on screen; on failure the document stays as it was and the error is shown.
    */
   execute<R extends CommandOutput>(command: (store: Store) => R, options?: ExecuteOptions): CommandResult<R>;
-  /** Ask the store something without changing the document (for example, the backup text). */
-  read<R>(query: (store: Store) => R): CommandResult<R>;
+  /** The saved document as backup JSON. Read-only: it cannot change data. */
+  exportBackup(): CommandResult<string>;
   dismissError(): void;
 }
 
@@ -105,12 +105,12 @@ export function DataProvider(props: DataProviderProps) {
     }
   }, [store]);
 
-  const read = useCallback(<R,>(query: (store: Store) => R): CommandResult<R> => {
+  const exportBackup = useCallback((): CommandResult<string> => {
     try {
       if (store === null) {
         throw new StoreError('not-loaded', 'Data is not loaded, so nothing can be read.');
       }
-      return { ok: true, value: query(store) };
+      return { ok: true, value: store.exportJSON() };
     } catch (error) {
       return {
         ok: false,
@@ -122,7 +122,7 @@ export function DataProvider(props: DataProviderProps) {
   }, [store]);
 
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
-  const value = useMemo(() => ({ state, execute, read, dismissError }), [state, execute, read, dismissError]);
+  const value = useMemo(() => ({ state, execute, exportBackup, dismissError }), [state, execute, exportBackup, dismissError]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -150,7 +150,7 @@ export function useDocument(): MenuDocument {
 }
 
 /** Stable command runner and error dismissal. */
-export function useCommands(): Pick<DataContextValue, 'execute' | 'read' | 'dismissError'> {
-  const { execute, read, dismissError } = useData();
-  return { execute, read, dismissError };
+export function useCommands(): Pick<DataContextValue, 'execute' | 'exportBackup' | 'dismissError'> {
+  const { execute, exportBackup, dismissError } = useData();
+  return { execute, exportBackup, dismissError };
 }

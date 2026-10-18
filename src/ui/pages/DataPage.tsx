@@ -26,21 +26,22 @@ function downloadText(text: string, fileName: string) {
   window.document.body.append(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Revoke later: revoking right after click() can cancel the download in Firefox.
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 /** Back up, restore and reset the data. Everything lives in this browser, so a backup matters. */
 export function DataPage() {
   const document = useDocument();
-  const { execute, read } = useCommands();
+  const { execute, exportBackup: readBackupText } = useCommands();
   const sessions = useSimulatorSessions();
   const dialog = useDialogState<Pending>();
   const fileInput = useRef<HTMLInputElement>(null);
   const openImport = useRef<HTMLButtonElement>(null);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
-  function exportBackup() {
-    const result = read((store) => store.exportJSON());
+  function downloadBackup() {
+    const result = readBackupText();
     if (!result.ok) {
       setNotice({ tone: 'error', text: `The backup could not be created. ${result.error}` });
       return;
@@ -122,7 +123,7 @@ export function DataPage() {
           <CardDescription>Download all ingredients, prices, recipes and saved scenarios as one JSON file.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button type="button" onClick={exportBackup}><DownloadIcon aria-hidden="true" /> Export backup</Button>
+          <Button type="button" onClick={downloadBackup}><DownloadIcon aria-hidden="true" /> Export backup</Button>
         </CardContent>
       </Card>
 
