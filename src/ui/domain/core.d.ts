@@ -13,6 +13,25 @@ declare module '@/calc/money.js' {
   export function formatEURFromMicro(microEuros: bigint): string;
 }
 
+declare module '@/calc/impact.js' {
+  export function costChangeCents(
+    currentMicro: bigint | null,
+    comparisonMicro: bigint | null,
+  ): bigint | null;
+  export function foodCostChangeTenths(
+    currentTenths: bigint | null,
+    comparisonTenths: bigint | null,
+  ): bigint | null;
+  export function monthlyImpactCents(
+    currentContribution: bigint | null,
+    comparisonContribution: bigint | null,
+  ): bigint | null;
+  export function menuMonthlyImpactCents(
+    knownImpacts: readonly (bigint | null)[],
+  ): bigint;
+  export function averageFoodCostTenths(values: readonly bigint[]): bigint | null;
+}
+
 declare module '@/calc/units.js' {
   type BaseUnit = import('@/ui/domain/types').BaseUnit;
   export function normalizeUnit(enteredUnit: string): BaseUnit;

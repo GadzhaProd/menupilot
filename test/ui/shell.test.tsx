@@ -1,38 +1,7 @@
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { STORAGE_KEY, demoCopy, memoryStorage, renderApp } from './helpers';
-
-describe('Dashboard', () => {
-  it('lists the demo dishes with cost and contribution from src/calc', () => {
-    renderApp();
-    const table = screen.getByRole('table');
-    expect(within(table).getByRole('columnheader', { name: /Recipe-based ingredient cost \(excl\. VAT\)/ })).toBeTruthy();
-    expect(within(table).getByRole('columnheader', { name: /Contribution \(before other costs\)/ })).toBeTruthy();
-
-    const rowCells = (name: string) => {
-      const row = within(table).getByRole('link', { name }).closest('tr') as HTMLElement;
-      return within(row).getAllByRole('cell').map((cell) => cell.textContent);
-    };
-    // Same numbers as the store demo test: cost €4.85, contribution €7.15 (price €12.00 excl. VAT).
-    expect(rowCells('Classic Burger')).toEqual(['Classic Burger', '€13.08', '€12.00', '€4.85', '€7.15']);
-    expect(rowCells('House Red Wine (glass)')).toEqual(['House Red Wine (glass)', '€6.50', '€5.37', '€1.32', '€4.05']);
-    expect(within(table).getAllByRole('row')).toHaveLength(1 + 5);
-  });
-
-  it('shows "cost unknown" instead of zero when an ingredient has no price', () => {
-    const doc = demoCopy();
-    const beef = doc.ingredients.find((ingredient) => ingredient.id === 'ing_beef');
-    if (beef) beef.prices = [];
-    renderApp(memoryStorage({ [STORAGE_KEY]: JSON.stringify(doc) }));
-
-    const row = screen.getByRole('link', { name: 'Classic Burger' }).closest('tr') as HTMLElement;
-    expect(within(row).getAllByRole('cell').map((cell) => cell.textContent))
-      .toEqual(['Classic Burger', '€13.08', '€12.00', 'cost unknown', '—']);
-    // Dishes that do not use beef are still calculated.
-    expect(within(screen.getByRole('link', { name: 'Tomato Soup' }).closest('tr') as HTMLElement).getAllByRole('cell')[3]?.textContent).toBe('€0.56');
-  });
-});
+import { renderApp } from './helpers';
 
 describe('Shell', () => {
   it('has landmarks, a skip link and a labelled main navigation', () => {

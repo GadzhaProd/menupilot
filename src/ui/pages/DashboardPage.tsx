@@ -1,82 +1,131 @@
-import { useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMemo, useState } from 'react';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { useDocument } from '@/ui/data/DataProvider';
-import { dishRows, formatEURFromCents, formatEURFromMicro } from '@/ui/domain/calc';
-import { hrefFor } from '@/ui/router/routes';
+import { dashboardData } from '@/ui/domain/dashboard';
+import { ComparisonPicker } from '@/ui/dashboard/ComparisonPicker';
+import { DishImpactCards } from '@/ui/dashboard/DishImpactCards';
+import { DishImpactTable } from '@/ui/dashboard/DishImpactTable';
+import { PrepCostList } from '@/ui/dashboard/PrepCostList';
+import { SummaryCards } from '@/ui/dashboard/SummaryCards';
+import { formatCents } from '@/ui/dashboard/format';
 
-/**
- * On phones each dish becomes a small card: the cell label is shown from `data-label`
- * (the column headers stay in the DOM for screen readers and wide screens).
- */
-const STACKED_CELL = 'max-sm:flex max-sm:justify-between max-sm:gap-4 max-sm:py-1 max-sm:whitespace-normal max-sm:before:text-left max-sm:before:font-normal max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]';
+function dateDaysAgo(days: number): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setTime(date.getTime() - days * 24 * 60 * 60 * 1000);
+  return date.toISOString().slice(0, 10);
+}
+
+function isSelectableDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const year = Number(date.slice(0, 4));
+  if (year < 1000 || year > 9999) return false;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return parsed.toISOString().slice(0, 10) === date
+    && date <= new Date().toISOString().slice(0, 10);
+}
 
 export function DashboardPage() {
   const document = useDocument();
-  // Derived BigInt results: recomputed from the document, never stored.
-  const rows = useMemo(() => dishRows(document), [document]);
+  const [comparisonDate, setComparisonDate] = useState(() => dateDaysAgo(30));
+  const [quickDays, setQuickDays] = useState('30');
+  const comparisonInstant = `${comparisonDate}T23:59:59.999Z`;
+  const data = useMemo(
+    () => dashboardData(document, comparisonInstant),
+    [document, comparisonInstant],
+  );
+
+  function selectPreset(days: number) {
+    setQuickDays(String(days));
+    setComparisonDate(dateDaysAgo(days));
+  }
+
+  function selectDate(date: string) {
+    if (!isSelectableDate(date)) return;
+    setQuickDays('');
+    setComparisonDate(date);
+  }
 
   return (
     <section aria-labelledby="page-title" className="space-y-6">
       <div className="space-y-1">
-        <h1 id="page-title" className="text-2xl font-semibold">Dashboard</h1>
+        <h1 id="page-title" className="text-2xl font-semibold">
+          Dashboard
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Costs are calculated from your recipes at the latest ingredient prices, not from actual usage.
+          Recipe composition is current; only prices differ
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Recipe-based ingredient cost is theoretical, based on your recipes.
           Prices are excl. VAT unless marked incl. VAT.
         </p>
       </div>
+
+      <ComparisonPicker
+        comparisonDate={comparisonDate}
+        quickDays={quickDays}
+        onPreset={selectPreset}
+        onDateChange={selectDate}
+      />
+      <SummaryCards data={data} />
+
       <Card>
         <CardHeader>
           <CardTitle>Dishes</CardTitle>
-          <CardDescription>Per portion. Contribution is before other costs such as staff, rent and waste.</CardDescription>
+          <CardDescription>
+            Contribution is before other costs. Monthly impact uses your volume
+            estimate and is not a forecast.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No dishes yet.</p>
+          {data.dishes.length === 0 ? (
+            <p>No dishes yet.</p>
           ) : (
-            <Table className="max-sm:block [&_tbody]:max-sm:block">
-              <TableHeader className="max-sm:sr-only">
-                <TableRow>
-                  <TableHead className="whitespace-normal">Dish</TableHead>
-                  <TableHead className="whitespace-normal text-right">Menu price (incl. VAT)</TableHead>
-                  <TableHead className="whitespace-normal text-right">Price (excl. VAT)</TableHead>
-                  <TableHead className="whitespace-normal text-right">Recipe-based ingredient cost (excl. VAT)</TableHead>
-                  <TableHead className="whitespace-normal text-right">Contribution (before other costs)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id} className="max-sm:block max-sm:py-3">
-                    <TableCell className="font-medium max-sm:block max-sm:pb-2 max-sm:text-base">
-                      <a className="underline-offset-4 hover:underline focus-visible:underline" href={hrefFor({ name: 'recipe', id: row.id })}>
-                        {row.name}
-                      </a>
-                    </TableCell>
-                    <TableCell data-label="Menu price (incl. VAT)" className={`text-right ${STACKED_CELL}`}>{formatEURFromCents(row.menuPriceInclVatCents)}</TableCell>
-                    <TableCell data-label="Price (excl. VAT)" className={`text-right ${STACKED_CELL}`}>
-                      {row.priceExclVatMicro === null ? '—' : formatEURFromMicro(row.priceExclVatMicro)}
-                    </TableCell>
-                    <TableCell data-label="Recipe-based ingredient cost (excl. VAT)" className={`text-right ${STACKED_CELL}`}>
-                      {row.status === 'error' ? (
-                        <span className="text-destructive">Cannot calculate</span>
-                      ) : row.costPerPortionMicro === null ? (
-                        <span className="text-muted-foreground">cost unknown</span>
-                      ) : (
-                        formatEURFromMicro(row.costPerPortionMicro)
-                      )}
-                    </TableCell>
-                    <TableCell data-label="Contribution (before other costs)" className={`text-right ${STACKED_CELL}`}>
-                      {row.contributionMicro === null ? '—' : formatEURFromMicro(row.contributionMicro)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <>
+              <DishImpactTable
+                rows={data.dishes}
+                comparisonDate={comparisonDate}
+              />
+              <DishImpactCards rows={data.dishes} />
+            </>
           )}
+          <div className="mt-4 flex flex-wrap justify-between gap-2 border-t pt-4 text-sm">
+            <span>Menu monthly impact (dishes with a volume estimate)</span>
+            <strong>
+              {formatCents(data.totalMonthlyImpactCents)}
+              {data.excludedWithVolume > 0 && ' (incomplete)'}
+            </strong>
+            <span>{data.excludedWithoutVolume} dish(es) without volume excluded</span>
+            {data.excludedWithVolume > 0 && (
+              <span>
+                {data.excludedWithVolume} dish(es) excluded: {' '}
+                {data.excludedReasons.join(', ')}
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
+
+      <PrepCostList rows={data.preps} />
+
+      <p className="text-xs text-muted-foreground">
+        Food cost is an operational reference. NL horeca average ≈ 30% (Sligro,
+        2025); this is not a target or rule.{' '}
+        <a
+          className="underline"
+          href="https://www.sligro.nl/inspiratie/rendement-kosten/kengetallen.html"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Sligro reference
+        </a>
+      </p>
     </section>
   );
 }

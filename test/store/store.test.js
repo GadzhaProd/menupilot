@@ -173,6 +173,32 @@ test('cannot delete a used ingredient or prep; unused ones are deleted', () => {
   assertStoreError(() => store.deleteRecipe('d1'), 'not-found');
 });
 
+test('cannot change the output unit of a prep used by any recipe', () => {
+  const { storage, store } = seeded();
+  const before = store.getDocument();
+  const raw = storage.data.get(STORAGE_KEY);
+  const usedPrep = before.recipes.find((recipe) => recipe.id === 'p1');
+
+  assertStoreError(
+    () => store.saveRecipe({ ...usedPrep, outputUnit: 'ml' }),
+    'in-use',
+    /cannot change.*output unit.*used by.*d1/i,
+  );
+  assert.equal(store.getDocument(), before);
+  assert.equal(storage.data.get(STORAGE_KEY), raw);
+
+  // Same measurement family unit is exactly the same stored base unit; unused preps may change.
+  const renamed = store.saveRecipe({ ...usedPrep, name: 'Renamed prep' });
+  assert.equal(renamed.document.recipes[0].name, 'Renamed prep');
+  const unused = { ...usedPrep, id: 'p2', outputUnit: 'g' };
+  store.saveRecipe(unused);
+  const changedUnused = store.saveRecipe({ ...unused, outputUnit: 'ml' });
+  assert.equal(
+    changedUnused.document.recipes.find((recipe) => recipe.id === 'p2').outputUnit,
+    'ml',
+  );
+});
+
 test('deleting a dish with scenarios is refused unless deleteScenarios is set', () => {
   const base = smallDocument();
   base.scenarios = [makeScenario(base, 'd1', {}, 'sc1'), { ...makeScenario(base, 'd1', {}, 'sc2'), name: 'Second' }];
