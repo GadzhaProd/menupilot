@@ -619,3 +619,14 @@ describe('Review fixes: hints come from the scenario’s own baseline', () => {
     expect(cell(/Menu price \(incl\. VAT\)/, 0)).toBe('€14.00');
   });
 });
+
+describe('Default names', () => {
+  it('follow the position of the card, even after another scenario was renamed', async () => {
+    const u = user();
+    await open(`#/simulator/${BURGER}`);
+    await addScenario(u);
+    await typeInto(u, scenario('A').getByLabelText('Scenario name'), 'Raise price');
+    await addScenario(u);
+    expect(scenario('B').getByLabelText('Scenario name')).toHaveProperty('value', 'Scenario B');
+  });
+});

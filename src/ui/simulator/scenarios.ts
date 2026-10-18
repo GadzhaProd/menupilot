@@ -41,10 +41,12 @@ export const isUnsaved = (draft: ScenarioDraft) =>
 
 export const slotLetter = (index: number) => SLOT_LETTERS[index] ?? String(index + 1);
 
-/** "Scenario A" for the first free slot letter. */
+/** "Scenario B" for the second card: the letter of its position, or the first free one if that name is taken. */
 export function defaultName(drafts: readonly ScenarioDraft[]): string {
-  const letter = SLOT_LETTERS.find((candidate) => !drafts.some((draft) => draft.name === `Scenario ${candidate}`));
-  return `Scenario ${letter ?? drafts.length + 1}`;
+  const taken = (letter: string) => drafts.some((draft) => draft.name === `Scenario ${letter}`);
+  const own = slotLetter(drafts.length);
+  const letter = taken(own) ? SLOT_LETTERS.find((candidate) => !taken(candidate)) : own;
+  return `Scenario ${letter ?? own}`;
 }
 
 /** Saved scenarios of a dish, oldest first. */
