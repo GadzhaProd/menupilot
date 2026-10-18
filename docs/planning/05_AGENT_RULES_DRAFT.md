@@ -24,11 +24,13 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 ## Money and numbers (non-negotiable)
 - Money is stored as integer euro cents. Never store or sum money as floats.
 - No runtime dependencies and no build step without the owner's approval.
-- Intermediate costs use integer micro-euros; round half-up only at the points
+- Intermediate costs use integer micro-euros; round half away from zero only at the points
   defined in docs/planning/03_ARCHITECTURE.md (Rounding rules).
 - All calculations use prices EXCLUDING VAT. Label every price "incl. VAT" or "excl. VAT".
 - "Contribution" is never called profit.
-- Monthly figures come only from the user's explicit sales volume. No forecasts.
+- Use the UI term "Recipe-based ingredient cost": theoretical recipe cost, not actual usage.
+- Supplier-price input hint: "Supplier price excl. VAT, as on the invoice".
+- Monthly impact uses the owner's optional `monthlyVolume` estimate (safe integer ≥ 0), never a forecast. It is monthly contribution at current prices minus monthly contribution at comparison-date prices (same rule as simulator deltas, see 03 step 10); dishes without volume display "—" and are excluded from the menu total.
 - Calculations inside src/calc/ use BigInt; stored values are safe integers;
   parse user decimals from strings, never via parseFloat.
 - All formulas live in src/calc/ (pure functions, no I/O, no DOM). UI never
@@ -38,6 +40,11 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 - The simulator never changes real ingredients, prices or recipes. Scenarios are
   stored separately with their own baseline snapshot.
 - Ingredient prices are append-only history; the current price is the latest entry.
+- A recipe has `kind: "dish" | "prep"`. Prep has `outputMilli` and `outputUnit` (`g|ml|pc`) and no menu price, VAT, portions, or monthly volume. Lines use `ref: { kind: "ingredient" | "prep", id }`, `netQtyMilli`, and `yieldBp`; line and referenced units must match.
+- Reject prep self-reference and cycles on save and import; cap nesting depth at 5 with a clear error. Do not delete a referenced ingredient or prep. Unknown cost propagates through all parent preps and dishes.
+- Prep line cost uses `roundDiv(batchCostµ(prep) * netQtyMilli * 10^4, outputMilli * yieldBp)`; ingredient-line arithmetic and every rounding point are defined in 03. Price-date selection is shared by every nesting level.
+- In the simulator, ingredient-price overrides flow through all prep levels; quantity overrides affect only dish top-level lines. Baseline snapshots include every reachable prep and its prices.
+- Pack price per kg/l/pc is display-only; never rewrite stored pack price or size for the conversion.
 - Unknown is not zero: a recipe with a missing price shows "cost unknown".
 - Validate all user input and imported files; reject with a clear message. Fail fast.
   A failed import or save must leave existing data untouched.
