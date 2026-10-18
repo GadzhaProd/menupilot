@@ -12,13 +12,14 @@ describe('dashboard domain adapter', () => {
     expect(burger?.comparisonCostMicro).toBe(4_200_000n);
     expect(burger?.currentCostMicro).toBe(4_850_000n);
     expect(burger?.monthlyImpactCents).toBe(-19_500n);
+    expect(burger?.costDeltaCents).toBe(65n);
   });
 
   it('shows no cost or monthly changes at 7 days and a zero menu total', () => {
     const result = dashboardData(demoData, '2026-10-11T23:59:59.999Z');
     const burger = result.dishes.find((row) => row.name === 'Classic Burger');
 
-    expect(burger?.costDeltaMicro).toBe(0n);
+    expect(burger?.costDeltaCents).toBe(0n);
     expect(burger?.monthlyImpactCents).toBe(0n);
     expect(result.totalMonthlyImpactCents).toBe(0n);
   });
@@ -27,7 +28,9 @@ describe('dashboard domain adapter', () => {
     const result = dashboardData(demoData, '2026-07-20T23:59:59.999Z');
 
     expect(result.dishes.every((row) => row.status === 'no-price-on-date')).toBe(true);
-    expect(result.totalMonthlyImpactCents).toBeNull();
+    expect(result.totalMonthlyImpactCents).toBe(0n);
+    expect(result.excludedWithVolume).toBe(4);
+    expect(result.excludedReasons).toContain('no price on this date');
   });
 
   it('excludes dishes without a volume and totals only the other monthly impacts', () => {
@@ -54,8 +57,25 @@ describe('dashboard domain adapter', () => {
 
     expect(burger?.status).toBe('no-price-on-date');
     expect(burger?.comparisonCostMicro).toBeNull();
-    expect(burger?.costDeltaMicro).toBeNull();
+    expect(burger?.costDeltaCents).toBeNull();
     expect(burger?.monthlyImpactCents).toBeNull();
+    expect(result.dishes.some((row) => row.id !== burger?.id
+      && row.currentCostMicro !== null)).toBe(true);
+  });
+
+  it('shows cost unknown instead of zero when an ingredient has no price', () => {
+    const data = structuredClone(demo) as typeof demo;
+    const beef = data.ingredients.find((ingredient) => ingredient.id === 'ing_beef');
+    if (beef) beef.prices = [];
+
+    const result = dashboardData(data as never, '2026-09-18T23:59:59.999Z');
+    const burger = result.dishes.find((row) => row.name === 'Classic Burger');
+
+    expect(burger?.status).toBe('cost-unknown');
+    expect(burger?.currentCostMicro).toBeNull();
+    expect(burger?.comparisonCostMicro).toBeNull();
+    expect(result.dishes.some((row) => row.id !== burger?.id
+      && row.currentCostMicro !== null)).toBe(true);
   });
 
   it('provides prep unit costs for kg, l and pc at current and comparison prices', () => {
@@ -118,7 +138,7 @@ describe('dashboard domain adapter', () => {
   it('counts exactly the demo dishes whose recipe cost increased over 30 days', () => {
     const result = dashboardData(demoData, '2026-09-18T23:59:59.999Z');
     const increased = result.dishes.filter(
-      (row) => row.costDeltaMicro !== null && row.costDeltaMicro > 0n,
+      (row) => row.costDeltaCents !== null && row.costDeltaCents > 0n,
     );
 
     expect(increased.map((row) => row.name)).toEqual([

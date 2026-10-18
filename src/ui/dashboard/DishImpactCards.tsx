@@ -33,10 +33,11 @@ function metricRows(row: DashboardDishRow) {
 
 export function DishImpactCards({ rows }: DishImpactCardsProps) {
   return (
-    <div className="grid gap-3 md:hidden">
+    <section aria-label="Dish comparison cards" className="grid gap-3 md:hidden">
+      <h2 className="sr-only">Dish comparison</h2>
       {rows.map((row) => {
         const gotMoreExpensive =
-          row.costDeltaMicro !== null && row.costDeltaMicro > 0n;
+          row.costDeltaCents !== null && row.costDeltaCents > 0n;
 
         return (
           <article key={row.id} className="rounded-lg border p-4">
@@ -69,6 +70,6 @@ export function DishImpactCards({ rows }: DishImpactCardsProps) {
           </article>
         );
       })}
-    </div>
+    </section>
   );
 }

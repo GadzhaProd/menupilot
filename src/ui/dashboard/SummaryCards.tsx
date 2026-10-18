@@ -15,7 +15,10 @@ export function SummaryCards({ data }: SummaryCardsProps) {
   const cards = [
     ['Dishes that got more expensive', String(data.gotMoreExpensive)],
     ['Monthly impact at your volume', formatCents(data.totalMonthlyImpactCents)],
-    ['Average food cost %', formatPercentTenths(data.averageFoodCostTenthsPct)],
+    [
+      'Average food cost % (simple average of dishes, now)',
+      formatPercentTenths(data.averageFoodCostTenthsPct),
+    ],
     ['Dishes without volume', String(data.excludedWithoutVolume)],
   ];
 

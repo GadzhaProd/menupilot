@@ -5,6 +5,13 @@ import {
   recipeCost,
   selectPriceAtDate,
 } from './calc';
+import {
+  averageFoodCostTenths,
+  costChangeCents,
+  foodCostChangeTenths,
+  menuMonthlyImpactCents,
+  monthlyImpactCents,
+} from '@/calc/impact.js';
 import type { Dish, MenuDocument, Prep, Recipe } from './types';
 
 type Catalog = Pick<MenuDocument, 'ingredients' | 'recipes'>;
@@ -24,7 +31,7 @@ export interface DashboardDishRow {
   comparisonCostMicro: bigint | null;
   currentContributionMicro: bigint | null;
   currentFoodCostTenthsPct: bigint | null;
-  costDeltaMicro: bigint | null;
+  costDeltaCents: bigint | null;
   foodCostDeltaTenthsPct: bigint | null;
   monthlyImpactCents: bigint | null;
   status: DashboardStatus;
@@ -37,6 +44,7 @@ export interface DashboardPrepRow {
   current: string | null;
   comparison: string | null;
   noPriceOnDate: boolean;
+  costUnknown: boolean;
 }
 
 export interface DashboardData {
@@ -44,40 +52,51 @@ export interface DashboardData {
   preps: DashboardPrepRow[];
   totalMonthlyImpactCents: bigint | null;
   excludedWithoutVolume: number;
+  excludedWithVolume: number;
+  excludedReasons: string[];
   gotMoreExpensive: number;
   averageFoodCostTenthsPct: bigint | null;
 }
 
-function recipeUsesMissingPrice(
+type PriceIssue = 'cost-unknown' | 'no-price-on-date' | null;
+
+function recipePriceIssue(
   recipe: Recipe,
   catalog: Catalog,
   asOf: string,
   visited = new Set<string>(),
-): boolean {
-  if (visited.has(recipe.id)) return false;
+): PriceIssue {
+  if (visited.has(recipe.id)) return null;
   visited.add(recipe.id);
 
-  return recipe.lines.some((line) => {
+  for (const line of recipe.lines) {
     if (line.ref.kind === 'ingredient') {
       const ingredient = catalog.ingredients.find(
         (entry) => entry.id === line.ref.id,
       );
-      return !ingredient || selectPriceAtDate(ingredient.prices, asOf) === null;
+      if (!ingredient || ingredient.prices.length === 0) return 'cost-unknown';
+      if (selectPriceAtDate(ingredient.prices, asOf) === null) {
+        return 'no-price-on-date';
+      }
+      continue;
     }
 
     const prep = catalog.recipes.find(
       (entry) => entry.id === line.ref.id && entry.kind === 'prep',
     );
-    return !prep || recipeUsesMissingPrice(prep, catalog, asOf, visited);
-  });
+    if (!prep) return 'cost-unknown';
+    const issue = recipePriceIssue(prep, catalog, asOf, visited);
+    if (issue !== null) return issue;
+  }
+  return null;
 }
 
 function dishStatus(
-  missingPrice: boolean,
+  priceIssue: PriceIssue,
   currentStatus: string,
   historicalStatus: string,
 ): DashboardStatus {
-  if (missingPrice) return 'no-price-on-date';
+  if (priceIssue !== null) return priceIssue;
   if (currentStatus === 'cost-unknown' || historicalStatus === 'cost-unknown') {
     return 'cost-unknown';
   }
@@ -85,7 +104,7 @@ function dishStatus(
 }
 
 function makeDishRow(dish: Dish, catalog: Catalog, asOf: string): DashboardDishRow {
-  const missingPrice = recipeUsesMissingPrice(dish, catalog, asOf);
+  const priceIssue = recipePriceIssue(dish, catalog, asOf);
   const commonMetrics = {
     menuPriceInclVatCents: dish.menuPriceInclVatCents,
     vatRateBp: dish.vatRateBp,
@@ -104,12 +123,13 @@ function makeDishRow(dish: Dish, catalog: Catalog, asOf: string): DashboardDishR
       ...commonMetrics,
     });
 
-    const monthlyImpactCents =
-      dish.monthlyVolume == null ||
-      current.monthlyContributionCents === null ||
-      historical.monthlyContributionCents === null
+    const monthlyImpact =
+      dish.monthlyVolume == null
         ? null
-        : current.monthlyContributionCents - historical.monthlyContributionCents;
+        : monthlyImpactCents(
+          current.monthlyContributionCents,
+          historical.monthlyContributionCents,
+        );
 
     return {
       id: dish.id,
@@ -120,13 +140,20 @@ function makeDishRow(dish: Dish, catalog: Catalog, asOf: string): DashboardDishR
       comparisonCostMicro: historical.recipeCostPerPortionMicro,
       currentContributionMicro: current.contributionMicro,
       currentFoodCostTenthsPct: current.foodCostTenthsPct,
-      costDeltaMicro: difference(current.recipeCostPerPortionMicro, historical.recipeCostPerPortionMicro),
-      foodCostDeltaTenthsPct: difference(current.foodCostTenthsPct, historical.foodCostTenthsPct),
-      monthlyImpactCents,
-      status: dishStatus(missingPrice, current.status, historical.status),
+      costDeltaCents: costChangeCents(
+        current.recipeCostPerPortionMicro,
+        historical.recipeCostPerPortionMicro,
+      ),
+      foodCostDeltaTenthsPct: foodCostChangeTenths(
+        current.foodCostTenthsPct,
+        historical.foodCostTenthsPct,
+      ),
+      monthlyImpactCents: monthlyImpact,
+      status: dishStatus(priceIssue, current.status, historical.status),
       monthlyVolume: dish.monthlyVolume ?? null,
     };
-  } catch {
+  } catch (error) {
+    if (!(error instanceof TypeError) && !(error instanceof RangeError)) throw error;
     return {
       id: dish.id,
       name: dish.name,
@@ -136,7 +163,7 @@ function makeDishRow(dish: Dish, catalog: Catalog, asOf: string): DashboardDishR
       comparisonCostMicro: null,
       currentContributionMicro: null,
       currentFoodCostTenthsPct: null,
-      costDeltaMicro: null,
+      costDeltaCents: null,
       foodCostDeltaTenthsPct: null,
       monthlyImpactCents: null,
       status: 'error',
@@ -145,14 +172,12 @@ function makeDishRow(dish: Dish, catalog: Catalog, asOf: string): DashboardDishR
   }
 }
 
-function difference(current: bigint | null, historical: bigint | null): bigint | null {
-  return current === null || historical === null ? null : current - historical;
-}
-
 function makePrepRow(prep: Prep, catalog: Catalog, asOf: string): DashboardPrepRow {
-  const currentBatchCost = batchCostMicro(prep, catalog);
-  const noPriceOnDate = recipeUsesMissingPrice(prep, catalog, asOf);
-  const historicalBatchCost = noPriceOnDate
+  const priceIssue = recipePriceIssue(prep, catalog, asOf);
+  const costUnknown = priceIssue === 'cost-unknown';
+  const noPriceOnDate = priceIssue === 'no-price-on-date';
+  const currentBatchCost = costUnknown ? null : batchCostMicro(prep, catalog);
+  const historicalBatchCost = priceIssue !== null
     ? null
     : batchCostMicro(prep, catalog, { asOf });
 
@@ -164,15 +189,8 @@ function makePrepRow(prep: Prep, catalog: Catalog, asOf: string): DashboardPrepR
       ? null
       : prepUnitCostDisplay(historicalBatchCost, prep.outputMilli, prep.outputUnit),
     noPriceOnDate,
+    costUnknown,
   };
-}
-
-function averageFoodCost(rows: readonly DashboardDishRow[]): bigint | null {
-  const values = rows.flatMap((row) =>
-    row.currentFoodCostTenthsPct === null ? [] : [row.currentFoodCostTenthsPct],
-  );
-  if (values.length === 0) return null;
-  return values.reduce((sum, value) => sum + value, 0n) / BigInt(values.length);
 }
 
 export function dashboardData(data: Catalog, asOf: string): DashboardData {
@@ -185,17 +203,32 @@ export function dashboardData(data: Catalog, asOf: string): DashboardData {
   const knownImpacts = dishes.flatMap((row) =>
     row.monthlyImpactCents === null ? [] : [row.monthlyImpactCents],
   );
+  const dishesWithVolume = dishes.filter((row) => row.monthlyVolume !== null);
+  const excludedWithVolumeRows = dishesWithVolume.filter(
+    (row) => row.monthlyImpactCents === null,
+  );
+  const excludedReasons = [...new Set(excludedWithVolumeRows.map((row) => {
+    if (row.status === 'no-price-on-date') return 'no price on this date';
+    if (row.status === 'cost-unknown') return 'cost unknown';
+    return 'n/a';
+  }))];
 
   return {
     dishes,
     preps,
-    totalMonthlyImpactCents: knownImpacts.length === 0
+    totalMonthlyImpactCents: dishesWithVolume.length === 0
       ? null
-      : knownImpacts.reduce((sum, value) => sum + value, 0n),
+      : menuMonthlyImpactCents(knownImpacts),
     excludedWithoutVolume: dishes.filter((row) => row.monthlyVolume === null).length,
+    excludedWithVolume: excludedWithVolumeRows.length,
+    excludedReasons,
     gotMoreExpensive: dishes.filter(
-      (row) => row.costDeltaMicro !== null && row.costDeltaMicro > 0n,
+      (row) => row.costDeltaCents !== null && row.costDeltaCents > 0n,
     ).length,
-    averageFoodCostTenthsPct: averageFoodCost(dishes),
+    averageFoodCostTenthsPct: averageFoodCostTenths(
+      dishes.flatMap((row) => row.currentFoodCostTenthsPct === null
+        ? []
+        : [row.currentFoodCostTenthsPct]),
+    ),
   };
 }

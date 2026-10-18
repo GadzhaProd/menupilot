@@ -41,6 +41,8 @@ describe('Dashboard date comparison', () => {
     expect(dishCells('Classic Burger').slice(3, 6)).toEqual([
       'no price on this date', '€4.85', 'no price on this date',
     ]);
+    expect(screen.getByText(/4 dish\(es\) excluded/)).toBeTruthy();
+    expect(screen.getByText(/incomplete/)).toBeTruthy();
 
     const datePicker = screen.getByLabelText('Comparison date');
     fireEvent.change(datePicker, { target: { value: '2026-10-11' } });
@@ -70,5 +72,16 @@ describe('Dashboard date comparison', () => {
     expect(within(burgerCards[0]!).getByText('€4.20')).toBeTruthy();
     expect(within(burgerCards[0]!).getByText('€4.85')).toBeTruthy();
     expect(within(burgerCards[0]!).getByText('-€195.00')).toBeTruthy();
+  });
+
+  it('ignores dates after today and exposes today as the maximum date', () => {
+    renderApp();
+    const datePicker = screen.getByLabelText('Comparison date');
+    expect(datePicker.getAttribute('max')).toBe('2026-10-18');
+    fireEvent.change(datePicker, { target: { value: '2026-10-19' } });
+    expect(dishCells('Classic Burger').slice(3, 5)).toEqual(['€4.20', '€4.85']);
+    fireEvent.change(datePicker, { target: { value: '275760-09-13' } });
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
+    expect(dishCells('Classic Burger').slice(3, 5)).toEqual(['€4.20', '€4.85']);
   });
 });

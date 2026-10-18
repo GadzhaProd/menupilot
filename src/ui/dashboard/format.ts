@@ -11,8 +11,9 @@ export function formatCents(cents: bigint | null): string {
 
 export function formatPercentTenths(tenths: bigint | null): string {
   if (tenths === null) return 'n/a';
-  const fraction = tenths < 0n ? -(tenths % 10n) : tenths % 10n;
-  return `${tenths / 10n}.${fraction}%`;
+  const sign = tenths < 0n ? '-' : '';
+  const absolute = tenths < 0n ? -tenths : tenths;
+  return `${sign}${absolute / 10n}.${absolute % 10n}%`;
 }
 
 export function formatPoints(tenths: bigint | null): string {
@@ -29,9 +30,9 @@ export function comparisonStatus(row: DashboardDishRow): string | null {
 }
 
 export function formatCostChange(row: DashboardDishRow): string {
-  if (row.costDeltaMicro === null) return comparisonStatus(row) ?? 'n/a';
-  const sign = row.costDeltaMicro > 0n ? '+' : '';
-  return `${sign}${formatMoney(row.costDeltaMicro)}`;
+  if (row.costDeltaCents === null) return comparisonStatus(row) ?? 'n/a';
+  const sign = row.costDeltaCents > 0n ? '+' : '';
+  return `${sign}${formatCents(row.costDeltaCents)}`;
 }
 
 export function formatHistoricalCost(row: DashboardDishRow): string {

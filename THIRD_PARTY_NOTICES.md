@@ -14,10 +14,6 @@ Dialog, Label with Helper Text, Select and Toast; the 21st.dev CLI shows no lice
 them, so by the project rule none was copied or used as a model. If one is added later, its
 licence text goes to `third_party/21st/<slug>/LICENSE` and it is listed here (see README, "21st.dev").
 
-Stage 5 uses an adapted table primitive from [Origin UI Table](https://21st.dev/@originui/components/table),
-MIT, in `src/ui/dashboard/DashboardTable.tsx`. Its licence is included at
-`third_party/21st/originui-table/LICENSE`. No additional runtime dependency is required.
-
 ## Runtime dependencies (bundled into the app)
 
 | Package | Licence | Copyright |

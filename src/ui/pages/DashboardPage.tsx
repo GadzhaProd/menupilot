@@ -17,8 +17,18 @@ import { formatCents } from '@/ui/dashboard/format';
 
 function dateDaysAgo(days: number): string {
   const date = new Date();
-  date.setDate(date.getDate() - days);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setTime(date.getTime() - days * 24 * 60 * 60 * 1000);
   return date.toISOString().slice(0, 10);
+}
+
+function isSelectableDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const year = Number(date.slice(0, 4));
+  if (year < 1000 || year > 9999) return false;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return parsed.toISOString().slice(0, 10) === date
+    && date <= new Date().toISOString().slice(0, 10);
 }
 
 export function DashboardPage() {
@@ -37,7 +47,7 @@ export function DashboardPage() {
   }
 
   function selectDate(date: string) {
-    if (!date) return;
+    if (!isSelectableDate(date)) return;
     setQuickDays('');
     setComparisonDate(date);
   }
@@ -87,8 +97,17 @@ export function DashboardPage() {
           )}
           <div className="mt-4 flex flex-wrap justify-between gap-2 border-t pt-4 text-sm">
             <span>Menu monthly impact (dishes with a volume estimate)</span>
-            <strong>{formatCents(data.totalMonthlyImpactCents)}</strong>
+            <strong>
+              {formatCents(data.totalMonthlyImpactCents)}
+              {data.excludedWithVolume > 0 && ' (incomplete)'}
+            </strong>
             <span>{data.excludedWithoutVolume} dish(es) without volume excluded</span>
+            {data.excludedWithVolume > 0 && (
+              <span>
+                {data.excludedWithVolume} dish(es) excluded: {' '}
+                {data.excludedReasons.join(', ')}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>

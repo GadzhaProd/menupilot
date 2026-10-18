@@ -12,6 +12,12 @@ interface PrepCostListProps {
   rows: readonly DashboardPrepRow[];
 }
 
+function comparisonCost(row: DashboardPrepRow): string {
+  if (row.costUnknown) return 'cost unknown';
+  if (row.noPriceOnDate) return 'no price on this date';
+  return row.comparison ?? 'cost unknown';
+}
+
 export function PrepCostList({ rows }: PrepCostListProps) {
   return (
     <Card>
@@ -42,9 +48,7 @@ export function PrepCostList({ rows }: PrepCostListProps) {
                 </span>
                 <span>
                   Cost on comparison date (excl. VAT):{' '}
-                  {row.noPriceOnDate
-                    ? 'no price on this date'
-                    : row.comparison ?? 'cost unknown'}
+                  {comparisonCost(row)}
                 </span>
               </div>
             ))}

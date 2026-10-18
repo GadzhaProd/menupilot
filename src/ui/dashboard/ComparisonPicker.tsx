@@ -7,6 +7,10 @@ interface ComparisonPickerProps {
 
 const PRESETS = [7, 30, 90];
 
+function utcToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function ComparisonPicker({
   comparisonDate,
   quickDays,
@@ -36,11 +40,14 @@ export function ComparisonPicker({
         <input
           aria-label="Comparison date"
           type="date"
+          min="1000-01-01"
+          max={utcToday()}
           value={comparisonDate}
           onChange={(event) => onDateChange(event.target.value)}
           className="rounded-md border bg-background px-2 py-1.5"
         />
       </label>
+      <span className="text-xs text-muted-foreground">Dates in UTC</span>
     </div>
   );
 }
