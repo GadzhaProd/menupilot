@@ -40,7 +40,7 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 - The simulator never changes real ingredients, prices or recipes. Scenarios are
   stored separately with their own baseline snapshot.
 - Ingredient prices are append-only history; the current price is the latest entry.
-- A recipe has `kind: "dish" | "prep"`. Prep has `outputMilli` and `outputUnit` (`g|ml|pc`) and no menu price, VAT, portions, or monthly volume. Lines use `ref: { kind: "ingredient" | "prep", id }`, `netQtyMilli`, and `yieldBp`; line and referenced units must match.
+- A recipe has `kind: "dish" | "prep"`. Prep has `outputMilli` and `outputUnit` (`g|ml|pc`) and no menu price, VAT, portions, or monthly volume. Lines use `ref: { kind: "ingredient" | "prep", id }`, `netQtyMilli`, and `yieldBp`; `netQtyMilli` is always in the base unit of the referenced ingredient or prep output (lines have no own unit; the UI converts kg/l on input).
 - Reject prep self-reference and cycles on save and import; cap nesting depth at 5 with a clear error. Do not delete a referenced ingredient or prep. Unknown cost propagates through all parent preps and dishes.
 - Prep line cost uses `roundDiv(batchCostµ(prep) * netQtyMilli * 10^4, outputMilli * yieldBp)`; ingredient-line arithmetic and every rounding point are defined in 03. Price-date selection is shared by every nesting level.
 - In the simulator, ingredient-price overrides flow through all prep levels; quantity overrides affect only dish top-level lines. Baseline snapshots include every reachable prep and its prices.

@@ -46,9 +46,10 @@ MenuPilot v1 — это **статическое браузерное прило
 ```
 index.html                  каркас, навигация (hash-роутинг: #/, #/ingredients, #/recipe/:id, #/simulator/:id)
 styles.css
-src/calc/money.js           parseMoney("12,50") → центы; roundDiv (half away from zero); formatEUR
-src/calc/units.js           kg→g, l→ml; запрет смешения масса/объём/штуки
-src/calc/costing.js         ingredientLineCost, prepLineCost, recipeCost, packUnitPriceDisplay, prepUnitCostDisplay, netPrice, metrics
+src/calc/money.js           parseMoneyToCents("12,50"); roundDiv (half away from zero); formatEURFromCents / formatEURFromMicro
+src/calc/units.js           parseQuantityToMilli (kg→g, l→ml); запрет смешения масса/объём/штуки
+src/calc/costing.js         selectPriceAtDate, ingredientLineCostMicro, netPriceMicro, monthlyContributionCents, metrics, packUnitPriceDisplay
+src/calc/prep.js            recipeBatchCostMicro, batchCostMicro, prepLineCostMicro, prepUnitCostDisplay (рекурсия заготовок)
 src/calc/simulate.js        simulate(baselineSnapshot, overrides) → metrics; compare(baseline, scenarios)
 src/store/schema.js         валидация документа и сущностей, версия формата
 src/store/store.js          load/save/export/import, демо-данные, сброс
@@ -88,7 +89,7 @@ scripts/serve.mjs           локальный статический серве
   }]
 }
 ```
-Все числа в хранилище — безопасные целые (`Number.isSafeInteger`); `monthlyVolume` необязателен, целое ≥ 0, оценка владельца, не прогноз. `BigInt` используется только внутри `calc`. Ввод разбирается из строки без `parseFloat`. Идентификаторы строк, сущностей и ссылки уникальны; единица строки совпадает с единицей ингредиента или `outputUnit` заготовки. Prep не имеет меню, НДС, порций или объёма продаж.
+Все числа в хранилище — безопасные целые (`Number.isSafeInteger`); `monthlyVolume` необязателен, целое ≥ 0, оценка владельца, не прогноз. `BigInt` используется только внутри `calc`. Ввод разбирается из строки без `parseFloat`: деньги — до 2 знаков; количества в g/ml/pc — до 2 знаков, в kg/l — до 3 (разделители тысяч не поддерживаются). Даты (`recordedAt`, дата сравнения) — полный ISO-момент с часовым поясом. Идентификаторы строк, сущностей и ссылки уникальны. У строки рецепта нет своей единицы: `netQtyMilli` всегда в базовой единице ссылки (ингредиента или `outputUnit` заготовки); UI переводит kg→g и l→ml при вводе. Prep не имеет меню, НДС, порций или объёма продаж.
 
 ## 6. Расчёты и округление (контракт)
 Единицы: деньги внутри расчётов — **микроевро** (µ€, 1 € = 1 000 000 µ€, 1 цент = 10 000 µ€). Количества — тысячные доли базовой единицы. Все операции выполняются на `BigInt`. Единственная операция округления — `roundDiv(a, b)`: деление с округлением **half away from zero**, одинаково для положительных и отрицательных чисел.
@@ -112,7 +113,7 @@ scripts/serve.mjs           локальный статический серве
 - Правило 9 выбрано ради предсказуемости (POLA): числа в таблице сравнения всегда сходятся «на глаз».
 - **Неизвестное ≠ ноль.** Если у ингредиента нет цены, стоимость строки неизвестна. Тогда себестоимость блюда показывается как «cost unknown», и все производные значения тоже.
 - Выход (yield) применяется только к своей строке, а ко всему рецепту — никогда.
-- Килограммы и литры переводятся в g/ml при вводе. Перевод массы в объём и обратно запрещён, поэтому строка рецепта должна совпадать с единицей ингредиента.
+- Килограммы и литры переводятся в g/ml при вводе. Перевод массы в объём и обратно запрещён; количество строки хранится в базовой единице того, на что она ссылается.
 - Стоимость упаковки хранится как введённые `packPriceCents` и `packSizeMilli`; `packUnitPriceDisplay` преобразует для UI только представление к kg/l/pc. Например, 1 kg за €11,20 → €11.20/kg; 250 g за €2,80 → €11.20/kg. Данные не меняются.
 - Для списка заготовок `prepUnitCostDisplay` показывает стоимость batch за kg/l/pc: для outputUnit g или ml нормирует `batchCostµ × 1 000 000 / outputMilli` к kg/l, для pc — `batchCostµ × 1 000 / outputMilli` к штуке; отображаемая сумма округляется до цента через `roundDiv`.
 - Рекурсивный `batchCostµ(prep, asOf, overrides)` суммирует строки заготовки теми же формулами. Делить партию заготовки на порции не нужно: строка блюда берёт количество заготовки как долю от полного `outputMilli`. Unknown распространяется вверх; дата цен `asOf` и override цены ингредиента общие на всех уровнях. Цикл отклоняется при сохранении и импорте, максимальная глубина — 5 уровней; используемые ingredient/prep удалить нельзя. Симулятор меняет цены ингредиентов через всю рекурсию, а `lineQtyMilli` — только строки блюда верхнего уровня. Baseline snapshot содержит рецепт блюда, все достижимые заготовки и цены.
