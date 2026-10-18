@@ -1,0 +1,338 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { selectPriceAtDate } from '../../src/calc/costing.js';
+import { DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
+import { STORAGE_KEY, StoreError, createStore } from '../../src/store/store.js';
+import { validateDocument } from '../../src/store/schema.js';
+import {
+  clone, daysBefore, deepFreeze, dish, line, makeScenario, memoryStorage, prep, quotaError, readDemo, smallDocument,
+} from './fixtures.js';
+
+const NOW = '2026-11-01T10:00:00.000Z';
+
+function newStore(storage = memoryStorage(), options = {}) {
+  return createStore(storage, { now: () => NOW, demo: readDemo(), ...options });
+}
+
+function seeded(doc = smallDocument(), options = {}) {
+  const storage = memoryStorage({ [STORAGE_KEY]: JSON.stringify(doc) });
+  const store = newStore(storage, options);
+  store.load();
+  return { storage, store };
+}
+
+function assertStoreError(fn, code, pattern) {
+  assert.throws(fn, (error) => {
+    assert.ok(error instanceof StoreError, `not a StoreError: ${error}`);
+    assert.equal(error.code, code, error.message);
+    if (pattern) assert.match(error.message, pattern);
+    return true;
+  });
+}
+
+test('storage key is menupilot:v1', () => {
+  assert.equal(STORAGE_KEY, 'menupilot:v1');
+});
+
+test('first run loads the demo, shifted to now, without writing storage', () => {
+  const storage = memoryStorage();
+  const store = newStore(storage);
+  const doc = store.load();
+  assert.deepEqual(validateDocument(doc).errors, []);
+  assert.equal(doc.recipes.find((r) => r.name === 'Classic Burger').monthlyVolume, 300);
+  const last = doc.ingredients[0].prices.at(-1).recordedAt;
+  const shift = Date.parse(NOW) - Date.parse(DEMO_REFERENCE_NOW);
+  assert.equal(last, new Date(Date.parse(readDemo().ingredients[0].prices.at(-1).recordedAt) + shift).toISOString());
+  assert.equal(storage.data.size, 0);
+  assert.equal(store.getDocument(), doc);
+});
+
+test('data survives a restart (new store on the same storage)', () => {
+  const storage = memoryStorage();
+  const first = newStore(storage);
+  first.load();
+  const { id } = first.addIngredient({ name: 'Basil', unit: 'g' });
+  first.addPrice(id, { packPriceCents: 250, packSizeMilli: 100_000 });
+  const saved = first.saveRecipe({ ...dish('', []), id: 'dish-x', name: 'Pesto toast' });
+  first.saveScenario(makeScenario(saved.document, 'dish-x'));
+
+  const second = newStore(storage);
+  const reloaded = second.load();
+  assert.deepEqual(reloaded, first.getDocument());
+  assert.equal(reloaded.ingredients.find((i) => i.id === id).prices[0].packSizeMilli, 100_000);
+  assert.equal(reloaded.scenarios.length, 1);
+});
+
+test('broken JSON: error, storage untouched, nothing can overwrite it', () => {
+  const storage = memoryStorage({ [STORAGE_KEY]: '{"version": 1, ' });
+  const store = newStore(storage);
+  assertStoreError(() => store.load(), 'corrupt-json', /not valid JSON/);
+  assertStoreError(() => store.addIngredient({ name: 'X', unit: 'g' }), 'not-loaded');
+  assert.equal(storage.data.get(STORAGE_KEY), '{"version": 1, ');
+  assert.equal(store.readRaw(), '{"version": 1, ');
+});
+
+test('unsupported version and invalid stored data: error, storage untouched', () => {
+  const future = JSON.stringify({ ...smallDocument(), version: 2 });
+  const storage = memoryStorage({ [STORAGE_KEY]: future });
+  assertStoreError(() => newStore(storage).load(), 'unsupported-version', /version 2.*version 1/);
+  assert.equal(storage.data.get(STORAGE_KEY), future);
+
+  const broken = smallDocument();
+  broken.recipes[0].lines[0].ref.id = 'ghost';
+  const raw = JSON.stringify(broken);
+  const storage2 = memoryStorage({ [STORAGE_KEY]: raw });
+  assertStoreError(() => newStore(storage2).load(), 'invalid', /ghost/);
+  assert.equal(storage2.data.get(STORAGE_KEY), raw);
+
+  const storage3 = memoryStorage({ [STORAGE_KEY]: '[1,2]' });
+  assertStoreError(() => newStore(storage3).load(), 'invalid');
+});
+
+test('resetToDemo is the explicit way out of a broken state', () => {
+  const storage = memoryStorage({ [STORAGE_KEY]: 'garbage' });
+  const store = newStore(storage);
+  assertStoreError(() => store.load(), 'corrupt-json');
+  const doc = store.resetToDemo();
+  assert.deepEqual(validateDocument(doc).errors, []);
+  assert.deepEqual(JSON.parse(storage.data.get(STORAGE_KEY)), doc);
+  assert.deepEqual(newStore(storage).load(), doc);
+});
+
+test('write failure (quota): clear error, memory and storage stay as before', () => {
+  const { storage, store } = seeded();
+  const before = store.getDocument();
+  const rawBefore = storage.data.get(STORAGE_KEY);
+  storage.failOnSet = quotaError();
+  assertStoreError(() => store.addPrice('i1', { packPriceCents: 900, packSizeMilli: 1_000_000 }), 'quota', /storage is full/i);
+  assert.equal(store.getDocument(), before);
+  assert.equal(storage.data.get(STORAGE_KEY), rawBefore);
+
+  storage.failOnSet = new Error('disk on fire');
+  assertStoreError(() => store.deleteIngredient('i2'), 'write-failed', /could not be saved/i);
+  assert.equal(store.getDocument(), before);
+
+  storage.failOnSet = null;
+  store.deleteIngredient('i2');
+  assert.equal(store.getDocument().ingredients.length, 1);
+});
+
+test('addPrice only appends: seq = max + 1, recordedAt = now(), old records unchanged', () => {
+  const { store } = seeded();
+  const before = store.getDocument();
+  const doc = store.addPrice('i1', { packPriceCents: 650, packSizeMilli: 500_000 });
+  const prices = doc.ingredients[0].prices;
+  assert.equal(prices.length, 2);
+  assert.deepEqual(prices[0], before.ingredients[0].prices[0]);
+  assert.deepEqual(prices[1], { seq: 2, recordedAt: NOW, packPriceCents: 650, packSizeMilli: 500_000 });
+  assert.equal(before.ingredients[0].prices.length, 1);
+
+  const third = store.addPrice('i1', { packPriceCents: 700, packSizeMilli: 500_000 });
+  assert.deepEqual(third.ingredients[0].prices.map((p) => p.seq), [1, 2, 3]);
+  assert.equal(store.addPrice('i2', { packPriceCents: 1, packSizeMilli: 1 }).ingredients[1].prices.at(-1).seq, 2);
+});
+
+test('price at a date is chosen by recordedAt; pack size is a snapshot per price', () => {
+  let clock = '2026-02-01T00:00:00.000Z';
+  const { store } = seeded(smallDocument(), { now: () => clock });
+  store.addPrice('i1', { packPriceCents: 600, packSizeMilli: 2_000_000 });
+  clock = '2026-03-01T00:00:00.000Z';
+  const doc = store.addPrice('i1', { packPriceCents: 800, packSizeMilli: 1_000_000 });
+  const { prices } = doc.ingredients[0];
+  assert.equal(selectPriceAtDate(prices, '2026-02-15T00:00:00.000Z').packPriceCents, 600);
+  assert.equal(selectPriceAtDate(prices, '2026-02-15T00:00:00.000Z').packSizeMilli, 2_000_000);
+  assert.equal(selectPriceAtDate(prices, '2026-01-15T00:00:00.000Z').packPriceCents, 500);
+  assert.equal(selectPriceAtDate(prices).packPriceCents, 800);
+});
+
+test('addPrice keeps history ordered even if the clock moved backwards; rejects bad input', () => {
+  const { store } = seeded(smallDocument(), { now: () => '2025-01-01T00:00:00.000Z' });
+  const doc = store.addPrice('i1', { packPriceCents: 650, packSizeMilli: 1000 });
+  assert.equal(doc.ingredients[0].prices[1].recordedAt, '2026-01-01T00:00:00.000Z');
+  assert.deepEqual(validateDocument(doc).errors, []);
+
+  const before = store.getDocument();
+  assertStoreError(() => store.addPrice('i1', { packPriceCents: -5, packSizeMilli: 1000 }), 'invalid', /packPriceCents/);
+  assertStoreError(() => store.addPrice('i1', { packPriceCents: 5, packSizeMilli: 0 }), 'invalid', /packSizeMilli/);
+  assertStoreError(() => store.addPrice('i1', { packPriceCents: 5.5, packSizeMilli: 10 }), 'invalid', /packPriceCents/);
+  assertStoreError(() => store.addPrice('nope', { packPriceCents: 5, packSizeMilli: 10 }), 'not-found', /nope/);
+  assert.equal(store.getDocument(), before);
+});
+
+test('cannot delete a used ingredient or prep; unused ones are deleted', () => {
+  const { store } = seeded();
+  const before = store.getDocument();
+  assertStoreError(() => store.deleteIngredient('i1'), 'in-use', /used by.*p1/);
+  assertStoreError(() => store.deleteRecipe('p1'), 'in-use', /used by.*d1/);
+  assert.equal(store.getDocument(), before);
+
+  assert.equal(store.deleteIngredient('i2').ingredients.some((i) => i.id === 'i2'), false);
+  store.deleteRecipe('d1');
+  assert.equal(store.deleteRecipe('p1').recipes.length, 0);
+  assert.equal(store.deleteIngredient('i1').ingredients.length, 0);
+  assertStoreError(() => store.deleteRecipe('d1'), 'not-found');
+});
+
+test('deleting a dish also removes its scenarios', () => {
+  const base = smallDocument();
+  base.scenarios = [makeScenario(base, 'd1')];
+  const { store } = seeded(base);
+  assert.equal(store.deleteRecipe('d1').scenarios.length, 0);
+});
+
+test('saveRecipe rejects cycles, self reference, depth 6, dish-as-prep and kind mismatch', () => {
+  const { store } = seeded();
+  const before = store.getDocument();
+  const attempts = [
+    [prep('p1', [line('l1', 'prep', 'p1')]), /cycle/i],
+    [prep('p1', [line('l1', 'prep', 'p2')]), /unknown prep/i],
+    [dish('d2', [line('l1', 'prep', 'd1')]), /dish.*cannot be used as a prep/i],
+    [dish('d2', [line('l1', 'ingredient', 'p1')]), /unknown ingredient.*recipe/i],
+    [dish('d2', [line('l1', 'prep', 'i1')]), /unknown prep/i],
+  ];
+  for (const [recipe, pattern] of attempts) {
+    assertStoreError(() => store.saveRecipe(recipe), 'invalid', pattern);
+  }
+  // A->B->A cycle through two preps
+  store.saveRecipe(prep('pa', [line('l1', 'ingredient', 'i1')]));
+  store.saveRecipe(prep('pb', [line('l1', 'prep', 'pa')]));
+  assertStoreError(() => store.saveRecipe(prep('pa', [line('l1', 'prep', 'pb')])), 'invalid', /cycle.*pa -> pb -> pa/i);
+  // changing a referenced prep into a dish breaks the kind of the reference
+  assertStoreError(() => store.saveRecipe(dish('pa', [])), 'invalid');
+  assert.deepEqual(store.getDocument().recipes.map((r) => r.id), ['p1', 'd1', 'pa', 'pb']);
+  assert.notEqual(store.getDocument(), before);
+
+  // depth: p1 <- pb(2) <- ... build up to 5 prep levels, the 6th is rejected
+  let top = 'pb';
+  for (let level = 3; level <= 5; level += 1) {
+    store.saveRecipe(prep(`q${level}`, [line('l1', 'prep', top)]));
+    top = `q${level}`;
+  }
+  assertStoreError(() => store.saveRecipe(prep('q6', [line('l1', 'prep', top)])), 'invalid', /depth/i);
+});
+
+test('saveRecipe inserts or replaces; ids are generated when missing', () => {
+  const { store } = seeded(smallDocument(), { createId: (prefix) => `${prefix}_gen1` });
+  const created = store.saveRecipe({ ...dish('x', []), id: undefined, name: 'New dish' });
+  assert.equal(created.id, 'rcp_gen1');
+  assert.equal(created.document.recipes.at(-1).name, 'New dish');
+  const replaced = store.saveRecipe({ ...created.document.recipes.at(-1), name: 'Renamed' });
+  assert.equal(replaced.document.recipes.length, 3);
+  assert.equal(replaced.document.recipes.at(-1).name, 'Renamed');
+});
+
+test('ingredient create/update rules', () => {
+  let counter = 0;
+  const { store } = seeded(smallDocument(), { createId: (prefix) => `${prefix}_${counter ? 'other' : 'new'}${counter++}` });
+  const created = store.addIngredient({ name: 'Salt', unit: 'g', price: { packPriceCents: 80, packSizeMilli: 1_000_000 } });
+  assert.equal(created.id, 'ing_new0');
+  assert.deepEqual(created.document.ingredients.at(-1).prices, [
+    { seq: 1, recordedAt: NOW, packPriceCents: 80, packSizeMilli: 1_000_000 },
+  ]);
+  assert.equal(store.updateIngredient('ing_new0', { name: 'Sea salt' }).ingredients.at(-1).name, 'Sea salt');
+  assertStoreError(() => store.updateIngredient('ing_new0', { unit: 'ml' }), 'invalid', /unit/i);
+  assertStoreError(() => store.updateIngredient('i1', { unit: 'ml' }), 'invalid', /unit/i);
+  assertStoreError(() => store.addIngredient({ name: '', unit: 'g' }), 'invalid', /name/);
+  assertStoreError(() => store.addIngredient({ name: 'Water', unit: 'kg' }), 'invalid', /unit/);
+  assert.equal(store.addIngredient({ name: 'Water', unit: 'ml' }).document.ingredients.at(-1).prices.length, 0);
+});
+
+test('scenarios: save, replace, delete; they are validated like the rest', () => {
+  const { store } = seeded();
+  const scenario = makeScenario(store.getDocument(), 'd1', { menuPriceInclVatCents: 1500 });
+  assert.equal(store.saveScenario(scenario).document.scenarios.length, 1);
+  assert.equal(store.saveScenario({ ...scenario, name: 'Renamed' }).document.scenarios[0].name, 'Renamed');
+  assertStoreError(() => store.saveScenario({ ...scenario, id: 's2', overrides: { monthlyVolume: -1 } }), 'invalid', /monthlyVolume/);
+  assert.equal(store.getDocument().scenarios.length, 1);
+  assert.equal(store.deleteScenario('sc1').scenarios.length, 0);
+  assertStoreError(() => store.deleteScenario('sc1'), 'not-found');
+});
+
+test('import: invalid files leave current data untouched', () => {
+  const { storage, store } = seeded();
+  const before = store.getDocument();
+  const rawBefore = storage.data.get(STORAGE_KEY);
+  const withCycle = smallDocument();
+  withCycle.recipes.unshift(prep('pa', [line('l1', 'prep', 'pb')]), prep('pb', [line('l1', 'prep', 'pa')]));
+  const unknownRef = smallDocument();
+  unknownRef.recipes[0].lines[0].ref.id = 'ghost';
+  const wrongType = smallDocument();
+  wrongType.ingredients[0].prices[0].packPriceCents = '500';
+  const cases = [
+    ['{not json', 'corrupt-json'],
+    [JSON.stringify({ ...smallDocument(), version: 7 }), 'unsupported-version'],
+    [JSON.stringify(withCycle), 'invalid'],
+    [JSON.stringify(unknownRef), 'invalid'],
+    [JSON.stringify(wrongType), 'invalid'],
+    ['null', 'invalid'],
+  ];
+  for (const [text, code] of cases) {
+    assertStoreError(() => store.importJSON(text), code);
+    assert.equal(store.getDocument(), before);
+    assert.equal(storage.data.get(STORAGE_KEY), rawBefore);
+  }
+});
+
+test('import: write failure is atomic too; export then import round-trips', () => {
+  const demoStore = newStore();
+  demoStore.load();
+  const exported = demoStore.exportJSON();
+  assert.deepEqual(JSON.parse(exported), demoStore.getDocument());
+
+  const { storage, store } = seeded();
+  const before = store.getDocument();
+  storage.failOnSet = quotaError();
+  assertStoreError(() => store.importJSON(exported), 'quota');
+  assert.equal(store.getDocument(), before);
+  storage.failOnSet = null;
+  const imported = store.importJSON(exported);
+  assert.deepEqual(imported, demoStore.getDocument());
+  assert.deepEqual(JSON.parse(storage.data.get(STORAGE_KEY)), imported);
+  assert.deepEqual(imported.ingredients.map((i) => i.prices), demoStore.getDocument().ingredients.map((i) => i.prices));
+});
+
+test('previous documents and inputs are never mutated (deep-freeze)', () => {
+  const { store } = seeded();
+  const history = [];
+  const keep = (doc) => { history.push([doc, JSON.stringify(doc)]); return doc; };
+  keep(store.getDocument());
+  const recipeInput = deepFreeze(dish('d9', [line('l1', 'ingredient', 'i2')]));
+  const priceInput = deepFreeze({ packPriceCents: 10, packSizeMilli: 1000 });
+  keep(store.addPrice('i2', priceInput));
+  keep(store.addIngredient({ name: 'Pepper', unit: 'g' }).document);
+  keep(store.updateIngredient('i2', { name: 'Chili' }));
+  keep(store.saveRecipe(recipeInput).document);
+  keep(store.saveScenario(deepFreeze(makeScenario(store.getDocument(), 'd9'))).document);
+  keep(store.updateSettings({ defaultVatRateBp: 2100 }));
+  keep(store.deleteScenario('sc1'));
+  keep(store.deleteRecipe('d9'));
+  keep(store.importJSON(JSON.stringify(smallDocument())));
+  keep(store.resetToDemo());
+  for (const [doc, snapshot] of history) {
+    assert.equal(JSON.stringify(doc), snapshot);
+    assert.ok(Object.isFrozen(doc) && Object.isFrozen(doc.ingredients[0]));
+  }
+});
+
+test('save() validates before writing', () => {
+  const { storage, store } = seeded();
+  const rawBefore = storage.data.get(STORAGE_KEY);
+  const bad = clone(store.getDocument());
+  bad.recipes[1].portions = 0;
+  assertStoreError(() => store.save(bad), 'invalid', /portions/);
+  assert.equal(storage.data.get(STORAGE_KEY), rawBefore);
+  const good = clone(store.getDocument());
+  good.settings.defaultVatRateBp = 2100;
+  assert.equal(store.save(good).settings.defaultVatRateBp, 2100);
+  assert.equal(JSON.parse(storage.data.get(STORAGE_KEY)).settings.defaultVatRateBp, 2100);
+});
+
+test('demo cost example still holds after a reset at an arbitrary time', async () => {
+  const { recipeCost } = await import('../../src/calc/costing.js');
+  const store = newStore(memoryStorage(), { now: () => '2028-02-29T23:59:59.999Z' });
+  const doc = store.resetToDemo();
+  const burger = doc.recipes.find((r) => r.name === 'Classic Burger');
+  const at30 = daysBefore('2028-02-29T23:59:59.999Z', 30);
+  assert.equal(recipeCost(burger, doc, { asOf: at30 }).costPerPortionMicro, 4_200_000n);
+  assert.equal(recipeCost(burger, doc, { asOf: '2028-02-29T23:59:59.999Z' }).costPerPortionMicro, 4_850_000n);
+});
