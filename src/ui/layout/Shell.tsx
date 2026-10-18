@@ -5,8 +5,9 @@ import { hrefFor, type Route } from '@/ui/router/routes';
 import { cn } from '@/lib/utils';
 
 const NAV = [
-  { label: 'Dashboard', route: { name: 'dashboard' }, active: ['dashboard', 'recipe'] },
+  { label: 'Dashboard', route: { name: 'dashboard' }, active: ['dashboard'] },
   { label: 'Ingredients', route: { name: 'ingredients' }, active: ['ingredients'] },
+  { label: 'Recipes', route: { name: 'recipes' }, active: ['recipes', 'recipe', 'recipe-new'] },
   { label: 'Simulator', route: { name: 'simulator', id: null }, active: ['simulator'] },
 ] as const;
 
@@ -35,12 +36,12 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
         Skip to content
       </a>
       <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
           <a href={hrefFor({ name: 'dashboard' })} className="rounded-md text-lg font-semibold tracking-tight outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
             MenuPilot
           </a>
           <nav aria-label="Main">
-            <ul className="flex gap-1">
+            <ul className="flex flex-wrap gap-1">
               {NAV.map((item) => {
                 const current = (item.active as readonly string[]).includes(route.name);
                 return (
@@ -55,7 +56,7 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
           </nav>
         </div>
       </header>
-      <main id="main" ref={mainRef} tabIndex={-1} className={cn('mx-auto max-w-5xl space-y-4 px-4 py-6 outline-none')}>
+      <main id="main" ref={mainRef} tabIndex={-1} className={cn('mx-auto max-w-6xl space-y-4 px-4 py-6 outline-none')}>
         {commandError && (
           <div role="alert" className="flex items-start justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             <p>{commandError}</p>

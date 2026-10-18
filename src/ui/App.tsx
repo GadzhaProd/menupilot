@@ -5,6 +5,7 @@ import { DashboardPage } from '@/ui/pages/DashboardPage';
 import { IngredientsPage } from '@/ui/pages/IngredientsPage';
 import { NotFoundPage } from '@/ui/pages/NotFoundPage';
 import { RecipePage } from '@/ui/pages/RecipePage';
+import { RecipesPage } from '@/ui/pages/RecipesPage';
 import { SimulatorPage } from '@/ui/pages/SimulatorPage';
 import type { Route } from '@/ui/router/routes';
 import { useRoute } from '@/ui/router/useRoute';
@@ -12,6 +13,8 @@ import { useRoute } from '@/ui/router/useRoute';
 const TITLES: Record<Route['name'], string> = {
   dashboard: 'Dashboard',
   ingredients: 'Ingredients',
+  recipes: 'Recipes',
+  'recipe-new': 'New recipe',
   recipe: 'Recipe',
   simulator: 'Simulator',
   'not-found': 'Not found',
@@ -21,6 +24,8 @@ function Page({ route }: { route: Route }) {
   switch (route.name) {
     case 'dashboard': return <DashboardPage />;
     case 'ingredients': return <IngredientsPage />;
+    case 'recipes': return <RecipesPage />;
+    case 'recipe-new': return <RecipePage id={null} kind={route.kind} />;
     case 'recipe': return <RecipePage id={route.id} />;
     case 'simulator': return <SimulatorPage id={route.id} />;
     case 'not-found': return <NotFoundPage />;
