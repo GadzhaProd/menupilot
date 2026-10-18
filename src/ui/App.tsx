@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode, useEffect } from 'react';
 import { useDataState } from '@/ui/data/DataProvider';
 import { Shell } from '@/ui/layout/Shell';
 import { DashboardPage } from '@/ui/pages/DashboardPage';
+import { DataPage } from '@/ui/pages/DataPage';
 import { IngredientsPage } from '@/ui/pages/IngredientsPage';
 import { NotFoundPage } from '@/ui/pages/NotFoundPage';
 import { RecipePage } from '@/ui/pages/RecipePage';
@@ -14,6 +15,7 @@ import { useRoute } from '@/ui/router/useRoute';
 const TITLES: Record<Route['name'], string> = {
   dashboard: 'Dashboard',
   ingredients: 'Ingredients',
+  data: 'Data',
   recipes: 'Recipes',
   'recipe-new': 'New recipe',
   recipe: 'Recipe',
@@ -76,6 +78,7 @@ function Page({ route }: { route: Route }) {
   switch (route.name) {
     case 'dashboard': return <DashboardPage />;
     case 'ingredients': return <IngredientsPage />;
+    case 'data': return <DataPage />;
     case 'recipes': return <RecipesPage />;
     case 'recipe-new': return <RecipePage id={null} kind={route.kind} />;
     case 'recipe': return <RecipePage id={route.id} />;

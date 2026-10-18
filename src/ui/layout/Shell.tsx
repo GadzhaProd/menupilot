@@ -9,6 +9,7 @@ const NAV = [
   { label: 'Ingredients', route: { name: 'ingredients' }, active: ['ingredients'] },
   { label: 'Recipes', route: { name: 'recipes' }, active: ['recipes', 'recipe', 'recipe-new'] },
   { label: 'Simulator', route: { name: 'simulator', id: null }, active: ['simulator'] },
+  { label: 'Data', route: { name: 'data' }, active: ['data'] },
 ] as const;
 
 export function Shell({ route, children }: { route: Route; children: ReactNode }) {

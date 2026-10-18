@@ -21,6 +21,10 @@ export interface SimulatorSessions {
   set(dishId: string, session: DishSession): void;
   /** Number of scenarios of the dish with changes that are not saved. */
   unsavedCount(dishId: string): number;
+  /** Unsaved scenarios across all dishes. */
+  unsavedTotal(): number;
+  /** Forget every draft (the data was replaced, so drafts of the old data no longer fit). */
+  clear(): void;
 }
 
 const SessionContext = createContext<SimulatorSessions | null>(null);
@@ -33,6 +37,8 @@ export function SimulatorSessionProvider({ children }: { children: ReactNode }) 
     get: (dishId) => sessions.current.get(dishId),
     set: (dishId, session) => { sessions.current.set(dishId, session); },
     unsavedCount: (dishId) => unsavedIn(sessions.current.get(dishId)),
+    unsavedTotal: () => [...sessions.current.values()].reduce((sum, session) => sum + unsavedIn(session), 0),
+    clear: () => { sessions.current.clear(); },
   }), []);
 
   // Closing or reloading the tab would lose unsaved scenarios: ask first.
@@ -51,7 +57,9 @@ export function SimulatorSessionProvider({ children }: { children: ReactNode }) 
 }
 
 /** Without a provider (a screen rendered alone) drafts are simply not remembered. */
-const NO_MEMORY: SimulatorSessions = { get: () => undefined, set: () => {}, unsavedCount: () => 0 };
+const NO_MEMORY: SimulatorSessions = {
+  get: () => undefined, set: () => {}, unsavedCount: () => 0, unsavedTotal: () => 0, clear: () => {},
+};
 
 export function useSimulatorSessions(): SimulatorSessions {
   return useContext(SessionContext) ?? NO_MEMORY;
