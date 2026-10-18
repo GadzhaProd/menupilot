@@ -26,7 +26,7 @@ declare module '@/calc/units.js' {
 }
 
 declare module '@/calc/costing.js' {
-  type T = typeof import('@/ui/domain/types');
+  import type * as T from '@/ui/domain/types';
   type Catalog = {
     readonly ingredients: readonly T.Ingredient[];
     readonly recipes: readonly T.Recipe[];
@@ -64,7 +64,7 @@ declare module '@/calc/costing.js' {
 }
 
 declare module '@/calc/simulate.js' {
-  type T = typeof import('@/ui/domain/types');
+  import type * as T from '@/ui/domain/types';
   export function createBaselineSnapshot(
     data: Pick<T.MenuDocument, 'ingredients' | 'recipes'>,
     recipeId: string,
@@ -82,7 +82,7 @@ declare module '@/calc/simulate.js' {
 }
 
 declare module '@/store/store.js' {
-  type T = typeof import('@/ui/domain/types');
+  import type * as T from '@/ui/domain/types';
 
   export const STORAGE_KEY: string;
 

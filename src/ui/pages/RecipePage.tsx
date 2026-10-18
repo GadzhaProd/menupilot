@@ -1,17 +1,18 @@
+import { useRef } from 'react';
 import { useDocument } from '@/ui/data/DataProvider';
+import type { Recipe } from '@/ui/domain/types';
+import { RecipeEditor } from '@/ui/recipe/RecipeEditor';
 import { NotFoundPage } from './NotFoundPage';
 
-/** Placeholder: recipe editing arrives in stage 4b. */
-export function RecipePage({ id }: { id: string }) {
-  const recipe = useDocument().recipes.find((entry) => entry.id === id);
-  if (!recipe) return <NotFoundPage what="recipe" />;
+/** `id` is a saved recipe; `kind` (with no id) opens an empty form for a new dish or prep. */
+export function RecipePage({ id, kind }: { id: string | null; kind?: 'dish' | 'prep' }) {
+  const recipes = useDocument().recipes;
+  const recipe = id === null ? null : recipes.find((entry) => entry.id === id) ?? null;
+  // Deleting the recipe removes it from the data one moment before the address changes.
+  const lastSeen = useRef<Recipe | null>(null);
+  if (recipe) lastSeen.current = recipe;
 
-  return (
-    <section aria-labelledby="page-title" className="space-y-2">
-      <h1 id="page-title" className="text-2xl font-semibold">{recipe.name}</h1>
-      <p className="text-sm text-muted-foreground">
-        {recipe.kind === 'dish' ? 'Dish' : 'Prep'} · {recipe.lines.length} lines. The recipe editor comes in the next stage.
-      </p>
-    </section>
-  );
+  if (id === null) return <RecipeEditor key="new" recipe={null} kind={kind ?? 'dish'} />;
+  if (!recipe) return lastSeen.current?.id === id ? null : <NotFoundPage what="recipe" />;
+  return <RecipeEditor key={recipe.id} recipe={recipe} kind={recipe.kind} />;
 }

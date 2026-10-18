@@ -8,9 +8,12 @@ import type { Dish, MenuDocument, MetricsStatus } from './types';
 
 export { formatEURFromCents, formatEURFromMicro, parseMoneyToCents } from '@/calc/money.js';
 export {
+  batchCostMicro,
+  ingredientLineCostMicro,
   metrics,
   netPriceMicro,
   packUnitPriceDisplay,
+  prepLineCostMicro,
   prepUnitCostDisplay,
   recipeCost,
   selectPriceAtDate,
