@@ -57,7 +57,7 @@ export function DishImpactCards({ rows }: DishImpactCardsProps) {
               {metricRows(row).map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-3">
                   <dt className="text-muted-foreground">{label}</dt>
-                  <dd className="text-right font-medium">{value}</dd>
+                  <dd className="shrink-0 whitespace-nowrap text-right font-medium">{value}</dd>
                 </div>
               ))}
             </dl>
