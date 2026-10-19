@@ -48,7 +48,7 @@ export function DishImpactCards({ rows }: DishImpactCardsProps) {
                 </a>
               </h3>
               {gotMoreExpensive && (
-                <span className="shrink-0 text-sm text-amber-800">
+                <span className="shrink-0 text-sm text-negative">
                   ↑ Cost increased
                 </span>
               )}

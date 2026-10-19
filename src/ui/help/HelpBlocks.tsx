@@ -86,7 +86,7 @@ function Note({ block }: { block: Extract<HelpBlock, { kind: 'note' }> }) {
     <aside
       className={cn(
         'my-5 flex gap-3 rounded-xl border-2 p-4 print:break-inside-avoid',
-        safe ? 'border-primary/50 bg-accent/60' : 'border-amber-600/60 bg-amber-50 text-amber-950',
+        safe ? 'border-primary/50 bg-accent/60' : 'border-input bg-accent text-accent-foreground',
       )}
     >
       <Icon aria-hidden="true" className="mt-1 size-6 shrink-0" />

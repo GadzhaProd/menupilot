@@ -6,6 +6,11 @@
  */
 
 declare module '@/calc/money.js' {
+  export function formatEURFromCentsLocale(cents: number | bigint, locale?: string): string;
+  export function formatEURFromMicroLocale(microEuros: bigint, locale?: string): string;
+  export function formatPercentTenthsLocale(tenths: bigint | null, locale?: string): string;
+  export function formatPointsLocale(tenths: bigint | null, locale?: string): string;
+  export function formatDateLocale(iso: string, locale?: string): string;
   export function roundDiv(numerator: bigint, denominator: bigint): bigint;
   /** Throws TypeError/RangeError with a user-readable message. */
   export function parseMoneyToCents(input: string): number;
@@ -134,7 +139,7 @@ declare module '@/store/store.js' {
     updateSettings(settings: { defaultVatRateBp: number }): T.MenuDocument;
     exportJSON(): string;
     importJSON(text: string): T.MenuDocument;
-    resetToDemo(): T.MenuDocument;
+    resetToDemo(demo?: unknown): T.MenuDocument;
     /** Replace everything with an empty document. */
     resetToEmpty(): T.MenuDocument;
   }

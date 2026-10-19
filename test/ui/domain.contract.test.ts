@@ -12,7 +12,7 @@ import { demo, demoCopy } from './helpers';
 // src/ui/domain/core.d.ts declares the types of the plain-JS core by hand.
 // If the core renames or drops an export, this list and the declaration must follow.
 const DECLARED: Record<string, [Record<string, unknown>, string[]]> = {
-  '@/calc/money.js': [money, ['roundDiv', 'parseMoneyToCents', 'formatEURFromCents', 'formatEURFromMicro']],
+  '@/calc/money.js': [money, ['roundDiv', 'parseMoneyToCents', 'formatEURFromCents', 'formatEURFromMicro', 'formatEURFromCentsLocale', 'formatEURFromMicroLocale', 'formatPercentTenthsLocale', 'formatPointsLocale', 'formatDateLocale']],
   '@/calc/units.js': [units, ['normalizeUnit', 'areUnitsCompatible', 'assertCompatibleUnits', 'unitPriceSuffix', 'parseQuantityToMilli']],
   '@/calc/costing.js': [costing, [
     'selectPriceAtDate', 'ingredientLineCostMicro', 'netPriceMicro', 'monthlyContributionCents', 'metrics',

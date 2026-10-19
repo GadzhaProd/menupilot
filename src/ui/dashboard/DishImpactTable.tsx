@@ -42,7 +42,7 @@ function DishRow({ row }: { row: DashboardDishRow }) {
       <TableCell className="font-medium whitespace-normal">
         <a className="underline-offset-4 hover:underline focus-visible:underline" href={hrefFor({ name: 'recipe', id: row.id })}>{row.name}</a>
         {gotMoreExpensive && (
-          <span className="ml-2 whitespace-nowrap text-amber-800">↑ Cost increased</span>
+          <span className="ml-2 whitespace-nowrap text-negative">↑ Cost increased</span>
         )}
       </TableCell>
       <TableCell>{formatEURFromCents(row.menuPriceInclVatCents)}</TableCell>

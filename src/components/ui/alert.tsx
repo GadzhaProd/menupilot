@@ -18,7 +18,7 @@ const alertVariants = cva(
     variants: {
       variant: {
         info: "border-border bg-secondary/60 text-foreground",
-        warning: "border-amber-500/50 bg-amber-50 text-amber-950 [&>svg]:text-amber-700",
+        warning: "border-input bg-accent text-accent-foreground",
       },
     },
     defaultVariants: { variant: "info" },

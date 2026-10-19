@@ -283,3 +283,151 @@ sh scripts/21st.sh license @kuratlielia/components/segmented-control
 `npm run check` повторно запущен в `/tmp/menupilot-cplus-check-vo_9ds45` на копии tracked source, с node_modules основного checkout после проверки совпадения package-lock и exact direct versions. Exit0: tsc; core125pass/0fail; UI248pass/16files; Vite8.3.4,2064modules,458ms. [Полный вывод](alternatives/C-plus/npm-check.txt). Warning Node25 --localstorage-file сохранён. Временная копия удалена; dependencies/package/lockfile/src/test в worktree не менялись.
 
 Финальная проверка документов C+:14HTML,353локальныеHTML-ссылки,125локальныхMarkdown-ссылок,0битых ссылок/повторныхid;8основныхJPEG. Изменённый пакет около1.03MB(<3MB). Исходные A/B/C HTML/CSS/JPEG побайтно неизменны относительноb37e34f, архив A DESIGN отличается только разрешением относительных ссылок по новому расположению. [validation.json](alternatives/C-plus/validation.json). git diff --check прошёл. Финальная браузерная session закрыта (state closed,exit0), HTTP server остановлен Ctrl+C (Keyboard interrupt received, exiting.,exit0). Push/merge/publish не выполнялись.
+
+
+## C+ implementation, part 1 — 2026-10-19 (Codex / Astra)
+
+Scope: runtime foundation only. Existing screens retain their layout and EN body copy for parts 2–3; only a few fixed amber colours were replaced with semantic tokens so dark-mode statuses remain legible. `data/demo.json` already has English names and was not modified. Full integration API and chosen NL vocabulary: [src/ui/i18n/README.md](../../src/ui/i18n/README.md).
+
+### Impeccable: actual calls and findings
+
+Read PRODUCT.md, DESIGN.md, implementation/component plans, C+ index/previews, the installed Impeccable SKILL.md and reference/craft-floor.md. Direction was already owner-approved; no new design interview or delegation was started.
+
+Command executed from the project root before UI edits:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context
+```
+
+Exit 0. Actual resolved context: `productPath: PRODUCT.md`, `designPath: DESIGN.md`, `hasVisualImplementation: true`, `platform: web`. Output required manual `detect --json <changed targets>` because no automatic design hook was active. It also reported installed v4.3.1 / available v4.7.0; no skill update performed.
+
+Detector was executed once over changed `.tsx/.ts/.css` under src/ui and src/components plus src/index.css (tracked diff + new files). Actual exit **2**, five findings below; exit was not treated as a clean audit:
+
+```json
+[
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/components/ui/table.tsx",
+    "line": 12,
+    "snippet": "text-[…] class: 17px is off the DESIGN.md type ramp",
+    "advisory": true,
+    "ignoreValue": "17px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/index.css",
+    "line": 110,
+    "snippet": "font-size: 17px is off the DESIGN.md type ramp",
+    "advisory": true,
+    "ignoreValue": "17px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/index.css",
+    "line": 112,
+    "snippet": "font-size: 22px is off the DESIGN.md type ramp",
+    "advisory": true,
+    "ignoreValue": "22px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/index.css",
+    "line": 120,
+    "snippet": "font-size: 31px is off the DESIGN.md type ramp",
+    "advisory": true,
+    "ignoreValue": "31px"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/ui/help/HelpBlocks.tsx",
+    "line": 121,
+    "snippet": "border-l-4"
+  }
+]
+```
+
+Review: 17px body-on-mobile and 17px tables, plus 31px mobile h1, are explicitly specified in DESIGN.md prose, although absent from its YAML ramp. The 22px mobile wordmark is a deliberate compact brand size between the 18px body and 31px heading; no low-contrast or clipped type was found. Table mobile size was made explicit at 16px, matching DESIGN.md. `border-l-4` is an existing Help block (only warning colour was changed); its composition belongs to part 3 and was not redesigned here. Detector is mechanical evidence, not a claim of visual certification.
+
+### 21st.dev and motion
+
+Actual calls (only through the approved wrapper):
+
+```sh
+sh scripts/21st.sh license @haydenbleasel/components/theme-switcher
+# - Author: [Hayden Bleasel](https://21st.dev/@haydenbleasel)
+# - Library: [Kibo UI](https://21st.dev/@haydenbleasel/library/kibo-ui)
+# - License: mit
+sh scripts/21st.sh search 'theme switcher' --limit 2 --json
+# Results: 6609 / ncdai / @ncdai/components/theme-switcher-1
+#          1714 / shugar / @shugar/components/theme-switcher
+```
+
+Followed C+ COMPONENT_PLAN decision: **build own** labelled native select, existing Radix dialogs and primitives. No new 21st source copied or rewritten; search results are catalogue-only, not licence-approved adoptions. Existing badge/alert source comments and third_party licences remain intact. New numeric fields are original composition over FormField/Input.
+
+Installed `motion@14.4.0` exactly, lockfile + permitted dependency line updated. `npm ls` confirms framer-motion14.4.0, motion-dom14.4.0, motion-utils14.1.1. Read [official accessibility guidance](https://motion.dev/docs/react-accessibility). Runtime uses `motion/mini` for a single 160ms navigation underline emphasis, instantaneous colours/money, explicit reduced-motion check. Full `motion` import originally produced 517.41kB main chunk and Vite size warning; mini reduced it to 462.87kB /139.46kB gzip, without that warning. The mini API requires Element.animate; the first targeted jsdom rerun exposed its absence (33 tests failed). A capability check now preserves immediate selection without animation when unavailable; the subsequent full test run passes. No test-only animation shim was added.
+
+### Fonts and data
+
+Archivo existing licensed TTF converted to WOFF2 using an isolated `/tmp/menupilot-font-tools` Python environment (fontTools/Brotli, not project dependencies). Source Sans 3 regular/semibold WOFF2 copied unchanged from licensed design assets. Full OFL notices under public/fonts and THIRD_PARTY_NOTICES.md. Public production copies are necessary for Vite `/menupilot/fonts/` URLs; archival design assets were retained as required by the file scope. Browser resource list confirmed only local font requests and `document.fonts.status=loaded`.
+
+Locale formatter logic was taken from `git show bb/luna-en-nl-thr_97zhejtw7g:src/calc/money.js`; tests adapted from that branch with negative sign policy, bounded Intl cache, no BigInt→Number, pp in both languages, n.v.t. in NL, null and 10^30 coverage. Old unlocalised APIs remain unchanged for existing screens/core. On this runtime en-NL integer grouping produced `€2.145.00` with the currency template; explicit en-GB gives the reviewed English `€2,145.00`. This deliberate correction is documented in the API notes.
+
+New EN/NL demo parity test strips only `name` and compares all remaining structure, IDs, values, prices and dates. Store reset accepts an optional translated document, validates before processing, then persists atomically. UI only selects translated demo on initial bundled-demo load or explicit reset, never when the language alone changes. Terminology: basisrecept / Huidige situatie / Foodcostpercentage / Verkocht per maand / Voorbeeldgegevens / je-jouw. Browser language default overrides the older plan's EN-only default, per the task.
+
+### Browser evidence
+
+Actual session: `bb browser-automation open --backend local --headless --machine host_mqe28unaid --json`, ID `774177f6-cf44-4f89-bbc0-bf37d3002e2b`. Production `npm run preview -- --host 127.0.0.1 --port 4173`, URL `/menupilot/`.
+
+- Eight combinations EN/NL × light/dark ×1440/375: **scrollWidth=viewport width**, fonts loaded, Shell translated, demo names follow initial locale. Dashboard body copy deliberately remains EN for part 2.
+- 1024px: navigation moves to a separate row, no body overflow.
+- Mobile Menu opens, Escape closes and returns focus to Menu; computed focus outline `rgb(242,199,92) solid 3px` in dark mode.
+- Ingredient dialog at375: invalid empty name gives linked nearby `Enter a name`, first invalid field focused, input height48px, dialog height719px within900px viewport; Shift+Tab remains trapped; Escape closes and focus returns to Add ingredient. No valid ingredient was saved in the browser check.
+- Print from dark: body `rgb(245,246,243)`, header `display:none`, saved choice remains dark; screen restored `rgb(39,42,41)`. Screenshot is CSS print emulation, not physical paper/PDF pagination certification. Existing screen-specific print composition remains for parts2–3.
+- System media change: first immediate post-emulation read was light; next browser turn read `systemDark:dark,matches:true` (async media event). Manual light survives dark OS. Reduced motion during navigation reports **0 Web Animations calls**.
+- One browser inspection used an unquoted multiword FontFaceSet.check name and raised SyntaxError; corrected inspection used loaded resource URLs/font status. This was tooling only, not an app error.
+- No claims of native Safari/Firefox or physical touchscreen testing.
+
+Evidence directory: `/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz`.
+
+Screenshots: [NL desktop light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-nl-light-desktop.jpg), [NL desktop dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-nl-dark-desktop.jpg), [NL375 light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-nl-light-375.jpg), [NL375 dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-nl-dark-375.jpg), [EN desktop light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-en-light-desktop.jpg), [EN desktop dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-en-dark-desktop.jpg), [EN375 light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-en-light-375.jpg), [EN375 dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-en-dark-375.jpg), [Menu](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-menu.jpg), [Dialog/error](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-dialog.jpg), [Print](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-print.jpg). Raw run JSON files and detect JSON are alongside these artifacts.
+
+### Tests
+
+Initial npm run check could not start: `tsc: command not found` in the fresh worktree. `npm ci` installed the existing exact lockfile, then motion was installed explicitly. TDD red: new formatters were absent; reset ignored the translated document and accepted invalid source; NL demo absent. After implementation: all new tests pass. Tests use in-memory storage only.
+
+Final `npm run check` exit0: typecheck + node:test + Vitest + Vite. Actual summary:
+
+```text
+ℹ tests 130
+ℹ pass 130
+ℹ fail 0
+Test Files 19 passed (19)
+Tests 259 passed (259)
+✓ 2359 modules transformed.
+dist/assets/index-CCOZ-ytb.js 462.87 kB │ gzip: 139.46 kB
+✓ built in 254ms
+```
+
+Full output: [/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-final.log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-final.log). Existing Node warning about `--localstorage-file` remains; tests do not use browser localStorage. `git diff --check` clean. After the check, only a CSS max-width correction1604→1540 and removal of npm's incidental root license metadata from lockfile were applied; final build/check evidence is updated below before delivery.
+
+Delivery rerun after the final CSS/lockfile adjustments: `npm run check` **exit0**, core130/130, UI259/259 in19files, typecheck pass; Vite2359 modules, main462.87kB /139.46kB gzip, built253ms. [Full delivery output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-delivery.log). Browser session closed (`state:closed`, exit0); preview server stopped with Ctrl+C (exit130). No server left running by this task. No push, merge or publication.

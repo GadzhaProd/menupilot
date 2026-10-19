@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Recipe-based ingredient costing and what-if scenarios for independent restaurants." />
     <title>MenuPilot</title>
+    <script>
+      // Before first paint. Keep allowlist/key aligned with ui/theme/preferences.ts.
+      (() => {
+        let preference = 'system';
+        try { const saved = localStorage.getItem('menupilot.ui.theme.v1'); if (saved === 'light' || saved === 'dark') preference = saved; } catch {}
+        const theme = preference === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : preference;
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+        let locale = navigator.language.toLowerCase().startsWith('nl') ? 'nl' : 'en';
+        try { const saved = localStorage.getItem('menupilot.ui.locale.v1'); if (saved === 'en' || saved === 'nl') locale = saved; } catch {}
+        document.documentElement.lang = locale;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

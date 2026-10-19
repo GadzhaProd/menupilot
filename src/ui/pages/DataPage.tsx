@@ -1,3 +1,5 @@
+import { useLocale } from '@/ui/i18n';
+import { demoForLocale } from '@/ui/data/demo';
 import { useRef, useState, type ChangeEvent } from 'react';
 import { DownloadIcon, FilePlusIcon, RotateCcwIcon, UploadIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -52,6 +54,7 @@ function downloadText(text: string, fileName: string) {
 
 /** Back up, restore and reset the data. Everything lives in this browser, so a backup matters. */
 export function DataPage() {
+  const { locale } = useLocale();
   const document = useDocument();
   const { execute, exportBackup: readBackupText } = useCommands();
   const sessions = useSimulatorSessions();
@@ -103,7 +106,7 @@ export function DataPage() {
       ? execute((store) => store.importJSON(pending.text), { report: false })
       : pending.kind === 'empty'
         ? execute((store) => store.resetToEmpty(), { report: false })
-        : execute((store) => store.resetToDemo(), { report: false });
+        : execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false });
     if (!result.ok) return result.error;
     sessions.clear();
     dialog.close();

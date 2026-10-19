@@ -14,13 +14,13 @@ import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const badgeDeltaVariants = cva(
-  "inline-flex items-center gap-x-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap",
+  "inline-flex items-center gap-x-0.5 rounded-md px-1.5 py-0.5 text-xs tabular-nums font-semibold whitespace-nowrap",
   {
     variants: {
       tone: {
-        good: "bg-emerald-100 text-emerald-800",
-        bad: "bg-red-100 text-red-800",
-        neutral: "bg-secondary text-secondary-foreground",
+        good: "text-positive",
+        bad: "text-negative",
+        neutral: "text-muted-foreground",
       },
     },
     defaultVariants: { tone: "neutral" },

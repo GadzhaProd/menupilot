@@ -1,72 +1,76 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { MenuIcon } from 'lucide-react';
+import { animate } from 'motion/mini';
 import { Button } from '@/components/ui/button';
 import { useCommands, useDataState } from '@/ui/data/DataProvider';
 import { hrefFor, type Route } from '@/ui/router/routes';
-import { cn } from '@/lib/utils';
+import { useLocale } from '@/ui/i18n';
+import { LocaleSelect } from '@/ui/i18n/LocaleSelect';
+import { ThemeSelect } from '@/ui/theme/ThemeSelect';
+import { useTheme } from '@/ui/theme/ThemeProvider';
 
 const NAV = [
-  { label: 'Dashboard', route: { name: 'dashboard' }, active: ['dashboard'] },
-  { label: 'Ingredients', route: { name: 'ingredients' }, active: ['ingredients'] },
-  { label: 'Recipes', route: { name: 'recipes' }, active: ['recipes', 'recipe', 'recipe-new'] },
-  { label: 'Simulator', route: { name: 'simulator', id: null }, active: ['simulator'] },
-  { label: 'Data', route: { name: 'data' }, active: ['data'] },
-  { label: 'Help', route: { name: 'help', section: null }, active: ['help'] },
+  { key: 'nav.dashboard', route: { name: 'dashboard' }, active: ['dashboard'] },
+  { key: 'nav.simulator', route: { name: 'simulator', id: null }, active: ['simulator'] },
+  { key: 'nav.recipes', route: { name: 'recipes' }, active: ['recipes', 'recipe', 'recipe-new'] },
+  { key: 'nav.ingredients', route: { name: 'ingredients' }, active: ['ingredients'] },
+  { key: 'nav.data', route: { name: 'data' }, active: ['data'] },
+  { key: 'nav.help', route: { name: 'help', section: null }, active: ['help'] },
 ] as const;
 
 export function Shell({ route, children }: { route: Route; children: ReactNode }) {
   const { commandError } = useDataState();
   const { dismissError } = useCommands();
+  const { t, storageError: localeError } = useLocale();
+  const { storageError: themeError } = useTheme();
+  const [menuOpen, setMenuOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
+  const currentLink = useRef<HTMLAnchorElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const firstRender = useRef(true);
 
-  // After the user navigates, move focus to the new page (keyboard and screen-reader users).
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    // The guide moves focus to the section it scrolls to; focusing <main> would scroll back to the top.
-    if (route.name === 'help') return;
-    mainRef.current?.focus();
+    if (firstRender.current) { firstRender.current = false; return; }
+    setMenuOpen(false);
+    // Help owns focus/scroll for its stable section anchors.
+    if (route.name !== 'help') mainRef.current?.focus();
+    // One small selection emphasis; theme colours and all numbers change immediately.
+    if (!currentLink.current || typeof currentLink.current.animate !== 'function' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const animation = animate(currentLink.current, { textUnderlineOffset: ['8px', '5px'] }, { duration: 0.16, ease: [0.16, 1, 0.3, 1] });
+    return () => animation.stop();
   }, [route]);
 
   return (
     <div className="min-h-svh">
-      <a
-        href="#main"
-        onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}
-        className="sr-only print:hidden focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-10 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:ring-2 focus:ring-ring"
-      >
-        Skip to content
-      </a>
-      <header className="border-b bg-card print:hidden">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-          <a href={hrefFor({ name: 'dashboard' })} className="rounded-md text-lg font-semibold tracking-tight outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
-            MenuPilot
-          </a>
-          <nav aria-label="Main">
-            <ul className="flex flex-wrap gap-1">
-              {NAV.map((item) => {
+      <a href="#main" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }} className="skip-link">{t('nav.skip')}</a>
+      <header className="shell-header print:hidden">
+        <div className="shell-top">
+          <a href={hrefFor({ name: 'dashboard' })} className="shell-brand">MenuPilot</a>
+          <Button ref={menuButton} variant="outline" className="shell-menu-button" aria-expanded={menuOpen} aria-controls="main-navigation" onClick={() => setMenuOpen(!menuOpen)}>
+            <MenuIcon aria-hidden="true" />{t('nav.menu')}
+          </Button>
+          <nav id="main-navigation" aria-label={t('nav.main')} className="shell-nav" data-open={menuOpen} onKeyDown={(event) => {
+            if (event.key === 'Escape' && menuOpen) { setMenuOpen(false); menuButton.current?.focus(); }
+          }}>
+            <ul>
+              {NAV.map((item, index) => {
                 const current = (item.active as readonly string[]).includes(route.name);
-                return (
-                  <li key={item.label}>
-                    <Button asChild variant={current ? 'secondary' : 'ghost'} size="sm">
-                      <a href={hrefFor(item.route)} aria-current={current ? 'page' : undefined}>{item.label}</a>
-                    </Button>
-                  </li>
-                );
+                return <li key={item.key} className={index === 4 ? 'shell-utility-start' : undefined}>
+                  <a ref={current ? currentLink : undefined} href={hrefFor(item.route)} aria-current={current ? 'page' : undefined}>{t(item.key)}</a>
+                </li>;
               })}
             </ul>
           </nav>
+          <div className="shell-preferences"><ThemeSelect /><LocaleSelect /></div>
         </div>
       </header>
-      <main id="main" ref={mainRef} tabIndex={-1} className={cn('mx-auto max-w-6xl space-y-4 px-4 py-6 outline-none')}>
-        {commandError && (
-          <div role="alert" className="flex items-start justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            <p>{commandError}</p>
-            <Button variant="outline" size="xs" onClick={dismissError}>Dismiss</Button>
-          </div>
-        )}
+      <main id="main" ref={mainRef} tabIndex={-1} className="shell-main space-y-6">
+        {(themeError || localeError) && <div role="status" className="text-sm text-muted-foreground print:hidden">
+          {themeError && <p>{t('theme.storageError')}</p>}{localeError && <p>{t('locale.storageError')}</p>}
+        </div>}
+        {commandError && <div role="alert" className="flex items-start justify-between gap-3 rounded-md border border-destructive bg-card p-3 text-sm text-destructive">
+          <p>{commandError}</p><Button variant="outline" size="xs" onClick={dismissError}>{t('common.dismiss')}</Button>
+        </div>}
         {children}
       </main>
     </div>
