@@ -14,10 +14,10 @@ function NumericField({ label, value, onValueChange, hint, error, prefix, classN
     <Input {...props} {...control} type="text" inputMode="decimal" value={value} onChange={(event) => onValueChange(event.target.value)} className={cn('tabular-nums', prefix && 'pl-8', className)} />
   </div>}</FormField>;
 }
-/** Include incl./excl. VAT in label; supplier adds the required invoice hint. */
-export function MoneyField({ supplier = false, hint, ...props }: Omit<NumericFieldProps, 'prefix'> & { supplier?: boolean }) {
+/** VAT context is mandatory; the translated suffix is part of the accessible label. */
+export function MoneyField({ vat, label, supplier = false, hint, ...props }: Omit<NumericFieldProps, 'prefix'> & { vat: 'incl' | 'excl'; supplier?: boolean }) {
   const { t } = useLocale();
-  return <NumericField {...props} prefix="€" hint={hint ?? (supplier ? t('terms.supplierHint') : undefined)} />;
+  return <NumericField {...props} label={<>{label} ({t(vat === 'incl' ? 'common.inclVat' : 'common.exclVat')})</>} prefix="€" hint={hint ?? (supplier ? t('terms.supplierHint') : undefined)} />;
 }
 export function QuantityField({ unit, label, ...props }: Omit<NumericFieldProps, 'prefix'> & { unit: string }) {
   return <NumericField {...props} label={<>{label} ({unit})</>} />;

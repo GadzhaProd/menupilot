@@ -37,7 +37,7 @@ Existing imports remain valid: Button (variants/default, outline, secondary, gho
 
 New compositions:
 
-- `@/components/numeric-field`: `MoneyField` and `QuantityField` accept `label`, string `value`, `onValueChange`, optional `hint`/`error` and native input props. Money label must specify incl./excl. VAT; `supplier` adds the required invoice hint. Quantity requires `unit`. They never parse/round drafts.
+- `@/components/numeric-field`: `MoneyField` and `QuantityField` accept `label`, string `value`, `onValueChange`, optional `hint`/`error` and native input props. `MoneyField` requires `vat="incl" | "excl"` and appends the translated VAT suffix to `label` (do not repeat VAT in the label); `supplier` adds the required invoice hint. Quantity requires `unit`. They never parse/round drafts.
 - `@/components/ui/money-value`: `MoneyValue` receives formatted `value: string | null`, optional `tone` (neutral/positive/negative), `className`, `unknownLabel`. `BeforeAfter` receives formatted `before`, `after`, optional labels/tone. No arithmetic. Supply VAT context beside these displays.
 - `@/components/ui/surface`: `Surface` is a section with background/dividers and padding; add a labelled heading.
 - `@/components/ui/empty-state`: `EmptyState { title, description, action? }`.
