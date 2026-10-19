@@ -37,3 +37,7 @@ python3 -m http.server 8766 --bind 127.0.0.1 --directory docs/design/mockups
 Приложение и его тексты не изменены. Реализация, полный audit/a11y/keyboard/production
 preview нового UI и утверждение направления — следующий этап. Тёмная тема и motion
 dependency не нужны этому предложению; scope перевода на NL остаётся открытым.
+
+## Альтернативы после отзыва владельца
+
+[Сравнить A/B/C по картинкам](alternatives/index.html) · [Общее превью](alternatives/comparison.jpg). A сохранён как запасной; B/C описаны в своих DESIGN.md, корневой DESIGN.md не заменён.

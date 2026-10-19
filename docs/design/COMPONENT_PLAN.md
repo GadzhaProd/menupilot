@@ -52,3 +52,7 @@ Apache-кандидат, полный LICENSE и существующий NOTICE
 В этом задании root `third_party/**` и THIRD_PARTY_NOTICES.md не разрешены к изменению,
 поэтому новых копий кода нет. OFL-шрифт для самостоятельных мокапов сопровождается
 полным [LICENSE](mockups/fonts/LICENSE.md) и [PROVENANCE](mockups/fonts/PROVENANCE.md).
+
+## Дополнительный раунд B/C
+
+Новый поиск и отдельные решения для альтернатив: [alternatives/COMPONENT_PLAN.md](alternatives/COMPONENT_PLAN.md). Исходная таблица A выше сохранена.

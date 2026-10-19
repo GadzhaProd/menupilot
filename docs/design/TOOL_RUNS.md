@@ -161,3 +161,68 @@ sRGB/WCAG способом: [token-contrast.json](evidence/token-contrast.json);
 Финальный размер до коммита около 1.05 МБ. Временная копия для тестов убрана после
 сохранения лога; локальный сервер и браузер закрыты. Для просмотра использовать
 самостоятельные HTML/JPEG, либо заново запустить команду из README этого пакета.
+
+---
+
+# B/C alternatives — 19 October 2026
+
+## Real Impeccable calls and playbooks
+
+- Launcher: `/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable`.
+- `context` invoked from repo root at the beginning of this follow-up. Its combined tool response was truncated together with oversized discovery metadata; raw stdout was **not preserved**. No specific directives or exit code are invented here. It was not rerun, respecting once-per-session. Existing PRODUCT.md and DESIGN context were read directly.
+- Read actual SKILL.md, reference/bolder.md, new-work.md and craft-floor.md. `bolder` is a skill playbook, not a fictional shell subcommand. Its own routing sends an open direction round to the **bolder register**. No `impeccable bolder` CLI execution is claimed.
+- Actual CLI:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable concept-seed --scope direction --mode operate --register bolder --from 82a98500 --reroll 1
+```
+
+Exit 0. Output starts `DIRECTION CONCEPT SEED (key: 82a98500; mode: operate; source: api; approved pool: c3b204a1eed6; 306/564 human-approved...)`, then `RE-ROLL ROUND 1 (BOLDER REGISTER, user-requested)`. Assigned grounded index suspended; six challengers, leader `operate-c-emission-line-rail`. [Full stdout](alternatives/concept-seed.txt), [honest treatment/deviations](alternatives/EXPLORATION.md). No telemetry choice ping: owner has not selected.
+- Initial direct download of quality-bar hero: exact error `urllib.error.HTTPError: HTTP Error 403: Forbidden`. Same two hero URLs opened successfully in real bb browser, screenshot inspection completed. No catalog image copied into deliverable. This was an asset-fetch failure, not an unavailable Impeccable launcher.
+- Actual `.../scripts/impeccable detect --json docs/design/alternatives` → **exit 2**, 67 findings: 12 warning /55 advisory. [Raw JSON](alternatives/detect.json). 27 color +28 font-size advisories, six font warnings compare B/C against root A; root DESIGN deliberately not rewritten. Others: two cream-palette, three side-tab, one cramped-padding. [Disposition](alternatives/REVIEW.md). No claim of clean detector output or completed production audit.
+- No Impeccable-written code change in src/test/package. No rollback necessary. No subagents spawned under child-thread restrictions. Proposed designs and judgments authored here using the real skill, not a separate simulated Impeccable model.
+
+## Real 21st MCP calls
+
+`mcp__codex_apps__21st_search`, type component:
+
+1. `number counter typography`, limit3 →3.
+2. `segmented tabs navigation`, limit3 →3.
+3. `price comparison table`, limit2 →2.
+4. `badge status`, limit2 →2.
+5. `navigation tabs motion`, limit2 →2.
+
+12 results /11 unique (10473 repeated). `mcp__codex_apps__21st_get_component` called for **24967, 29887, 21513, 26923, 21218, 25395, 24930**; each returned component +quota. Actual imports inspected; empty dependency metadata not trusted. Full component code not stored or copied.
+
+All seven license calls used the repository script; exit0:
+
+| `sh scripts/21st.sh license <path>` | Actual License line |
+|---|---|
+| @motiondotdev/components/motion-number-counter | mit |
+| @shadcnspace/components/number-ticker-08 | MIT |
+| @shadcnspace/components/number-ticker-02 | no-license |
+| @micka_design/components/tabs-base | MIT |
+| @olewandowski1/components/comparison-3 | MIT-0 |
+| @diceui/components/status | MIT |
+| @educalvolpz/components/animated-tabs | MIT |
+
+MIT-0 was not silently mapped to MIT; no-license and MIT-0 have inspire-only decisions under this task's allowlist. [Metadata and exact author/license outputs](alternatives/21st-research.json). [Decisions](alternatives/COMPONENT_PLAN.md): use0/adapt1/inspire2/build-own4; adapt is future eligibility, no code accepted now.
+
+## Fonts, Motion and browser
+
+- Barlow Condensed Bold and Archivo variable fetched from official Google Fonts repository; their OFL URLs checked via web tool. Full OFL stored with both fonts, Source Sans reused from A.
+- Official Motion layout docs checked. web open of registry latest returned `Internal Error`; Python urllib to same public registry succeeded, yielding motion **14.4.0**, MIT, React/ReactDOM ^18||^19, transitive framer-motion14.4.0. [Captured metadata](alternatives/motion-version.json). No npm package installed.
+- Used real `bb browser-automation open --backend local --headless --machine host_mqe28unaid --json`, session `715b784c-8d11-42d0-b255-601492d30467`; `run` navigated local HTTP pages, awaited fonts, captured JPEG, inspected dimensions and fields.
+- One batched initial inspection of all four screens at1440/375, one fix batch (mobile nav, C disclosure/context, B table density), final confirmation. A later numeric accessibility check found C input border2.55:1; one targeted correction to#929A92→4.07:1, then focus/border and screenshot confirmed. Header focus inherits high-contrast text colour. No unbounded polish loop.
+- [Desktop readings](alternatives/browser-desktop.txt), [375 readings](alternatives/browser-375.txt), [comparison/focus](alternatives/browser-comparison.txt). Both sizes have scrollWidth=innerWidth; all local fonts loaded; input heights48px. Comparison all images complete. Browser is Chromium only, not Safari/Firefox or a screen-reader certification.
+- JPEGs are direct local-browser captures, no generative images or third-party pictures. Provenance/hashes and limitations in [REVIEW](alternatives/REVIEW.md).
+
+## Follow-up verification
+
+`npm run check` повторно прошёл в `/tmp/menupilot-alternatives-check-rqsujubq`: package-lock совпал побайтно, точные версии прямых зависимостей в скопированном node_modules проверены. Exit0: tsc; core125pass/0fail; UI248pass,16files; Vite8.3.4,2064modules,454ms. [Полный свежий вывод](alternatives/npm-check.txt). Node warning о --localstorage-file сохранён. Временная копия удалена, исходное приложение не менялось.
+
+Проверка цифр сначала использовала неполный CSS font shorthand (получился body font); этот результат отброшен. Исправленный readout с explicit family/size/weight: Barlow700/88px — все10цифр43.828125px; Archivo600/52px — все30.109375px. [Вывод](alternatives/browser-digits.txt). A DOM реально прочитан: `Help with this page`.
+
+Финальная проверка документов:11HTML,276локальных ссылок,0битых ссылок/повторных id; ровно один h1 на страницу. A HTML побайтно сверены с99e1e39 после единственной разрешённой замены пробела (3файла); root DESIGN.md совпадает с99e1e39. Новый пакет около1.77MB, лимит3MB соблюдён. git diff --check без ошибок; src/test/package не менялись. [Машинный результат](alternatives/validation.json).
+
+Завершение: bb browser-automation close →state closed, exit0. Локальный HTTP server остановлен Ctrl+C →`Keyboard interrupt received, exiting.`, exit0. Внешняя публикация/push/merge не выполнялись.

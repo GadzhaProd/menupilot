@@ -1,0 +1,110 @@
+DIRECTION CONCEPT SEED (key: 82a98500; mode: operate; source: api; approved pool: c3b204a1eed6; 306/564 human-approved; rerun with --scope direction --mode operate --from 82a98500 --reroll 1 --register bolder --candidate-count 7 to reproduce this roll against this catalog revision)
+RE-ROLL ROUND 1 (BOLDER REGISTER, user-requested): every candidate presented in earlier rounds, grounded
+  and challenger alike, is eliminated and may not return reworded.
+BOLDER REGISTER: the user asked for foreign forms at full commitment, so no
+  grounded direction is presented this round and the assigned index is
+  suspended. The hand is every dealt challenger below, each fused with the
+  product and presented as a full card; the FIRST dealt challenger leads, an
+  assignment by deal order, so the dice still choose. Verdicts and donations
+  apply between the challengers, weighed against the leader. The pick card
+  sits out; the canon stays, as always.
+CHALLENGERS:
+  1. A working plate where every element registers against one off-centre calibrated rail, colour survives only as hairline emission lines of seven wavelengths standing on a procedurally banded charcoal continuum, and state is carried in line height, dash and doubling rather than hue.
+     SOURCE ID: operate-c-emission-line-rail
+     CREATIVE SPARK: A glass spectrogram lying on a low viewing box at three in the morning: a grey continuum crossed by needle-thin bright lines, every legend at the same tiny size, one sodium pair doubled and standing brighter than anything near it.
+     SYSTEM GRAMMAR:
+       - Palette/material: procedural charcoal continuum with bone legends; colour only as hairlines at 405/436/486/546/589/615/656nm; foreign images mat into graphite, edged by one line.
+       - Type/composition: one grotesque at a single size, ranked by tracking and ink; all matter hangs off one off-centre rail, and prose only ever sits in bone on flat ash plates.
+       - Topology/navigation: every destination is a tick on the rail; the open one blooms into a giant plate above it, the rest stay hairline stubs, and nothing ever leaves the rail.
+       - Controls/state: state is line form, not hue: full-height solid live, dashed pending, half-height stale, struck disabled; a doubled line, sodium yellow, outranks its neighbours.
+       - Responsive/motion: a landing line slides to its position and damps with one overshoot; narrow widths shorten the band shown, never the type; sheets behind the top one dim a step.
+     WEB LEVERAGE: Build the rail as one custom property mapping any value to an x position; every mark is a 1px absolutely placed line whose state is height, dash pattern and doubling, settled by a spring, never by colour.
+     QUALITY BAR: board https://impeccable.style/worlds/cards/operate-c-emission-line-rail.webp · hero https://impeccable.style/worlds/cards/operate-c-emission-line-rail-hero.webp
+  2. a celestial star atlas chart, magnitudes as ranked dot sizes on a coordinate sphere, constellation lines and mythic figures faint beneath the data
+     SOURCE ID: notation-diagram-systems-star-atlas
+     CREATIVE SPARK: Under a red flashlight at two in the morning, a cold thumb traces from the chart's inked dots up to the actual sky, and Orion's belt agrees with the paper exactly.
+     SYSTEM GRAMMAR:
+       - Palette/material: deep navy chart ground with chalk-white stars, red-flashlight amber for annotations, the object under the eye ringed in that same night-vision red
+       - Type/composition: light serif italic names the constellations, small tabular figures label coordinates, dot diameter carries the hierarchy the type declines to
+       - Topology/navigation: the sky splits into overlapping charts with matched edges, coordinates gridline the field and an index of named objects points into each plate
+       - Controls/state: importance is dot diameter on a fixed magnitude ramp, variable objects wear distinct rings, the mythic figure layer fades up only on request
+       - Responsive/motion: each plate crops around its brightest anchors at small sizes; panning drifts like slow sidereal motion
+     WEB LEVERAGE: Canvas plots thousands of magnitude-scaled points with smooth zoom between chart plates.
+     QUALITY BAR: board https://impeccable.style/worlds/cards/notation-diagram-systems-star-atlas.webp · hero https://impeccable.style/worlds/cards/notation-diagram-systems-star-atlas-hero.webp
+  3. a software marketing surface built almost entirely in one neutral scale, near-black on near-white with a single restrained accent, dense product screenshots framed on subtle gradients and every claim paired with an interface detail proving it
+     SOURCE ID: digital-design-canon-monochrome-product-marketing
+     CREATIVE SPARK: Almost no color at all, one accent used maybe four times on the whole page, and every sentence immediately followed by a screenshot that proves it.
+     SYSTEM GRAMMAR:
+       - Palette/material: a fine neutral scale from near-white to near-black with one accent used sparingly, and screenshots framed on soft radial grounds
+       - Type/composition: a tight geometric sans at two weights, sentence-case headings, and a strict grid with generous vertical rhythm between claims
+       - Topology/navigation: sections alternate claim and proof, so navigation descends through paired assertions rather than a feature list
+       - Controls/state: controls are ghost buttons with a hairline border, the primary action fills solid in the accent, and secondary actions stay outline
+       - Responsive/motion: the grid folds from two columns to one preserving pair order, and motion is a soft rise as each proof enters
+     WEB LEVERAGE: a neutral scale as css custom properties, intersection-driven rise animation, and responsive claim-and-proof pairing
+     QUALITY BAR: board https://impeccable.style/worlds/cards/digital-design-canon-monochrome-product-marketing.webp · hero https://impeccable.style/worlds/cards/digital-design-canon-monochrome-product-marketing-hero.webp
+  4. a full-bleed vertical media surface where one item owns the entire viewport, a right rail of stacked action affordances, an author line and caption anchored low, and the next item already waiting one snap away
+     SOURCE ID: pop-culture-shelf-vertical-video-feed-surface
+     CREATIVE SPARK: One thing fills the whole screen, four glyphs stacked down the right, and the next one is exactly one flick away and already loaded.
+     SYSTEM GRAMMAR:
+       - Palette/material: media fills the frame edge to edge with a soft bottom scrim carrying the text, and pure white glyphs as the only interface color
+       - Type/composition: an author line and caption anchored to the lower left, a vertical stack of action glyphs on the right, and nothing in the center
+       - Topology/navigation: one item at a time occupies everything, so navigation is a single vertical snap between complete states
+       - Controls/state: controls are rail glyphs, an engaged one fills and counts up, and the caption expands in place when truncated
+       - Responsive/motion: the item always fills the viewport whatever its aspect, and motion is a hard snap with no partial scroll position
+     WEB LEVERAGE: scroll-snap paging with preloading, engagement counts in live state, and full-viewport media fitting at any aspect
+     QUALITY BAR: board https://impeccable.style/worlds/cards/pop-culture-shelf-vertical-video-feed-surface.webp · hero https://impeccable.style/worlds/cards/pop-culture-shelf-vertical-video-feed-surface-hero.webp
+  5. a travel document surface pairing a segmented boarding pass with a live gate board, the pass carrying a scannable block and a sequence number while the board reranks flights by departure and reflows a changed gate in place
+     SOURCE ID: vernacular-ephemera-boarding-pass-and-gate-board
+     CREATIVE SPARK: The gate changes and the row does not disappear and come back somewhere else; it moves, and it stays lit until you have noticed.
+     SYSTEM GRAMMAR:
+       - Palette/material: high-contrast neutral panels with one alert color reserved for changes, and a monospaced scannable block as the only texture
+       - Type/composition: the pass divided into labeled segments with tabular figures, and the board ranking flights in a fixed column grid
+       - Topology/navigation: departure time orders everything, so navigation is watching a ranking rather than searching a list
+       - Controls/state: controls are flight rows, a changed gate flashes its alert color and holds it, and boarded flights drop off the board
+       - Responsive/motion: board columns drop by priority and the pass stacks its segments, and motion is a row reranking in place
+     WEB LEVERAGE: live rerank animation preserving row identity, priority-based responsive columns, and persistent change state
+     QUALITY BAR: board https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board.webp · hero https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board-hero.webp
+  6. a zoo and gardens guide map, where every area is a swelling lobe of flat colour and the coastline between lobes does all the dividing, and where a lobe can open in its middle so the page ground shows through it as water
+     SOURCE ID: aww2-zoo-gardens-guide-map
+     CREATIVE SPARK: A summer opening-morning guide map creased into eight panels: an apple-green headland swelling across the fold, a coral flamingo standing right on its edge with one foot out over the cream, and a yellow capsule pinned to the coastline reading GATE.
+     SYSTEM GRAMMAR:
+       - Palette/material: Flat unmodulated colour, no grain: green #8ED462 land on cream #F5F1E4 water, ink #2C2E2A. Photographs keep their own colour, cropped to a lobe, never tinted.
+       - Type/composition: One grotesk at one weight; display at 0.95 leading, -0.06em. Prose is ink on cream, white, green or yellow; coral and blue carry labels only.
+       - Topology/navigation: One lobe dominates each screen, swelling until its coast leaves the frame on two sides; a lobe may open in its middle and let the ground through as water.
+       - Controls/state: Controls are capsules in yellow #F5E211, coral #FF705D, blue #2BA0FF, lilac #EBC1FF; a round chip rides its trailing edge and crosses to the leading edge when live.
+       - Responsive/motion: Everything that moves takes 0.4s and overshoots before settling. Scroll redraws the coastline continuously; at narrow widths the coast runs down the frame.
+     WEB LEVERAGE: Every area is one SVG path; scroll advances a single timeline that morphs the coastline, and the same path clips the illustration and the type, so one geometry drives layout, art and state together.
+     QUALITY BAR: board https://impeccable.style/worlds/cards/aww2-zoo-gardens-guide-map.webp · hero https://impeccable.style/worlds/cards/aww2-zoo-gardens-guide-map-hero.webp
+Fuse each challenger before judging it: the challenger supplies the form
+  and its system grammar, the product supplies every fact, and clarity wins
+  conflicts. Weigh every fused challenger against the fused LEADER, the first
+  dealt, on exactly two axes, audience identification and product clarity;
+  verdicts and donations apply between the challengers, and one that beats
+  the leader on both axes presents as the hand's strongest alternate.
+When you can view images, open the QUALITY BAR board and hero for any
+challenger you weigh seriously and for the world you build. They exist as a
+craft bar, the finish level and commitment the build is expected to reach,
+never as a mockup to copy; your surface serves this product, not that render.
+PRODUCT.md and explicit incumbent brand commitments constrain every direction.
+The seed never chooses exact colors, fonts, tokens, or a user preference, and
+it never permits the world and first surface to be selected independently.
+The CREATIVE SPARK is a complete visual system, not a theme or decorative
+reference. Translate every supplied system rule into the product: palette and
+material, type and composition, topology, controls and states, and adaptation.
+Keep the source's visible character, scale, rhythm, and interaction instead of
+reducing vivid grammar to generic nouns. When the source is already a credible
+interface language, commit to it across navigation, content, controls, and
+states. Otherwise keep a literal carrier only when it becomes functional.
+Ambitious motion, spatial media, or interaction is welcome when it strengthens
+the product without weakening semantics, performance, or fallback behavior.
+TELEMETRY: after the user's choice resolves, rerun this script once with
+  --kind <assigned|pick|challenger|canon> --from 82a98500 --scope direction --mode operate,
+  adding --chosen <challenger-id> when a dealt challenger won and keeping
+  --register <safer|bolder> when the resolved round came from a steered hand.
+  One ping per resolved attended round. The ping is anonymous, the card kind
+  plus the catalog id when one won; your grounded candidates' names never
+  leave the machine, and the ping is skipped automatically when DO_NOT_TRACK
+  or IMPECCABLE_NO_TELEMETRY is set.
+A user- or brief-pinned decision beats the roll, always.
+REGISTER (restated for truncated readers): bolder, user-requested; the
+assigned index is suspended this round; seed key 82a98500.

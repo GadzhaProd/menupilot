@@ -1,0 +1,72 @@
+[
+  {
+    "pair": "B text/background",
+    "fg": "#20271F",
+    "bg": "#FAFAF3",
+    "contrast": 14.61,
+    "required": 4.5
+  },
+  {
+    "pair": "B text/yellow",
+    "fg": "#20271F",
+    "bg": "#F4DF35",
+    "contrast": 11.27,
+    "required": 4.5
+  },
+  {
+    "pair": "B muted/background",
+    "fg": "#535A50",
+    "bg": "#FAFAF3",
+    "contrast": 6.8,
+    "required": 4.5
+  },
+  {
+    "pair": "B focus/background",
+    "fg": "#005F47",
+    "bg": "#FAFAF3",
+    "contrast": 7.34,
+    "required": 3
+  },
+  {
+    "pair": "B negative/background",
+    "fg": "#77300A",
+    "bg": "#FAFAF3",
+    "contrast": 9.06,
+    "required": 4.5
+  },
+  {
+    "pair": "C text/background",
+    "fg": "#F2F1E8",
+    "bg": "#272A29",
+    "contrast": 12.78,
+    "required": 4.5
+  },
+  {
+    "pair": "C muted/background",
+    "fg": "#C1C5BD",
+    "bg": "#272A29",
+    "contrast": 8.27,
+    "required": 4.5
+  },
+  {
+    "pair": "C text/panel",
+    "fg": "#F2F1E8",
+    "bg": "#343936",
+    "contrast": 10.38,
+    "required": 4.5
+  },
+  {
+    "pair": "C border/panel",
+    "fg": "#929A92",
+    "bg": "#343936",
+    "contrast": 4.07,
+    "required": 3
+  },
+  {
+    "pair": "C focus/background",
+    "fg": "#F2C75C",
+    "bg": "#272A29",
+    "contrast": 9.04,
+    "required": 3
+  }
+]

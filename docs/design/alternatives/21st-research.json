@@ -1,0 +1,170 @@
+{
+  "date": "2026-10-19",
+  "searches": [
+    "number counter typography",
+    "segmented tabs navigation",
+    "price comparison table",
+    "badge status",
+    "navigation tabs motion"
+  ],
+  "searchResultCount": 12,
+  "uniqueCandidates": 11,
+  "inspectedCount": 7,
+  "results": [
+    {
+      "id": 24967,
+      "name": "Number counter",
+      "author": "motiondotdev",
+      "url": "https://21st.dev/@motiondotdev/components/motion-number-counter",
+      "inspected": true,
+      "npmDependencies": {},
+      "registryFiles": [],
+      "imports": [
+        "import { useState, type CSSProperties } from \"react\"",
+        "import { LayoutGroup, motion } from \"motion/react\"",
+        "import \"./motion-number-counter-utils/index.css\"",
+        "import NumberCounter from \"@/components/ui/motion-number-counter\""
+      ],
+      "licenseCheck": "- Author: [Motion](https://21st.dev/@motiondotdev)\n- License: mit\n"
+    },
+    {
+      "id": 29887,
+      "name": "Segmented LCD Number Ticker",
+      "author": "shadcnspace",
+      "url": "https://21st.dev/@shadcnspace/components/number-ticker-08",
+      "inspected": true,
+      "npmDependencies": {},
+      "registryFiles": [],
+      "imports": [
+        "import { useEffect, useRef, useState } from \"react\"",
+        "import { cn } from \"@/lib/utils\"",
+        "import NumberTicker08 from \"@/components/ui/number-ticker-08\""
+      ],
+      "licenseCheck": "- Author: [ShadcnSpace](https://21st.dev/@shadcnspace)\n- Library: [ShadcnSpace](https://21st.dev/@shadcnspace/library/shadcnspace)\n- License: MIT\n"
+    },
+    {
+      "id": 21513,
+      "name": "Number Ticker Currency Counter",
+      "author": "shadcnspace",
+      "url": "https://21st.dev/@shadcnspace/components/number-ticker-02",
+      "inspected": true,
+      "npmDependencies": {},
+      "registryFiles": [],
+      "imports": [
+        "import NumberFlow, { type Value } from \"@number-flow/react\"",
+        "import * as React from \"react\"",
+        "import NumberTicker from \"@/components/ui/number-ticker-02\""
+      ],
+      "licenseCheck": "- Author: [ShadcnSpace](https://21st.dev/@shadcnspace)\n- Library: [ShadcnSpace](https://21st.dev/@shadcnspace/library/shadcnspace)\n- License: no-license\n"
+    },
+    {
+      "id": 26923,
+      "name": "Segmented Tabs",
+      "author": "micka_design",
+      "url": "https://21st.dev/@micka_design/components/tabs-base",
+      "inspected": true,
+      "npmDependencies": {},
+      "registryFiles": [],
+      "imports": [
+        "import {",
+        "import { Tabs as TabsPrimitive } from \"@base-ui/react/tabs\"",
+        "import { motion, AnimatePresence } from \"framer-motion\"",
+        "import type { IconComponent } from \"@/components/ui/tabs-base-utils/icon-context\"",
+        "import { cn } from \"@/lib/utils\"",
+        "import { spring } from \"@/components/ui/tabs-base-utils/springs\"",
+        "import { fontWeights } from \"@/components/ui/tabs-base-utils/font-weight\"",
+        "import { useShape } from \"@/components/ui/tabs-base-utils/shape-context\"",
+        "import {",
+        "import { useSurface } from \"@/components/ui/tabs-base-utils/surface-context\"",
+        "import { surfaceClasses } from \"@/components/ui/tabs-base-utils/surface-classes\"",
+        "import { useFluidHover } from \"@/components/ui/tabs-base-utils/use-fluid-hover\"",
+        "import { Tabs, TabsList, TabItem, TabPanel } from \"@/components/ui/tabs-base\""
+      ],
+      "licenseCheck": "- Author: [micka_design](https://21st.dev/@micka_design)\n- Library: [Fluid Functionalism](https://21st.dev/@micka_design/library/fluid-functionalism)\n- License: MIT\n"
+    },
+    {
+      "id": 24931,
+      "name": "Segmented Control Tabs",
+      "author": "cnippet-dev",
+      "url": "https://21st.dev/@cnippet-dev/components/segmented-control-tabs"
+    },
+    {
+      "id": 10473,
+      "name": "Vertical Tabs",
+      "author": "0xUrvish",
+      "url": "https://21st.dev/@0xUrvish/components/vertical-tabs"
+    },
+    {
+      "id": 21218,
+      "name": "Feature Comparison Table",
+      "author": "olewandowski1",
+      "url": "https://21st.dev/@olewandowski1/components/comparison-3",
+      "inspected": true,
+      "npmDependencies": {
+        "@radix-ui/react-slot": "latest",
+        "class-variance-authority": "latest"
+      },
+      "registryFiles": [
+        "/components/ui/button.tsx",
+        "/components/ui/badge.tsx",
+        "/components/ui/table.tsx"
+      ],
+      "imports": [
+        "import * as React from \"react\"",
+        "import {",
+        "import { Badge } from \"@/components/ui/badge\"",
+        "import { Button } from \"@/components/ui/button\"",
+        "import {",
+        "import { cn } from \"@/lib/utils\"",
+        "import ComparisonBlock from \"@/components/ui/comparison-3\""
+      ],
+      "licenseCheck": "- Author: [Oliver](https://21st.dev/@olewandowski1)\n- License: MIT-0\n"
+    },
+    {
+      "id": 26827,
+      "name": "Comparison Table",
+      "author": "mohammadshehadeh",
+      "url": "https://21st.dev/@mohammadshehadeh/components/comparison-02"
+    },
+    {
+      "id": 25395,
+      "name": "Status",
+      "author": "diceui",
+      "url": "https://21st.dev/@diceui/components/status",
+      "inspected": true,
+      "npmDependencies": {},
+      "registryFiles": [],
+      "imports": [
+        "import { cva, type VariantProps } from \"class-variance-authority\"",
+        "import { Slot as SlotPrimitive } from \"radix-ui\"",
+        "import type * as React from \"react\"",
+        "import { cn } from \"@/lib/utils\"",
+        "import { Status, StatusIndicator, StatusLabel } from \"@/components/ui/status\""
+      ],
+      "licenseCheck": "- Author: [Dice UI](https://21st.dev/@diceui)\n- Library: [Dice UI](https://21st.dev/@diceui/library/dice-ui)\n- License: MIT\n"
+    },
+    {
+      "id": 521,
+      "name": "Status Badge",
+      "author": "serafimcloud",
+      "url": "https://21st.dev/@serafimcloud/components/status-badge"
+    },
+    {
+      "id": 24930,
+      "name": "Animated Tabs",
+      "author": "educalvolpz",
+      "url": "https://21st.dev/@educalvolpz/components/animated-tabs",
+      "inspected": true,
+      "npmDependencies": {},
+      "registryFiles": [],
+      "imports": [
+        "import { cn } from \"@/lib/utils\"",
+        "import { motion, useReducedMotion } from \"motion/react\"",
+        "import { type ReactNode, useCallback, useId, useState } from \"react\"",
+        "import AnimatedTabs from \"@/components/ui/animated-tabs\"",
+        "import { useState } from \"react\""
+      ],
+      "licenseCheck": "- Author: [Edu Calvo](https://21st.dev/@educalvolpz)\n- Library: [SmoothUI](https://21st.dev/@educalvolpz/library/smoothui)\n- License: MIT\n"
+    }
+  ]
+}

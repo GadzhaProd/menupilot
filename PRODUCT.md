@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Owners and managers of independent cafés and restaurants in the Netherlands, usually one location and 10–60 dishes. Many are immigrants; some are older or uncomfortable with computers. They know supplier invoices and menu prices, not accounting terminology. This audience comes from the owner’s design brief and docs/planning/02_PRODUCT_SPEC.md.
+Owners and managers of independent cafés and restaurants in the Netherlands, usually one location and 10–60 dishes. They are of any age; many are immigrants and some have little experience with computers. Age is not a target segment. They know supplier invoices and menu prices, not accounting terminology. This audience comes from the owner’s design brief and docs/planning/02_PRODUCT_SPEC.md.
 
 ## Product Purpose
 
