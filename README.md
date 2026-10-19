@@ -106,20 +106,18 @@ Money input accepts a decimal comma or point and rejects thousands separators.
 
 Every push to `main` runs typecheck, tests and build in GitHub Actions (`.github/workflows/pages.yml`) and publishes `dist/` to GitHub Pages at `/menupilot/`. Other branches and pull requests run the same checks in `ci.yml`.
 
-## What was reused and what was built
+## Authorship
 
-**Reused**
+**MenuPilot is original work by GadzhaProd.** The product idea, scope and every stage were defined and approved by the product owner; the code was written for this project by AI coding agents working under that direction. The calculation core (`src/calc`), the data store and validation (`src/store`), the Profit Simulator, the Dashboard, the built-in Help guide and all screens were built from scratch for MenuPilot.
 
-- Ideas about base units, yield % and costing excl. VAT, inspired by [kitchen-costing-for-claude-code](https://github.com/Enterprise-DNA-OS/kitchen-costing-for-claude-code) (MIT, Enterprise DNA). No code was copied.
-- [shadcn/ui](https://ui.shadcn.com) components (MIT), adapted in `src/components/ui/`.
-- Two [21st.dev](https://21st.dev) components, both MIT: Badge Delta and Alert with Action Buttons (adapted). Licence texts are in `third_party/21st/`.
-- Open-source dependencies (React, Vite, Tailwind CSS, Radix UI, lucide-react and others), pinned to exact versions in the lockfile.
+The plan, architecture decisions and agent rules are public: [docs/planning](docs/planning/) and [AGENTS.md](AGENTS.md).
 
-All notices and licences: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+**Built with open-source tools.** Like any modern web app, MenuPilot runs on open-source libraries — React, Vite, Tailwind CSS, Radix UI, lucide-react and others, pinned to exact versions. Their licences require a notice, so they are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), together with:
 
-**Built for this project:** the calculation core (`src/calc`), the data store and validation (`src/store`), the Profit Simulator, the Dashboard and all screens.
+- [shadcn/ui](https://ui.shadcn.com) base components (MIT) in `src/components/ui/`;
+- two small MIT-licensed components from [21st.dev](https://21st.dev) (Badge Delta, Alert with Action Buttons), adapted; licence texts in `third_party/21st/`.
 
-**Development process.** MenuPilot was built with AI coding agents under a human product owner, who set the scope and approved each stage. The plan, architecture decisions and agent rules are in [docs/planning](docs/planning/) and [AGENTS.md](AGENTS.md).
+**Inspiration.** The costing approach (base units, yield %, costs excl. VAT) was inspired by [kitchen-costing-for-claude-code](https://github.com/Enterprise-DNA-OS/kitchen-costing-for-claude-code) (MIT, Enterprise DNA). No code was copied from it.
 
 ## Demo data
 
