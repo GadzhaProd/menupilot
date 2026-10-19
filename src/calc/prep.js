@@ -1,5 +1,5 @@
 import { formatEURFromCents, roundDiv } from './money.js';
-import { normalizeUnit, unitPriceSuffix } from './units.js';
+import { normalizeUnit } from './units.js';
 import {
   ingredientLineCostMicroInternal,
   safeInteger,
@@ -154,13 +154,13 @@ export function prepLineCostMicro(line, prep, data, options = {}) {
 }
 
 /**
- * Display a prep batch cost per kg, l, or pc, rounded to cents once.
+ * Prep batch cost per kg, l, or pc in exact display cents, rounded once.
  * @param {bigint|null} knownBatchCostMicro Prep batch cost in micro-euros.
  * @param {number} outputMilli Prep yield in thousandths of the output base unit.
  * @param {string} outputUnit Prep output unit: g/kg, ml/l, or pc.
- * @returns {string|null} Display value such as "€1.80/kg", or null when unknown.
+ * @returns {{cents: bigint, per: 'kg'|'l'|'pc'}|null} Null when the batch cost is unknown.
  */
-export function prepUnitCostDisplay(knownBatchCostMicro, outputMilli, outputUnit) {
+export function prepUnitCostCents(knownBatchCostMicro, outputMilli, outputUnit) {
   const sizeMilli = safeInteger(outputMilli, 'outputMilli', 1);
   const baseUnit = normalizeUnit(outputUnit);
   if (knownBatchCostMicro === null) {
@@ -175,5 +175,14 @@ export function prepUnitCostDisplay(knownBatchCostMicro, outputMilli, outputUnit
     knownBatchCostMicro * displayFactorMilli,
     sizeMilli * MICRO_EUROS_PER_CENT,
   );
-  return `${formatEURFromCents(unitPriceCents)}${unitPriceSuffix(baseUnit)}`;
+  return { cents: unitPriceCents, per: baseUnit === 'g' ? 'kg' : baseUnit === 'ml' ? 'l' : 'pc' };
+}
+
+/** Legacy EN display; numeric calculation and rounding stay in prepUnitCostCents.
+ * @param {bigint|null} knownBatchCostMicro @param {number} outputMilli @param {string} outputUnit
+ * @returns {string|null}
+ */
+export function prepUnitCostDisplay(knownBatchCostMicro, outputMilli, outputUnit) {
+  const value = prepUnitCostCents(knownBatchCostMicro, outputMilli, outputUnit);
+  return value === null ? null : `${formatEURFromCents(value.cents)}/${value.per}`;
 }

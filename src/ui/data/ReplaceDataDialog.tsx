@@ -30,7 +30,7 @@ export function ReplaceDataDialog({
           <DialogDescription>This replaces all current data. {description}</DialogDescription>
         </DialogHeader>
         {unsavedScenarios > 0 ? (
-          <p className="rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm text-amber-950">
+          <p className="rounded-md border border-input bg-accent p-3 text-sm text-accent-foreground">
             You have {unsavedScenarios} unsaved simulator {unsavedScenarios === 1 ? 'scenario' : 'scenarios'}. They will be lost.
           </p>
         ) : null}

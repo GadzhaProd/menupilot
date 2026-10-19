@@ -141,7 +141,7 @@ export function ComparisonTable({ columns }: { columns: readonly Column[] }) {
                 >
                   <span className="block font-semibold text-foreground">{column.label}</span>
                   {column.kind === 'baseline' ? <span className="block text-xs font-normal text-muted-foreground">today</span> : null}
-                  {column.stale ? <span className="block text-xs font-normal text-amber-700">older prices</span> : null}
+                  {column.stale ? <span className="block text-xs font-normal text-accent-foreground">older prices</span> : null}
                   {!column.run.ok ? <span className="block text-xs font-normal text-destructive">cannot calculate</span> : null}
                   {winners.has(column.key) ? <span className="block text-xs font-medium text-primary">highest monthly</span> : null}
                 </TableHead>

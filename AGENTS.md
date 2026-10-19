@@ -8,7 +8,7 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 - Build only what the current stage in docs/planning/04_IMPLEMENTATION_PLAN.md asks for.
 - Out of scope unless the owner approves: AI features, POS, invoices/OCR, inventory,
   auth, multi-location, billing, analytics, new currencies.
-- Use only the approved exact-version dependencies and commit the lockfile: react, react-dom, vite, @vitejs/plugin-react, typescript, tailwindcss, @tailwindcss/vite, vitest, jsdom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom. For shadcn use only needed Radix primitives, class-variance-authority, clsx, tailwind-merge, lucide-react. No other dependency (including framer-motion) without coordinator approval; never use --force/--legacy-peer-deps.
+- Use only the approved exact-version dependencies and commit the lockfile: react, react-dom, vite, @vitejs/plugin-react, typescript, tailwindcss, @tailwindcss/vite, vitest, jsdom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom. For shadcn use only needed Radix primitives, class-variance-authority, clsx, tailwind-merge, lucide-react, motion@14.4.0 (owner-approved, including its transitive framer-motion). No other dependency (including framer-motion) without coordinator approval; never use --force/--legacy-peer-deps.
 
 ## Money and numbers (non-negotiable)
 - Money is stored as integer euro cents. Never store or sum money as floats.

@@ -46,3 +46,8 @@ Each licence was read from the component page with `sh scripts/21st.sh license <
 Ideas about base units, yield and cost excluding VAT were inspired by
 [kitchen-costing-for-claude-code](https://github.com/Enterprise-DNA-OS/kitchen-costing-for-claude-code)
 (MIT, Enterprise DNA). No code was copied.
+
+## Self-hosted C+ fonts
+
+- **Archivo** — Copyright 2020 The Archivo Project Authors. SIL Open Font License 1.1: [full license](public/fonts/Archivo-OFL.txt). Source: https://github.com/google/fonts/tree/main/ofl/archivo. Existing `docs/design/alternatives/fonts/Archivo.ttf` converted losslessly to WOFF2 with fontTools (no subset/outline changes). Production file: `public/fonts/Archivo.woff2` (variable weight/width).
+- **Source Sans 3** — Adobe, SIL Open Font License 1.1: [full license](public/fonts/SourceSans3-OFL.md). Source: https://github.com/adobe-fonts/source-sans. Regular and Semibold WOFF2 reused unchanged from the licensed design assets at `docs/design/mockups/fonts/`. Production files in `public/fonts/`; no runtime requests to a font service.

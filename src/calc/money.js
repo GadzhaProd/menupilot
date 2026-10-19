@@ -91,3 +91,100 @@ export function formatEURFromMicro(microEuros) {
   }
   return formatEURFromCents(roundDiv(microEuros, MICRO_EUROS_PER_CENT));
 }
+
+/** Case-insensitive UI locale; regional Dutch tags use NL, unsupported languages use EN.
+ * @param {string} [locale] @returns {'en'|'nl'}
+ */
+export function normalizeLocale(locale = 'en') {
+  return locale.toLowerCase().startsWith('nl') ? 'nl' : 'en';
+}
+
+const unavailable = (locale) => normalizeLocale(locale) === 'nl' ? 'n.v.t.' : 'n/a';
+
+// The UI supports two locales. Normalising regional tags bounds the cache to two entries.
+const FORMAT_CACHE = new Map();
+function localeFormats(locale) {
+  const language = normalizeLocale(locale);
+  if (!FORMAT_CACHE.has(language)) {
+    const tag = language === 'nl' ? 'nl-NL' : 'en-GB';
+    const currency = new Intl.NumberFormat(tag, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const template = currency.formatToParts(1234.5);
+    FORMAT_CACHE.set(language, {
+      integer: new Intl.NumberFormat(tag, { useGrouping: true, maximumFractionDigits: 0 }),
+      template,
+      decimal: template.find((part) => part.type === 'decimal').value,
+      date: new Intl.DateTimeFormat(language === 'nl' ? 'nl-NL' : 'en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+      }),
+    });
+  }
+  return FORMAT_CACHE.get(language);
+}
+
+/** Format integer cents with locale separators while preserving the exact BigInt value.
+ * Deliberate sign policy: minus precedes the euro sign in both languages:
+ * EN -€273.38; NL -€ 273,38 (the Dutch currency space is non-breaking).
+ * No value is converted from BigInt to Number. Intl objects/templates are cached by locale.
+ * @param {number|bigint} cents
+ * @param {string} [locale]
+ * @returns {string}
+ */
+export function formatEURFromCentsLocale(cents, locale = 'en') {
+  const amount = typeof cents === 'bigint' ? cents
+    : typeof cents === 'number' && Number.isSafeInteger(cents) ? BigInt(cents) : null;
+  if (amount === null) throw new TypeError('Cents must be a BigInt or safe integer.');
+
+  const negative = amount < 0n;
+  const absolute = negative ? -amount : amount;
+  const euros = absolute / 100n;
+  const fraction = (absolute % 100n).toString().padStart(2, '0');
+  const { integer, template } = localeFormats(locale);
+  const groupedEuros = integer.format(euros);
+  let insertedInteger = false;
+  return `${negative ? '-' : ''}${template.map((part) => {
+    if (part.type === 'integer') {
+      if (insertedInteger) return '';
+      insertedInteger = true;
+      return groupedEuros;
+    }
+    if (part.type === 'group') return '';
+    if (part.type === 'fraction') return fraction;
+    return part.value;
+  }).join('')}`;
+}
+
+/** Format tenths of a percent as a localized string, without converting the value to Number.
+ * @param {bigint|null} tenths
+ * @param {string} [locale]
+ * @returns {string}
+ */
+export function formatPercentTenthsLocale(tenths, locale = 'en') {
+  if (tenths === null) return unavailable(locale);
+  const negative = tenths < 0n;
+  const absolute = negative ? -tenths : tenths;
+  const formats = localeFormats(locale);
+  const integer = formats.integer.format(absolute / 10n);
+  const decimal = formats.decimal;
+  const fraction = (absolute % 10n).toString();
+  return `${negative ? '-' : ''}${integer}${decimal}${fraction}%`;
+}
+
+/** @param {bigint|null} tenths @param {string} [locale] @returns {string} */
+export function formatPointsLocale(tenths, locale = 'en') {
+  if (tenths === null) return unavailable(locale);
+  const sign = tenths > 0n ? '+' : '';
+  return `${sign}${formatPercentTenthsLocale(tenths, locale).replace('%', '')} pp`;
+}
+
+/** @param {string} iso @param {string} [locale] @returns {string} */
+export function formatDateLocale(iso, locale = 'en') {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? unavailable(locale) : localeFormats(locale).date.format(date);
+}
+
+/** Round micro-euros at the existing display boundary, then localise the exact cents.
+ * @param {bigint} microEuros @param {string} [locale] @returns {string}
+ */
+export function formatEURFromMicroLocale(microEuros, locale = 'en') {
+  return formatEURFromCentsLocale(roundDiv(microEuros, MICRO_EUROS_PER_CENT), locale);
+}

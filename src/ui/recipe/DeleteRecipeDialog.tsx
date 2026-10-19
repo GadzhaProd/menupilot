@@ -47,7 +47,7 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
           </DialogDescription>
         </DialogHeader>
         {scenarios.length > 0 ? (
-          <div className="rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm text-amber-950">
+          <div className="rounded-md border border-input bg-accent p-3 text-sm text-accent-foreground">
             <p className="font-medium">
               This dish has {scenarios.length} saved simulator {scenarios.length === 1 ? 'scenario' : 'scenarios'}. They will be deleted too:
             </p>

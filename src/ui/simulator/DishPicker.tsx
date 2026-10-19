@@ -59,7 +59,7 @@ export function DishPicker() {
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {saved === 0 ? 'No saved scenarios' : `${saved} saved ${saved === 1 ? 'scenario' : 'scenarios'}`}
-                        {unsaved > 0 ? <span className="font-medium text-amber-700"> · {unsaved} unsaved {unsaved === 1 ? 'scenario' : 'scenarios'}</span> : null}
+                        {unsaved > 0 ? <span className="font-medium text-accent-foreground"> · {unsaved} unsaved {unsaved === 1 ? 'scenario' : 'scenarios'}</span> : null}
                       </span>
                     </a>
                   </CardContent>

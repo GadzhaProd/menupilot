@@ -4,7 +4,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Recipe-based ingredient costing and what-if scenarios for independent restaurants." />
+    <link rel="preload" href="/fonts/Archivo.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/SourceSans3-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <title>MenuPilot</title>
+    <script>
+      // Synchronous before first paint: preference keys/parsers mirror the runtime.
+      // test/ui/bootstrap.test.ts enforces parity without an asynchronous module fetch.
+      (() => {
+        let preference = 'system';
+        try { const saved = localStorage.getItem('menupilot.ui.theme.v1'); if (saved === 'light' || saved === 'dark') preference = saved; } catch {}
+        const theme = preference === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : preference;
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+        let locale = navigator.language.toLowerCase().startsWith('nl') ? 'nl' : 'en';
+        try { const saved = localStorage.getItem('menupilot.ui.locale.v1'); if (saved === 'en' || saved === 'nl') locale = saved; } catch {}
+        document.documentElement.lang = locale;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
