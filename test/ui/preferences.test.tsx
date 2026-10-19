@@ -38,7 +38,7 @@ describe('UI preferences', () => {
   });
   it('switches shell and html language, persists locale, never translates existing data', async () => {
     systemTheme(); const storage = memoryStorage(); renderApp(storage);
-    await userEvent.click(screen.getByRole('button', { name: 'Nederlands' }));
+    await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
     expect(screen.getByRole('link', { name: 'Overzicht' })).toBeTruthy();
     expect(screen.getByRole('combobox', { name: 'Thema' })).toBeTruthy();
     expect(document.documentElement.lang).toBe('nl'); expect(storage.getItem(LOCALE)).toBe('nl');
@@ -59,7 +59,7 @@ describe('UI preferences', () => {
 
 it('reset loads the current language demo, while changing locale alone keeps data intact', async () => {
   systemTheme(); const storage = memoryStorage(); renderApp(storage);
-  await userEvent.click(screen.getByRole('button', { name: 'Nederlands' }));
+  await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
   await userEvent.click(screen.getByRole('link', { name: 'Gegevens' }));
   await userEvent.click(screen.getByRole('button', { name: 'Reset to demo data' }));
   const dialog = screen.getByRole('alertdialog');
@@ -74,7 +74,7 @@ it('a blocked preference read falls back and language works without saving', asy
   storage.getItem = (key) => { if (key.startsWith('menupilot.ui.')) throw new Error('blocked'); return get(key); };
   storage.failOnSet = new Error('blocked'); renderApp(storage);
   expect(document.documentElement.lang).toBe('en');
-  await userEvent.click(screen.getByRole('button', { name: 'Nederlands' }));
+  await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
   expect(document.documentElement.lang).toBe('nl');
   expect(screen.getByText(/taalkeuze niet bewaren/)).toBeTruthy();
 });
