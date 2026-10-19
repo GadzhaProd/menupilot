@@ -4,6 +4,7 @@ export const nl = {
   'nav.dashboard': 'Overzicht', 'nav.simulator': 'Simulator', 'nav.recipes': 'Recepten',
   'nav.ingredients': 'Ingrediënten', 'nav.data': 'Gegevens', 'nav.help': 'Hulp',
   'nav.main': 'Hoofdnavigatie', 'nav.menu': 'Menu', 'nav.skip': 'Ga naar de inhoud',
+  'units.kg': 'kg', 'units.l': 'l', 'units.pc': 'st.',
   'common.save': 'Opslaan', 'common.cancel': 'Annuleren', 'common.close': 'Sluiten',
   'common.dismiss': 'Sluiten', 'common.delete': 'Verwijderen', 'common.edit': 'Bewerken',
   'common.loading': 'Laden…', 'common.before': 'Toen', 'common.after': 'Nu',

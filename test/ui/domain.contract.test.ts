@@ -16,7 +16,7 @@ const DECLARED: Record<string, [Record<string, unknown>, string[]]> = {
   '@/calc/units.js': [units, ['normalizeUnit', 'areUnitsCompatible', 'assertCompatibleUnits', 'unitPriceSuffix', 'parseQuantityToMilli']],
   '@/calc/costing.js': [costing, [
     'selectPriceAtDate', 'ingredientLineCostMicro', 'netPriceMicro', 'monthlyContributionCents', 'metrics',
-    'recipeCost', 'batchCostMicro', 'prepLineCostMicro', 'prepUnitCostDisplay', 'packUnitPriceDisplay',
+    'recipeCost', 'packUnitPriceCents', 'prepUnitCostCents', 'batchCostMicro', 'prepLineCostMicro', 'prepUnitCostDisplay', 'packUnitPriceDisplay',
   ]],
   '@/calc/simulate.js': [simulate, ['createBaselineSnapshot', 'simulate', 'compare', 'isBaselineStale']],
   '@/store/store.js': [store, ['STORAGE_KEY', 'StoreError', 'createStore']],

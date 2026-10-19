@@ -75,6 +75,8 @@ declare module '@/calc/costing.js' {
     data: Catalog,
     options?: { asOf?: string },
   ): bigint | null;
+  export function packUnitPriceCents(packPriceCents: number, packSizeMilli: number, unit: string): T.UnitPrice;
+  export function prepUnitCostCents(knownBatchCostMicro: bigint | null, outputMilli: number, outputUnit: string): T.UnitPrice | null;
   export function prepUnitCostDisplay(
     knownBatchCostMicro: bigint | null,
     outputMilli: number,

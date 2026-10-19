@@ -3,6 +3,7 @@ export const en = {
   'nav.dashboard': 'Dashboard', 'nav.simulator': 'Simulator', 'nav.recipes': 'Recipes',
   'nav.ingredients': 'Ingredients', 'nav.data': 'Data', 'nav.help': 'Help',
   'nav.main': 'Main', 'nav.menu': 'Menu', 'nav.skip': 'Skip to content',
+  'units.kg': 'kg', 'units.l': 'l', 'units.pc': 'pc',
   'common.save': 'Save', 'common.cancel': 'Cancel', 'common.close': 'Close',
   'common.dismiss': 'Dismiss', 'common.delete': 'Delete', 'common.edit': 'Edit',
   'common.loading': 'Loading…', 'common.before': 'Before', 'common.after': 'Now',

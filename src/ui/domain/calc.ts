@@ -13,8 +13,10 @@ export {
   metrics,
   netPriceMicro,
   packUnitPriceDisplay,
+  packUnitPriceCents,
   prepLineCostMicro,
   prepUnitCostDisplay,
+  prepUnitCostCents,
   recipeCost,
   selectPriceAtDate,
 } from '@/calc/costing.js';

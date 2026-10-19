@@ -14,6 +14,8 @@ f.microMoney(result.contributionMicro); // bigint micro-euros; existing rounding
 f.percent(result.foodCostTenths); // bigint | null; n/a / n.v.t.
 f.points(deltaTenths); // +5.4 pp / +5,4 pp; pp in BOTH languages
 f.date(iso); // UTC date, locale-specific month
+f.packPrice(packCents, packSizeMilli, unit); // exact cost per kg/l/pc, formatted by locale
+f.prepCost(batchMicro, outputMilli, outputUnit); // bigint | null batch; unknown stays explicit
 ```
 
 Add semantic keys in `en.ts` (`as const`) and identical keys/parameters in `nl.ts` (`satisfies Record<TranslationKey, string>`). `test/ui/i18n.test.ts` verifies parity, parameter names and nonempty messages. `createTranslator(locale)` is the equivalent pure API for form adapters; do not use hooks outside components. Do not translate user names or domain error.message via regex/DOM. Form errors should use typed keys at the UI validation boundary; domain errors can map by stable error code. Existing screens retain EN copy until their assigned stage. No global mutable locale is used by the formatters.
@@ -44,3 +46,10 @@ New compositions:
 CSS uses semantic variables and Tailwind tokens (`bg-surface`, `bg-panel`, `text-positive`, `text-negative`, `text-accent-foreground`, `border-input` for controls, `border-line` for separators). Do not add fixed light-only colour classes. Global keyboard focus is 3px + 3px offset. Money uses Archivo and tabular lining numerals. Print overrides to light without storage writes; header, controls, dialogs and `.no-print` are hidden. Screen-specific print column/editor rules remain with parts 2–3.
 
 Legacy no-locale formatters are unchanged for existing screens/core. New `*Locale` functions are exported through `@/ui/domain/calc`. They preserve arbitrarily large BigInt values, cache Intl instances for the two supported languages and deliberately put the minus before €: EN `-€273.38`, NL `-€ 273,38` (NBSP). English numeric formatting uses en-GB explicitly: the runtime's en-NL integer grouping otherwise mixes dot grouping with decimal dots. No BigInt → Number conversion.
+
+
+## Unit prices (foundation follow-up)
+
+`packUnitPriceCents(packPriceCents, packSizeMilli, unit)` and `prepUnitCostCents(batchCostMicro, outputMilli, outputUnit)` are exported through `@/ui/domain/calc`. Both return the readonly `UnitPrice` shape `{ cents: bigint, per: 'kg' | 'l' | 'pc' }`; the prep function returns null for unknown batch cost. Sizes always mean thousandths of the base unit, even when unit is kg/l. All scaling, validation and rounding live in calc. Legacy `packUnitPriceDisplay`/`prepUnitCostDisplay` delegate to these numeric APIs and keep their exact EN output (including null for unknown prep).
+
+For rendered screens use `f.packPrice(...)` / `f.prepCost(...)`. Examples: EN `€11.20/kg`, `€0.70/pc`; NL `€ 11,20/kg`, `€ 0,70/st.` (currency space is NBSP). Unknown prep is `cost unknown` / `kosten onbekend`, zero stays a formatted zero. Unit labels come from typed `units.kg/l/pc` messages. Formatting never parses an EN display string. Keep the **excl. VAT / excl. btw** label next to these displayed unit prices.
