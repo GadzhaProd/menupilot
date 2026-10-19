@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  compare, createBaselineSnapshot, formatEURFromCents, simulate,
+  compare, createBaselineSnapshot, formatEURFromCentsLocale, simulate,
 } from '@/ui/domain/calc';
 import type { MenuDocument, Overrides, Scenario } from '@/ui/domain/types';
 import {
@@ -12,6 +12,7 @@ import {
 /** The scenarios in storage, typed (the demo file has none, so its own type is an empty list). */
 const savedScenarios = (storage: ReturnType<typeof memoryStorage>) => savedDocument(storage).scenarios as unknown as Scenario[];
 
+const formatEURFromCents = (value: bigint | number) => formatEURFromCentsLocale(value, 'en');
 const BURGER = 'dish_classic_burger';
 const user = () => userEvent.setup();
 
@@ -99,7 +100,7 @@ describe('Baseline', () => {
     expect(baseline.getByText('€7.15')).toBeTruthy();
     expect(baseline.getByText('40.4%')).toBeTruthy();
     expect(baseline.getByText(/Contribution margin 59\.6%/)).toBeTruthy();
-    expect(baseline.getByText('€2145.00')).toBeTruthy();
+    expect(baseline.getByText('€2,145.00')).toBeTruthy();
     expect(baseline.getByText('before other costs')).toBeTruthy();
     expect(screen.getByLabelText('Expected sales per month (your estimate)')).toHaveProperty('value', '300');
   });
@@ -109,13 +110,13 @@ describe('Baseline', () => {
     await open(`#/simulator/${BURGER}`);
     const volume = screen.getByLabelText('Expected sales per month (your estimate)');
     await typeInto(u, volume, '400');
-    expect(within(screen.getByRole('region', { name: /Baseline/ })).getByText('€2860.00')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: /Baseline/ })).getByText('€2,860.00')).toBeTruthy();
 
     await u.type(volume, 'x');
     expect(screen.getByText('Enter a whole number of 0 or more, for example 300.')).toBeTruthy();
     expect(volume.getAttribute('aria-invalid')).toBe('true');
     // The last valid estimate keeps being used.
-    expect(within(screen.getByRole('region', { name: /Baseline/ })).getByText('€2860.00')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: /Baseline/ })).getByText('€2,860.00')).toBeTruthy();
 
     await typeInto(u, volume, '');
     expect(screen.getByText(/Enter your estimate/)).toBeTruthy();
@@ -177,7 +178,7 @@ describe('Scenarios recalculate as calc does', () => {
     expect(cell(/Contribution per portion/, 0)).toBe('€7.15');
     expect(cell(/Contribution per portion/, 1)).toContain('€7.80');
     expect(cell(/Contribution per portion/, 1)).toContain('+€0.65');
-    expect(cell(/Estimated monthly contribution/, 1)).toContain('€2340.00');
+    expect(cell(/Estimated monthly contribution/, 1)).toContain('€2,340.00');
     expect(cell(/Estimated monthly contribution/, 1)).toContain('+€195.00');
   });
 
@@ -206,7 +207,9 @@ describe('Scenarios recalculate as calc does', () => {
     await open(`#/simulator/${BURGER}`);
     await addScenario(u);
     await addScenario(u);
+    await u.click(screen.getByRole('radio', { name: 'Scenario A' }));
     await typeInto(u, scenario('A').getByLabelText(/Menu price \(incl\. VAT/), '13.83');
+    await u.click(screen.getByRole('radio', { name: 'Scenario B' }));
     await typeInto(u, scenario('B').getByLabelText(/New net quantity of Beef mince/), '160');
     // A adds about €206 a month, B about €102: A is highest.
     expect(screen.getByTestId('highest-monthly').textContent).toMatch(/Scenario A has the highest estimated monthly contribution/);
@@ -232,7 +235,7 @@ describe('Scenarios recalculate as calc does', () => {
     await addScenario(u);
     const button = screen.getByRole('button', { name: 'Up to 3 scenarios' });
     expect((button as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getAllByRole('region', { name: /^Scenario [ABC]$/ })).toHaveLength(3);
+    expect(screen.getAllByRole('radio', { name: /^Scenario [ABC]$/ })).toHaveLength(3);
   });
 });
 
@@ -351,7 +354,7 @@ describe('Saving scenarios', () => {
     storage.failOnSet = new DOMException('full', 'QuotaExceededError');
     await u.click(scenario('A').getByRole('button', { name: 'Save scenario' }));
 
-    expect(scenario('A').getByRole('alert').textContent).toMatch(/storage is full/i);
+    expect(scenario('A').getByRole('alert').textContent).toMatch(/browser has space and allows saving/i);
     expect(scenario('A').getByLabelText(/Menu price \(incl\. VAT/)).toHaveProperty('value', '14');
     expect(scenario('A').getByText('Not saved yet.')).toBeTruthy();
     expect(cell(/Menu price \(incl\. VAT\)/, 1)).toContain('€14.00');

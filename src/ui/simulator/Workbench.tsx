@@ -1,8 +1,11 @@
+import { useLocale, useFormatters } from '@/ui/i18n';
 import { useMemo, useReducer, useRef, useState } from 'react';
-import { ArrowLeftIcon, FlaskConicalIcon, PlusIcon } from 'lucide-react';
+import { ArrowLeftIcon, PlusIcon } from 'lucide-react';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Surface } from '@/components/ui/surface';
+import { MoneyValue } from '@/components/ui/money-value';
+import './simulator.css';
 import { Input } from '@/components/ui/input';
 import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import {
@@ -17,10 +20,10 @@ import { ComparisonTable, type Column } from './ComparisonTable';
 import { DeleteScenarioDialog } from './DeleteScenarioDialog';
 import { ScenarioCard } from './ScenarioCard';
 import {
-  emptyFields, parseSharedVolume, validateName, type FieldsDraft,
+  emptyFields, parseSharedVolume, validateName, type FieldsDraft, type FormErrorKey,
 } from './scenarioForm';
 import {
-  defaultName, draftsFromSaved, isUnsaved, MAX_SCENARIOS, newDraft, scenariosReducer, type ScenarioDraft,
+  defaultName, slotLetter, draftsFromSaved, isUnsaved, MAX_SCENARIOS, newDraft, scenariosReducer, type ScenarioDraft,
 } from './scenarios';
 import { useRememberSession, useSimulatorSessions, type DishSession } from './session';
 
@@ -46,6 +49,7 @@ const failedRun = (error: string): Run => ({ ok: false, error });
 
 /** The simulator for one dish: Baseline, up to three scenarios, and the comparison. */
 export function Workbench({ dish }: { dish: Dish }) {
+  const { t } = useLocale(); const f = useFormatters();
   const document = useDocument();
   const { execute } = useCommands();
   const dishHasVolume = dish.monthlyVolume !== undefined && dish.monthlyVolume !== null;
@@ -60,19 +64,21 @@ export function Workbench({ dish }: { dish: Dish }) {
     undefined,
     () => remembered?.drafts ?? draftsFromSaved(document.scenarios.filter((scenario: Scenario) => scenario.recipeId === dish.id)),
   );
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const activeKey = drafts.some(d => d.key === selectedKey) ? selectedKey! : drafts[0]?.key;
   const [volumeText, setVolumeText] = useState(remembered?.volumeText ?? (dishHasVolume ? String(dish.monthlyVolume) : ''));
   const [sharedVolume, setSharedVolume] = useState<number | undefined>(
     remembered ? remembered.sharedVolume : dishHasVolume ? dish.monthlyVolume ?? undefined : undefined,
   );
   const [volumeError, setVolumeError] = useState<string | undefined>(remembered?.volumeError);
-  const [problems, setProblems] = useState<Record<string, string | null>>({});
+  const [problems, setProblems] = useState<Record<string, FormErrorKey | null>>({});
   const [attempts, setAttempts] = useState<Record<string, number>>({});
   const counter = useRef(0);
   const deleting = useDialogState<string>();
   const session = useMemo(() => ({ drafts, volumeText, sharedVolume, volumeError }), [drafts, volumeText, sharedVolume, volumeError]);
   useRememberSession(dish.id, session);
 
-  const setProblem = (key: string, message: string | null) => setProblems((current) => ({ ...current, [key]: message }));
+  const setProblem = (key: string, message: FormErrorKey | null) => setProblems((current) => ({ ...current, [key]: message }));
 
   function changeVolume(text: string) {
     setVolumeText(text);
@@ -107,10 +113,10 @@ export function Workbench({ dish }: { dish: Dish }) {
     [baselineRun, runs],
   );
   const columns: Column[] = [
-    { key: 'baseline', label: 'Baseline', kind: 'baseline', run: baselineRun, delta: null, stale: false },
+    { key: 'baseline', label: t('simulator.baseline'), kind: 'baseline', run: baselineRun, delta: null, stale: false },
     ...drafts.map((draft, index): Column => ({
       key: draft.key,
-      label: draft.name.trim() === '' ? 'Unnamed' : draft.name,
+      label: draft.name.trim() === '' ? t('simulator.unnamed') : draft.name,
       kind: 'scenario',
       run: runs[index] ?? failedRun('No result.'),
       delta: staleKeys.has(draft.key) ? null : deltas[index] ?? null,
@@ -121,7 +127,9 @@ export function Workbench({ dish }: { dish: Dish }) {
   function addScenario() {
     if (!pageBaseline.ok || drafts.length >= MAX_SCENARIOS) return;
     counter.current += 1;
-    dispatch({ type: 'added', draft: newDraft(`new-${Date.now().toString(36)}-${counter.current}`, defaultName(drafts), pageBaseline.baseline, emptyFields(pageBaseline.baseline)) });
+    const key = `new-${Date.now().toString(36)}-${counter.current}`;
+    setSelectedKey(key);
+    dispatch({ type: 'added', draft: newDraft(key, defaultName(drafts), pageBaseline.baseline, emptyFields(pageBaseline.baseline)) });
   }
 
   function save(draft: ScenarioDraft) {
@@ -137,7 +145,7 @@ export function Workbench({ dish }: { dish: Dish }) {
       setProblem(draft.key, null);
       dispatch({ type: 'saved', key: draft.key, id: result.value.id, createdAt: input.createdAt, overrides });
     } else {
-      setProblem(draft.key, result.error); // the typed values stay in the card
+      setProblem(draft.key, 'simulator.error.save'); // the typed values stay in the card
     }
   }
 
@@ -145,7 +153,7 @@ export function Workbench({ dish }: { dish: Dish }) {
   function updateBaseline(draft: ScenarioDraft) {
     const fresh = takeBaseline(document, dish.id, new Date().toISOString());
     if (!fresh.ok) {
-      setProblem(draft.key, fresh.error);
+      setProblem(draft.key, 'simulator.error.save');
       return;
     }
     setProblem(draft.key, null);
@@ -157,7 +165,7 @@ export function Workbench({ dish }: { dish: Dish }) {
     if (draft.id !== null) {
       const id = draft.id;
       const result = execute((store) => store.deleteScenario(id), { report: false });
-      if (!result.ok) return result.error;
+      if (!result.ok) return t('simulator.error.save');
     }
     dispatch({ type: 'removed', key: draft.key });
     deleting.close();
@@ -166,62 +174,37 @@ export function Workbench({ dish }: { dish: Dish }) {
 
   const deletingDraft = drafts.find((draft) => draft.key === deleting.state) ?? null;
 
-  return (
-    <section aria-labelledby="page-title" className="space-y-6">
-      <div className="space-y-2">
-        <Button asChild variant="ghost" size="sm" className="-ml-3">
-          <a href={hrefFor({ name: 'simulator', id: null })}><ArrowLeftIcon aria-hidden="true" /> All dishes</a>
-        </Button>
-        <h1 id="page-title" className="text-2xl font-semibold">Simulator: {dish.name}</h1>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          Try what-if changes on a copy of this dish and compare them with today. Nothing here changes your real prices or recipes.
-        </p>
-        <HelpLink section="simulator" />
+  const activeIndex = drafts.findIndex(draft => draft.key === activeKey);
+  const active = drafts[activeIndex];
+  const activeRun = runs[activeIndex];
+  const activeDelta = active && !staleKeys.has(active.key) ? deltas[activeIndex]?.monthlyContributionDeltaCents ?? null : null;
+  return <section aria-labelledby="page-title" className="space-y-6">
+    <div className="space-y-2">
+      <Button asChild variant="ghost" className="-ml-3 no-print"><a href={hrefFor({ name: 'simulator', id: null })}><ArrowLeftIcon aria-hidden="true" />{t('simulator.allDishes')}</a></Button>
+      <h1 id="page-title" className="text-[31px] leading-tight font-semibold sm:text-4xl">{t('simulator.heading', { name: dish.name })}</h1>
+      <p className="max-w-3xl text-muted-foreground">{t('simulator.intro')}</p>
+      {pageBaseline.ok && <p className="text-sm text-muted-foreground">{t('simulator.baseline')} · {f.date(pageBaseline.baseline.takenAt)}</p>}
+      <HelpLink section="simulator" className="no-print" />
+    </div>
+    {active ? <Surface aria-label={t('simulator.result', { letter: slotLetter(activeIndex) })} className="flex flex-wrap items-center justify-between gap-4">
+      <div><h2 className="text-xl font-semibold">{active.name || t('simulator.unnamed')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('simulator.monthlyDelta')} {t('simulator.againstBaseline')}</p></div>
+      <div className="min-w-0 max-w-full text-right"><MoneyValue value={activeDelta === null ? '—' : `${activeDelta > 0n ? '+' : ''}${f.money(activeDelta)}`} tone={activeDelta === null || activeDelta === 0n ? 'neutral' : activeDelta > 0n ? 'positive' : 'negative'} className="block break-words text-[46px] leading-tight sm:text-[60px]" />
+        <p className="mt-2 text-sm text-muted-foreground">{staleKeys.has(active.key) ? t('simulator.older') : activeRun?.ok && activeRun.result.monthlyVolume !== null ? t('simulator.resultHint', { count: activeRun.result.monthlyVolume }) : t('simulator.noEstimate')}</p>
       </div>
+    </Surface> : <BaselineCards run={baselineRun} />}
+    <div className="sim-workbench grid items-start gap-6 lg:grid-cols-[238px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="sim-selector lg:col-start-2 flex-1 flex flex-wrap items-end justify-between gap-4 border-y border-line py-4 no-print">
+      {drafts.length > 0 ? <fieldset className="min-w-0 w-full basis-full lg:w-auto lg:basis-0 lg:flex-1"><legend className="mb-2 text-sm font-semibold">{t('simulator.chooseScenario')}</legend><div className="grid grid-cols-3 gap-2">
+        {drafts.map((draft, index) => <label key={draft.key} className={`flex min-h-12 min-w-0 cursor-pointer items-center justify-center gap-2 rounded border px-2 text-sm ${draft.key === activeKey ? 'border-current bg-accent text-accent-foreground' : 'border-input bg-surface'}`}>
+          <input type="radio" name="active-scenario" aria-label={t('simulator.scenario', { letter: slotLetter(index) })} value={draft.key} checked={draft.key === activeKey} onChange={() => setSelectedKey(draft.key)} /><span>{t('simulator.scenario', { letter: slotLetter(index) })}{draft.name && draft.name !== t('simulator.scenario', { letter: slotLetter(index) }) && <span className="block break-words text-xs">{draft.name}</span>}</span>
+        </label>)}
+      </div></fieldset> : <h2 className="text-xl font-semibold">{t('simulator.scenarios')}</h2>}
+      <Button onClick={addScenario} disabled={!pageBaseline.ok || drafts.length >= MAX_SCENARIOS} variant={drafts.length === 0 ? 'default' : 'outline'}><PlusIcon aria-hidden="true" />{drafts.length >= MAX_SCENARIOS ? t('simulator.limit', { count: MAX_SCENARIOS }) : t('simulator.add')}</Button>
+    </div>
+      <aside className="sim-editor lg:row-start-1 lg:row-span-2 space-y-5 rounded-lg border border-line bg-surface p-4 no-print">
+        <h2 className="text-xl font-semibold">{t('simulator.edit')}</h2>
 
-      <BaselineCards run={baselineRun} />
-
-      <Card className="py-4">
-        <CardContent className="px-4">
-          <FormField
-            label="Expected sales per month (your estimate)"
-            hint="Portions you expect to sell per month. It is your own number, not a forecast, and it is used by Baseline and every scenario unless a scenario has its own."
-            error={volumeError}
-            className="max-w-md"
-          >
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="numeric"
-                autoComplete="off"
-                value={volumeText}
-                onChange={(event) => changeVolume(event.target.value)}
-              />
-            )}
-          </FormField>
-        </CardContent>
-      </Card>
-
-      {drafts.length > 0 ? <ComparisonTable columns={columns} /> : null}
-
-      <section aria-labelledby="scenarios-title" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="scenarios-title" className="text-lg font-semibold">Scenarios</h2>
-          <Button onClick={addScenario} disabled={!pageBaseline.ok || drafts.length >= MAX_SCENARIOS} variant={drafts.length === 0 ? 'default' : 'outline'}>
-            <PlusIcon aria-hidden="true" /> {drafts.length >= MAX_SCENARIOS ? `Up to ${MAX_SCENARIOS} scenarios` : 'Add scenario'}
-          </Button>
-        </div>
-        {drafts.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed p-8 text-center">
-            <FlaskConicalIcon aria-hidden="true" className="size-8 text-muted-foreground" />
-            <p className="font-medium">No scenarios yet</p>
-            <p className="max-w-md text-sm text-muted-foreground">
-              A scenario is a what-if copy of {dish.name}. Change the menu price, an ingredient price or a quantity and see the result at once. Add up to {MAX_SCENARIOS} and compare them with Baseline.
-            </p>
-          </div>
-        ) : (
-          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {drafts.map((draft, index) => (
+        {drafts.map((draft, index) => <div key={draft.key} hidden={draft.key !== activeKey}>
               <ScenarioCard
                 key={draft.key}
                 draft={draft}
@@ -232,7 +215,7 @@ export function Workbench({ dish }: { dish: Dish }) {
                 sharedVolume={sharedVolume}
                 stale={staleKeys.has(draft.key)}
                 dirty={isUnsaved(draft)}
-                problem={problems[draft.key] ?? null}
+                problem={problems[draft.key] ? t(problems[draft.key]!) : null}
                 attempt={attempts[draft.key] ?? 0}
                 onRename={(name) => dispatch({ type: 'renamed', key: draft.key, name })}
                 onFields={(fields: FieldsDraft) => dispatch({ type: 'fieldsChanged', key: draft.key, fields })}
@@ -241,19 +224,20 @@ export function Workbench({ dish }: { dish: Dish }) {
                 onUpdateBaseline={() => updateBaseline(draft)}
                 onDismissNotes={() => dispatch({ type: 'notesDismissed', key: draft.key })}
               />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {deletingDraft ? (
-        <DeleteScenarioDialog
-          name={deletingDraft.name}
-          onClose={deleting.close}
-          onCloseAutoFocus={deleting.onCloseAutoFocus}
-          onConfirm={() => remove(deletingDraft)}
-        />
-      ) : null}
-    </section>
-  );
+        </div>)}
+        <details open={drafts.length === 0 || !!volumeError || undefined}>
+          <summary className="flex min-h-12 cursor-pointer items-center text-sm underline underline-offset-4">{t('simulator.sharedVolume')}</summary>
+        <FormField label={t('simulator.sharedVolume')} hint={t('simulator.sharedHint')} error={volumeError ? t(volumeError as 'simulator.error.volume' | 'simulator.error.estimate') : undefined}>
+          {control => <Input {...control} inputMode="numeric" autoComplete="off" value={volumeText} onChange={event => changeVolume(event.target.value)} />}
+        </FormField>
+        </details>
+      </aside>
+      {drafts.length > 0 ? <ComparisonTable columns={columns} activeKey={activeKey} /> : <Surface aria-labelledby="empty-scenarios">
+        <h2 id="empty-scenarios" className="text-xl font-semibold">{t('simulator.empty')}</h2>
+        <p className="mt-2 max-w-2xl text-muted-foreground">{t('simulator.emptyDescription', { name: dish.name, count: MAX_SCENARIOS })}</p>
+        <p className="mt-4 text-sm text-muted-foreground">{t('simulator.disclaimer')}</p>
+      </Surface>}
+    </div>
+    {deletingDraft && <DeleteScenarioDialog name={deletingDraft.name} onClose={deleting.close} onCloseAutoFocus={deleting.onCloseAutoFocus} onConfirm={() => remove(deletingDraft)} />}
+  </section>;
 }

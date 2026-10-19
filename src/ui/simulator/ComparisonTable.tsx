@@ -1,181 +1,94 @@
 import type { ReactNode } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { highestMonthly, type Run, type ScenarioDelta } from '@/ui/domain/simulator';
 import type { SimulateResult } from '@/ui/domain/types';
-import {
-  costText, DASH, Delta, euro, percentText, signedEuro, signedPoints,
-} from './format';
+import { useLocale } from '@/ui/i18n';
+import type { en, TranslationKey } from '@/ui/i18n/en';
+import { DASH, Delta, useSimulatorFormat } from './format';
 
 export interface Column {
-  key: string;
-  label: string;
-  kind: 'baseline' | 'scenario';
-  run: Run;
-  /** Differences against Baseline; null for Baseline itself, a failed run or an out-of-date scenario. */
-  delta: ScenarioDelta | null;
-  /** Calculated on older data than Baseline: its differences are not shown. */
-  stale: boolean;
+  key: string; label: string; kind: 'baseline' | 'scenario'; run: Run;
+  delta: ScenarioDelta | null; stale: boolean;
 }
-
+type TextKey = { [K in TranslationKey]: (typeof en)[K] extends `${string}{${string}` ? never : K }[TranslationKey];
 interface Row {
-  label: string;
-  hint?: string;
+  label: TextKey; hint?: TextKey;
   value: (result: SimulateResult) => ReactNode;
   delta?: (delta: ScenarioDelta) => ReactNode;
   emphasis?: boolean;
 }
-
-const ROWS: Row[] = [
-  { label: 'Menu price (incl. VAT)', value: (r) => euro(r.menuPriceInclVatCents) },
-  { label: 'Price excl. VAT', hint: 'all calculations use this', value: (r) => euro(r.netPriceCents) },
-  {
-    label: 'Recipe-based ingredient cost',
-    hint: 'per portion, excl. VAT',
-    value: costText,
-    delta: (d) => <Delta value={d.ingredientCostDeltaCents} format={signedEuro} better="lower" />,
-  },
-  {
-    label: 'Contribution per portion',
-    hint: 'before other costs',
-    value: (r) => euro(r.contributionCents),
-    delta: (d) => <Delta value={d.contributionDeltaCents} format={signedEuro} better="higher" />,
-  },
-  {
-    label: 'Food cost %',
-    value: (r) => percentText(r, r.foodCostPct),
-    delta: (d) => <Delta value={d.foodCostDeltaTenthsPct} format={signedPoints} better="lower" />,
-  },
-  { label: 'Contribution margin %', value: (r) => percentText(r, r.marginPct) },
-  { label: 'Sales per month', hint: 'your estimate', value: (r) => (r.monthlyVolume === null ? DASH : String(r.monthlyVolume)) },
-  {
-    label: 'Estimated monthly contribution',
-    hint: 'based on your sales estimate',
-    value: (r) => euro(r.monthlyContributionCents),
-    delta: (d) => <Delta value={d.monthlyContributionDeltaCents} format={signedEuro} better="higher" />,
-    emphasis: true,
-  },
-];
-
-export const DISCLAIMER = 'Scenarios are calculations based on your inputs, not forecasts. Changing quantities may affect quality, food safety or allergen information — check before changing a recipe.';
-
-/** Why a column cannot be compared on monthly contribution, or null when it can. */
-function leftOutReason(column: Column): string | null {
-  if (!column.run.ok) return 'cannot be calculated';
-  if (column.stale) return 'older prices';
-  const { result } = column.run;
-  if (result.monthlyContributionCents !== null) return null;
-  if (result.status === 'cost-unknown') return 'cost unknown';
-  return result.monthlyVolume === null ? 'no sales estimate' : 'no monthly figure';
+function leftOutReason(column: Column): TextKey | null {
+  if (!column.run.ok) return 'simulator.reasonFailed';
+  if (column.stale) return 'simulator.older';
+  if (column.run.result.monthlyContributionCents !== null) return null;
+  if (column.run.result.status === 'cost-unknown') return 'common.costUnknown';
+  return column.run.result.monthlyVolume === null ? 'simulator.reasonVolume' : 'simulator.reasonMonthly';
 }
+const monthlyOf = (column: Column) => ({ key: column.key,
+  monthlyCents: leftOutReason(column) === null && column.run.ok ? column.run.result.monthlyContributionCents : null });
 
-const monthlyOf = (column: Column) => ({
-  key: column.key,
-  monthlyCents: leftOutReason(column) === null && column.run.ok ? column.run.result.monthlyContributionCents : null,
-});
-
-/**
- * The best column in words: a calculation result, never advice to change a recipe.
- * Only columns calculated on today's data with a monthly figure are compared, and at least two are needed.
- */
 function Highest({ columns }: { columns: readonly Column[] }) {
+  const { t } = useLocale(); const { euro } = useSimulatorFormat();
   const best = highestMonthly(columns.map(monthlyOf));
-  const leftOut = columns.flatMap((column) => {
+  const leftOut = columns.flatMap(column => {
     const reason = leftOutReason(column);
-    return reason === null ? [] : [`${column.label} (${reason})`];
+    return reason === null ? [] : [`${column.label} (${t(reason)})`];
   });
-  const excluded = leftOut.length > 0 ? ` Left out: ${leftOut.join(', ')}.` : '';
-  if (best === null) {
-    return (
-      <p data-testid="highest-monthly" className="rounded-md bg-secondary/60 px-3 py-2 text-sm">
-        <strong>Not enough data to compare monthly results.</strong>
-        {leftOut.length > 0 ? excluded : ' Enter your sales per month to compare monthly contribution.'}
-      </p>
-    );
-  }
-  const names = columns.filter((column) => best.keys.includes(column.key)).map((column) => column.label);
-  const tie = names.length > 1;
-  const baselineOnly = names.length === 1 && best.keys[0] === 'baseline';
-  return (
-    <p data-testid="highest-monthly" className="rounded-md bg-accent/60 px-3 py-2 text-sm">
-      {baselineOnly
-        ? <><strong>Baseline</strong> has the highest estimated monthly contribution ({euro(best.cents)}) of the columns compared.</>
-        : tie
-          ? <><strong>{names.join(' and ')}</strong> are tied for the highest estimated monthly contribution ({euro(best.cents)}).</>
-          : <><strong>{names[0]}</strong> has the highest estimated monthly contribution ({euro(best.cents)}) at your sales estimate.</>}
-      {excluded}
-    </p>
-  );
+  const names = best === null ? [] : columns.filter(column => best.keys.includes(column.key)).map(column => column.label);
+  return <p data-testid="highest-monthly" className="border-t border-line pt-4 text-sm">
+    {best === null ? <><strong>{t('simulator.notEnough')}</strong> {leftOut.length === 0 && t('simulator.enterToCompare')}</>
+      : names.length > 1 ? t('simulator.tie', { names: names.join(` ${t('simulator.and')} `), value: euro(best.cents) })
+        : best.keys[0] === 'baseline' ? t('simulator.bestBaseline', { value: euro(best.cents) })
+          : t('simulator.best', { name: names[0]!, value: euro(best.cents) })}
+    {leftOut.length > 0 && <> {t('simulator.leftOut', { names: leftOut.join(', ') })}</>}
+  </p>;
 }
 
-/** Baseline next to the scenarios, with the difference in euros per portion and per month. */
-export function ComparisonTable({ columns }: { columns: readonly Column[] }) {
-  const monthly = columns.map(monthlyOf);
-  const best = highestMonthly(monthly);
-  const comparable = monthly.filter((entry) => entry.monthlyCents !== null).length;
+export function ComparisonTable({ columns, activeKey }: { columns: readonly Column[]; activeKey?: string }) {
+  const { t } = useLocale();
+  const { euro, costText, percentText, signedEuro, signedPoints } = useSimulatorFormat();
+  const best = highestMonthly(columns.map(monthlyOf));
+  const comparable = columns.filter(c => leftOutReason(c) === null).length;
   const winners = new Set(best !== null && best.keys.length < comparable ? best.keys : []);
-  const anyStale = columns.some((column) => column.stale);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Compare</CardTitle>
-        <CardDescription>
-          Baseline is your real data today. Differences are against Baseline, per portion and per month.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Highest columns={columns} />
-        <Table className="min-w-[34rem]">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="sticky left-0 z-10 w-32 bg-card sm:w-44">Per portion, excl. VAT</TableHead>
-              {columns.map((column) => (
-                <TableHead
-                  key={column.key}
-                  scope="col"
-                  className={cn('min-w-28 whitespace-normal text-right', winners.has(column.key) && 'bg-accent/60')}
-                >
-                  <span className="block font-semibold text-foreground">{column.label}</span>
-                  {column.kind === 'baseline' ? <span className="block text-xs font-normal text-muted-foreground">today</span> : null}
-                  {column.stale ? <span className="block text-xs font-normal text-accent-foreground">older prices</span> : null}
-                  {!column.run.ok ? <span className="block text-xs font-normal text-destructive">cannot calculate</span> : null}
-                  {winners.has(column.key) ? <span className="block text-xs font-medium text-primary">highest monthly</span> : null}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ROWS.map((row) => (
-              <TableRow key={row.label} className={row.emphasis ? 'border-t-2 font-medium' : undefined}>
-                <TableHead scope="row" className={cn('sticky left-0 z-10 whitespace-normal font-normal', 'bg-card text-foreground')}>
-                  <span className={row.emphasis ? 'font-semibold' : undefined}>{row.label}</span>
-                  {row.hint ? <span className="block text-xs font-normal text-muted-foreground">{row.hint}</span> : null}
-                </TableHead>
-                {columns.map((column) => (
-                  <TableCell key={column.key} className={cn('text-right align-top', winners.has(column.key) && 'bg-accent/40')}>
-                    {column.run.ok ? (
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="tabular-nums">{row.value(column.run.result)}</span>
-                        {row.delta && column.delta ? row.delta(column.delta) : null}
-                      </div>
-                    ) : DASH}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {anyStale ? (
-          <p className="text-xs text-muted-foreground">
-            A scenario marked “older prices” was saved before your recipes or prices changed. Use “Update baseline” on it to compare again.
-          </p>
-        ) : null}
-        <p className="text-xs text-muted-foreground">{DISCLAIMER}</p>
-      </CardContent>
-    </Card>
-  );
+  const rows: Row[] = [
+    { label: 'simulator.menuPrice', value: r => euro(r.menuPriceInclVatCents) },
+    { label: 'simulator.netPrice', hint: 'simulator.calculationHint', value: r => euro(r.netPriceCents) },
+    { label: 'simulator.cost', hint: 'simulator.portionHint', value: costText, delta: d => <Delta value={d.ingredientCostDeltaCents} format={signedEuro} better="lower" /> },
+    { label: 'simulator.contribution', hint: 'simulator.otherCosts', value: r => euro(r.contributionCents), delta: d => <Delta value={d.contributionDeltaCents} format={signedEuro} better="higher" /> },
+    { label: 'simulator.foodCost', value: r => percentText(r, r.foodCostPct), delta: d => <Delta value={d.foodCostDeltaTenthsPct} format={signedPoints} better="lower" /> },
+    { label: 'simulator.margin', value: r => percentText(r, r.marginPct) },
+    { label: 'simulator.volume', hint: 'simulator.estimate', value: r => r.monthlyVolume === null ? DASH : String(r.monthlyVolume) },
+    { label: 'simulator.monthly', hint: 'simulator.monthlyHint', value: r => euro(r.monthlyContributionCents), delta: d => <Delta value={d.monthlyContributionDeltaCents} format={signedEuro} better="higher" />, emphasis: true },
+  ];
+  const columnClass = (c: Column) => cn(c.kind === 'scenario' && c.key !== activeKey && 'sim-inactive-column', c.key === activeKey && 'bg-panel');
+  return <section aria-labelledby="compare-title" className="min-w-0 space-y-4 lg:col-start-2">
+    <div><h2 id="compare-title" className="text-xl font-semibold">{t('simulator.compare')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('simulator.compareHint')}</p></div>
+    <Table className="sim-comparison table-fixed bg-surface">
+      <TableHeader><TableRow className="hover:bg-transparent">
+        <TableHead className="w-[30%] whitespace-normal align-bottom">{t('simulator.comparison')}</TableHead>
+        {columns.map(column => <TableHead key={column.key} scope="col" className={cn('whitespace-normal text-right align-bottom', columnClass(column))}>
+          <span className="block font-semibold break-words">{column.label}</span>
+          {column.kind === 'baseline' && <span className="block text-xs text-muted-foreground">{t('simulator.today')}</span>}
+          {column.stale && <span className="block text-xs text-accent-foreground">{t('simulator.older')}</span>}
+          {!column.run.ok && <span className="block text-xs text-negative">{t('simulator.cannotCalculate')}</span>}
+          {winners.has(column.key) && <span className="block text-xs">{t('simulator.highest')}</span>}
+        </TableHead>)}
+      </TableRow></TableHeader>
+      <TableBody>{rows.map(row => <TableRow key={row.label} className={row.emphasis ? 'border-t-2 font-semibold' : undefined}>
+        <TableHead scope="row" className="whitespace-normal py-4 font-normal"><span>{t(row.label)}</span>{row.hint && <span className="mt-1 block text-xs text-muted-foreground">{t(row.hint)}</span>}</TableHead>
+        {columns.map(column => <TableCell key={column.key} className={cn('whitespace-normal text-right align-top', columnClass(column))}>
+          {column.run.ok ? <div className="flex flex-col items-end gap-1"><span className={cn('money-value break-words', row.label !== 'simulator.contribution' && !row.emphasis && 'font-normal')}>{row.value(column.run.result)}</span>{row.delta && column.delta ? row.delta(column.delta) : null}</div> : DASH}
+        </TableCell>)}
+      </TableRow>)}
+        <TableRow className="border-t-4 border-double border-line font-semibold">
+          <TableHead scope="row" className="whitespace-normal py-4">{t('simulator.monthlyDelta')}<span className="mt-1 block text-xs font-normal text-muted-foreground">{t('simulator.againstBaseline')}</span></TableHead>
+          {columns.map(column => <TableCell key={column.key} className={cn('whitespace-normal text-right', columnClass(column))}>{column.delta ? <Delta value={column.delta.monthlyContributionDeltaCents} format={signedEuro} better="higher" /> : DASH}</TableCell>)}
+        </TableRow>
+      </TableBody>
+    </Table>
+    <Highest columns={columns} />
+    {columns.some(c => c.stale) && <p className="text-sm text-muted-foreground">{t('simulator.staleHint')}</p>}
+    <p className="text-sm text-muted-foreground">{t('simulator.disclaimer')}</p>
+  </section>;
 }

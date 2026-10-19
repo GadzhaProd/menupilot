@@ -60,7 +60,7 @@ async function go(hash: string) {
 describe('routing in the app', () => {
   it('shows each screen', async () => {
     renderApp();
-    expect(await heading('Dashboard')).toBeTruthy();
+    expect(await heading('What has changed on your menu?')).toBeTruthy();
     await go('#/ingredients');
     expect(await heading('Ingredients')).toBeTruthy();
     await go('#/recipe/dish_classic_burger');

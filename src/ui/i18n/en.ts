@@ -1,5 +1,7 @@
+import { part2EN } from './part2.en';
 /** Stable semantic keys. Add a complete message; never key dictionaries by rendered English. */
 export const en = {
+  ...part2EN,
   'nav.dashboard': 'Dashboard',
   'nav.simulator': 'Simulator',
   'nav.recipes': 'Recipes',

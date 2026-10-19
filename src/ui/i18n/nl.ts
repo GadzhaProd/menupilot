@@ -1,6 +1,8 @@
+import { part2NL } from './part2.nl';
 import type { TranslationKey } from './en';
 /** Dutch terminology: basisrecept; Huidige situatie; Foodcostpercentage; je/jouw. */
 export const nl = {
+  ...part2NL,
   'nav.dashboard': 'Overzicht',
   'nav.simulator': 'Simulator',
   'nav.recipes': 'Recepten',
