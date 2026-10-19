@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useDocument } from '@/ui/data/DataProvider';
-import { dashboardData, largestCostIncrease } from '@/ui/domain/dashboard';
+import { dashboardData, largestCostIncrease, type DashboardDishRow } from '@/ui/domain/dashboard';
 import { ComparisonPicker } from '@/ui/dashboard/ComparisonPicker';
 import { DishImpactCards } from '@/ui/dashboard/DishImpactCards';
 import { DishImpactTable } from '@/ui/dashboard/DishImpactTable';
@@ -13,6 +13,7 @@ import { MoneyValue, BeforeAfter } from '@/components/ui/money-value';
 import { useDishFigures } from '@/ui/dashboard/useDishFigures';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpLink } from '@/ui/help/HelpLink';
+import type { Translate } from '@/ui/i18n/messages';
 import { hrefFor } from '@/ui/router/routes';
 
 function dateDaysAgo(days: number): string {
@@ -29,6 +30,14 @@ function isSelectableDate(date: string): boolean {
   const parsed = new Date(`${date}T00:00:00.000Z`);
   return parsed.toISOString().slice(0, 10) === date
     && date <= new Date().toISOString().slice(0, 10);
+}
+
+function excludedReasons(rows: readonly DashboardDishRow[], t: Translate): string[] {
+  const excluded = rows.filter(row => row.monthlyVolume !== null && row.monthlyImpactCents === null);
+  return [...new Set(excluded.map(row => {
+    if (row.status === 'no-price-on-date') return t('dashboard.noPrice');
+    return t(row.status === 'cost-unknown' ? 'common.costUnknown' : 'common.notApplicable');
+  }))];
 }
 
 export function DashboardPage() {
@@ -57,7 +66,7 @@ export function DashboardPage() {
 
   const largest = largestCostIncrease(data.dishes);
   const total = data.totalMonthlyImpactCents;
-  const reasons = [...new Set(data.dishes.filter(row => row.monthlyVolume !== null && row.monthlyImpactCents === null).map(row => row.status === 'no-price-on-date' ? t('dashboard.noPrice') : row.status === 'cost-unknown' ? t('common.costUnknown') : t('common.notApplicable')))];
+  const reasons = excludedReasons(data.dishes, t);
   return <section aria-labelledby="page-title" className="space-y-8">
     <div className="space-y-2">
       <h1 id="page-title" className="text-[31px] leading-tight font-semibold sm:text-4xl">{t('dashboard.title')}</h1>
@@ -80,7 +89,7 @@ export function DashboardPage() {
           <p className="text-xs text-muted-foreground">{t('dashboard.perPortion')}</p>
           {largest.tied && <p className="text-sm">{t('dashboard.tied')}</p>}
           <div className="flex flex-wrap items-end justify-between gap-3">
-            <div><p className="font-semibold text-negative">{figures(largest.dish).monthly} <span className="text-sm font-normal">{t('dashboard.monthly')}</span></p><p className="text-xs text-muted-foreground">{largest.dish.monthlyVolume === null ? t('simulator.noEstimate') : t('simulator.sold', { count: largest.dish.monthlyVolume })}</p></div>
+            <div><p className="font-semibold text-negative">{figures(largest.dish).monthly} <span className="text-sm font-normal">{t('dashboard.monthly')}</span></p><p className="text-xs text-muted-foreground">{largest.dish.monthlyVolume === null ? t('simulator.noEstimate') : plural('simulator.sold', largest.dish.monthlyVolume, { count: f.integer(largest.dish.monthlyVolume) })}</p></div>
             <Button asChild><a href={hrefFor({ name: 'simulator', id: largest.dish.id })}>{t('dashboard.try')}</a></Button>
           </div>
         </> : <p>{t('dashboard.noIncrease')}</p>}
@@ -91,14 +100,14 @@ export function DashboardPage() {
       <h2 id="dishes-title" className="text-xl font-semibold">{t('dashboard.dishes')}</h2>
       <p className="mt-1 mb-4 text-sm text-muted-foreground">{t('dashboard.perPortion')}</p>
       {data.dishes.length === 0 ? <EmptyState title={t('dashboard.dishes')} description={t('dashboard.empty')} action={<Button asChild><a href={hrefFor({ name: 'recipe-new', kind: 'dish' })}>{t('dashboard.add')}</a></Button>} /> : <>
-        <DishImpactTable rows={data.dishes} comparisonDate={comparisonDate} />
+        <DishImpactTable rows={data.dishes} comparisonDate={comparisonDate} largestId={largest?.dish.id} />
         <DishImpactCards rows={data.dishes} />
       </>}
       <div className="mt-4 flex flex-wrap justify-between gap-3 border-t-2 border-line pt-5">
         <span>{t('dashboard.total')}</span><strong className="tabular-nums">{total === null ? '—' : f.money(total)}</strong>
         <div className="basis-full space-y-1 text-sm text-muted-foreground">
-          <p>{plural('dashboard.withoutVolume', data.excludedWithoutVolume)}</p>
-          {data.excludedWithVolume > 0 && <p>{t(data.excludedWithVolume === 1 ? 'dashboard.excludedSingular' : 'dashboard.excludedPlural', { count: data.excludedWithVolume, reasons: reasons.join(', ') })}</p>}
+          <p>{plural('dashboard.withoutVolume', data.excludedWithoutVolume, { count: f.integer(data.excludedWithoutVolume) })}</p>
+          {data.excludedWithVolume > 0 && <p>{plural('dashboard.excluded', data.excludedWithVolume, { count: f.integer(data.excludedWithVolume), reasons: reasons.join(', ') })}</p>}
           <p>{t('dashboard.dishesHint')}</p>
         </div>
       </div>

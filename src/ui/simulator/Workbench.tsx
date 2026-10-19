@@ -49,7 +49,7 @@ const failedRun = (error: string): Run => ({ ok: false, error });
 
 /** The simulator for one dish: Baseline, up to three scenarios, and the comparison. */
 export function Workbench({ dish }: { dish: Dish }) {
-  const { t } = useLocale(); const f = useFormatters();
+  const { t, plural } = useLocale(); const f = useFormatters();
   const document = useDocument();
   const { execute } = useCommands();
   const dishHasVolume = dish.monthlyVolume !== undefined && dish.monthlyVolume !== null;
@@ -118,7 +118,7 @@ export function Workbench({ dish }: { dish: Dish }) {
       key: draft.key,
       label: draft.name.trim() === '' ? t('simulator.unnamed') : draft.name,
       kind: 'scenario',
-      run: runs[index] ?? failedRun('No result.'),
+      run: runs[index] ?? failedRun('simulator.failedScenario'),
       delta: staleKeys.has(draft.key) ? null : deltas[index] ?? null,
       stale: staleKeys.has(draft.key),
     })),
@@ -189,17 +189,17 @@ export function Workbench({ dish }: { dish: Dish }) {
     {active ? <Surface aria-label={t('simulator.result', { letter: slotLetter(activeIndex) })} className="flex flex-wrap items-center justify-between gap-4">
       <div><h2 className="text-xl font-semibold">{active.name || t('simulator.unnamed')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('simulator.monthlyDelta')} {t('simulator.againstBaseline')}</p></div>
       <div className="min-w-0 max-w-full text-right"><MoneyValue value={activeDelta === null ? '—' : `${activeDelta > 0n ? '+' : ''}${f.money(activeDelta)}`} tone={activeDelta === null || activeDelta === 0n ? 'neutral' : activeDelta > 0n ? 'positive' : 'negative'} className="block break-words text-[46px] leading-tight sm:text-[60px]" />
-        <p className="mt-2 text-sm text-muted-foreground">{staleKeys.has(active.key) ? t('simulator.older') : activeRun?.ok && activeRun.result.monthlyVolume !== null ? t('simulator.resultHint', { count: activeRun.result.monthlyVolume }) : t('simulator.noEstimate')}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{staleKeys.has(active.key) ? t('simulator.older') : activeRun?.ok && activeRun.result.monthlyVolume !== null ? plural('simulator.resultHint', activeRun.result.monthlyVolume, { count: f.integer(activeRun.result.monthlyVolume) }) : t('simulator.noEstimate')}</p>
       </div>
     </Surface> : <BaselineCards run={baselineRun} />}
-    <div className="sim-workbench grid items-start gap-6 lg:grid-cols-[238px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="sim-workbench grid items-start gap-6 lg:grid-rows-[auto_1fr] lg:grid-cols-[238px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
     <div className="sim-selector lg:col-start-2 flex-1 flex flex-wrap items-end justify-between gap-4 border-y border-line py-4 no-print">
       {drafts.length > 0 ? <fieldset className="min-w-0 w-full basis-full lg:w-auto lg:basis-0 lg:flex-1"><legend className="mb-2 text-sm font-semibold">{t('simulator.chooseScenario')}</legend><div className="grid grid-cols-3 gap-2">
-        {drafts.map((draft, index) => <label key={draft.key} className={`flex min-h-12 min-w-0 cursor-pointer items-center justify-center gap-2 rounded border px-2 text-sm ${draft.key === activeKey ? 'border-current bg-accent text-accent-foreground' : 'border-input bg-surface'}`}>
-          <input type="radio" name="active-scenario" aria-label={t('simulator.scenario', { letter: slotLetter(index) })} value={draft.key} checked={draft.key === activeKey} onChange={() => setSelectedKey(draft.key)} /><span>{t('simulator.scenario', { letter: slotLetter(index) })}{draft.name && draft.name !== t('simulator.scenario', { letter: slotLetter(index) }) && <span className="block break-words text-xs">{draft.name}</span>}</span>
+        {drafts.map((draft, index) => <label key={draft.key} className={`flex min-h-12 min-w-0 cursor-pointer items-center justify-center gap-1 rounded border px-1 text-sm ${draft.key === activeKey ? 'border-current bg-accent text-accent-foreground' : 'border-input bg-surface'}`}>
+          <input type="radio" name="active-scenario" aria-label={t('simulator.scenario', { letter: slotLetter(index) })} value={draft.key} checked={draft.key === activeKey} onChange={() => setSelectedKey(draft.key)} /><span><span className="whitespace-nowrap">{t('simulator.scenario', { letter: slotLetter(index) })}</span>{draft.name && draft.name !== t('simulator.scenario', { letter: slotLetter(index) }) && <span className="block break-words text-xs">{draft.name}</span>}</span>
         </label>)}
       </div></fieldset> : <h2 className="text-xl font-semibold">{t('simulator.scenarios')}</h2>}
-      <Button onClick={addScenario} disabled={!pageBaseline.ok || drafts.length >= MAX_SCENARIOS} variant={drafts.length === 0 ? 'default' : 'outline'}><PlusIcon aria-hidden="true" />{drafts.length >= MAX_SCENARIOS ? t('simulator.limit', { count: MAX_SCENARIOS }) : t('simulator.add')}</Button>
+      <Button onClick={addScenario} disabled={!pageBaseline.ok || drafts.length >= MAX_SCENARIOS} variant={drafts.length === 0 ? 'default' : 'outline'}><PlusIcon aria-hidden="true" />{drafts.length >= MAX_SCENARIOS ? t('simulator.limit', { count: f.integer(MAX_SCENARIOS) }) : t('simulator.add')}</Button>
     </div>
       <aside className="sim-editor lg:row-start-1 lg:row-span-2 space-y-5 rounded-lg border border-line bg-surface p-4 no-print">
         <h2 className="text-xl font-semibold">{t('simulator.edit')}</h2>
@@ -209,7 +209,7 @@ export function Workbench({ dish }: { dish: Dish }) {
                 key={draft.key}
                 draft={draft}
                 index={index}
-                run={runs[index] ?? failedRun('No result.')}
+                run={runs[index] ?? failedRun('simulator.failedScenario')}
                 delta={deltas[index] ?? null}
                 ownBaseline={okResult(ownBaselines[index])}
                 sharedVolume={sharedVolume}
@@ -227,14 +227,14 @@ export function Workbench({ dish }: { dish: Dish }) {
         </div>)}
         <details open={drafts.length === 0 || !!volumeError || undefined}>
           <summary className="flex min-h-12 cursor-pointer items-center text-sm underline underline-offset-4">{t('simulator.sharedVolume')}</summary>
-        <FormField label={t('simulator.sharedVolume')} hint={t('simulator.sharedHint')} error={volumeError ? t(volumeError as 'simulator.error.volume' | 'simulator.error.estimate') : undefined}>
+        <FormField className="[&>label]:sr-only" label={t('simulator.sharedVolume')} hint={t('simulator.sharedHint')} error={volumeError ? t(volumeError as 'simulator.error.volume' | 'simulator.error.estimate') : undefined}>
           {control => <Input {...control} inputMode="numeric" autoComplete="off" value={volumeText} onChange={event => changeVolume(event.target.value)} />}
         </FormField>
         </details>
       </aside>
       {drafts.length > 0 ? <ComparisonTable columns={columns} activeKey={activeKey} /> : <Surface aria-labelledby="empty-scenarios">
         <h2 id="empty-scenarios" className="text-xl font-semibold">{t('simulator.empty')}</h2>
-        <p className="mt-2 max-w-2xl text-muted-foreground">{t('simulator.emptyDescription', { name: dish.name, count: MAX_SCENARIOS })}</p>
+        <p className="mt-2 max-w-2xl text-muted-foreground">{t('simulator.emptyDescription', { name: dish.name, count: f.integer(MAX_SCENARIOS) })}</p>
         <p className="mt-4 text-sm text-muted-foreground">{t('simulator.disclaimer')}</p>
       </Surface>}
     </div>

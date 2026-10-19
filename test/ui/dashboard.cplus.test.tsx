@@ -26,3 +26,16 @@ describe('C+ dashboard', () => {
     expect(table.textContent).toContain('€ 4,85');
   });
 });
+
+it('shows actual excluded reasons in Dutch, names missing volume and highlights the largest increase', async () => {
+  const user = userEvent.setup(); renderApp();
+  await user.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+  const table = screen.getByRole('table', { name: 'Vergelijking van gerechtkosten' });
+  expect(within(table).getByRole('link', { name: 'Classic Burger' }).closest('tr')?.className).toContain('bg-panel');
+  expect(within(table).getByRole('link', { name: 'Tomato Soup' }).closest('tr')?.textContent).toContain('Aantal ontbreekt');
+  const date = screen.getByLabelText('Kies een datum');
+  const { fireEvent } = await import('@testing-library/react');
+  fireEvent.change(date, { target: { value: '2026-07-20' } });
+  expect(screen.getByText('4 gerechten uitgesloten: geen prijs op deze datum')).toBeTruthy();
+  expect(screen.queryByText(/no price on this date/)).toBeNull();
+});

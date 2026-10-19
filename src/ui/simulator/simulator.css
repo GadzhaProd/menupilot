@@ -16,5 +16,6 @@
   .sim-editor, .sim-selector { display: none; }
   .sim-comparison thead, .dashboard-table thead { display: table-header-group; }
   .sim-comparison tr, .dashboard-table tr { break-inside: avoid; }
-  .sim-comparison, .dashboard-table { font-size: 11px; }
+  .sim-comparison th, .sim-comparison td, .dashboard-table { font-size: 11px; }
+  .sim-comparison .text-xs, .dashboard-table .text-xs { font-size: 10px; }
 }

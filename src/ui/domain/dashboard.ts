@@ -57,7 +57,6 @@ export interface DashboardData {
   totalMonthlyImpactCents: bigint | null;
   excludedWithoutVolume: number;
   excludedWithVolume: number;
-  excludedReasons: string[];
   gotMoreExpensive: number;
   averageFoodCostTenthsPct: bigint | null;
 }
@@ -215,11 +214,7 @@ export function dashboardData(data: Catalog, asOf: string): DashboardData {
   const excludedWithVolumeRows = dishesWithVolume.filter(
     (row) => row.monthlyImpactCents === null,
   );
-  const excludedReasons = [...new Set(excludedWithVolumeRows.map((row) => {
-    if (row.status === 'no-price-on-date') return 'no price on this date';
-    if (row.status === 'cost-unknown') return 'cost unknown';
-    return 'n/a';
-  }))];
+
 
   return {
     dishes,
@@ -229,7 +224,6 @@ export function dashboardData(data: Catalog, asOf: string): DashboardData {
       : menuMonthlyImpactCents(knownImpacts),
     excludedWithoutVolume: dishes.filter((row) => row.monthlyVolume === null).length,
     excludedWithVolume: excludedWithVolumeRows.length,
-    excludedReasons,
     gotMoreExpensive: dishes.filter(
       (row) => row.costDeltaCents !== null && row.costDeltaCents > 0n,
     ).length,

@@ -60,8 +60,8 @@ export function DishPicker() {
                         {dish.status === 'error' ? null : ` ${t('simulator.portionHint')}`}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {saved === 0 ? t('simulator.noSaved') : plural('simulator.saved', saved)}
-                        {unsaved > 0 ? <span className="font-medium text-accent-foreground"> · {plural('simulator.unsaved', unsaved)}</span> : null}
+                        {saved === 0 ? t('simulator.noSaved') : plural('simulator.saved', saved, { count: f.integer(saved) })}
+                        {unsaved > 0 ? <span className="font-medium text-accent-foreground"> · {plural('simulator.unsaved', unsaved, { count: f.integer(unsaved) })}</span> : null}
                       </span>
                     </a>
                   </CardContent>
