@@ -7,6 +7,7 @@ import { HelpNavContext, useSectionLink } from '@/ui/help/HelpNav';
 import { readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
 import { HELP_SECTION_IDS, type HelpDocument, type HelpLang, type HelpSectionId } from '@/ui/help/types';
 import { hrefFor } from '@/ui/router/routes';
+import { useLocale } from '@/ui/i18n';
 
 const LANGUAGES: readonly { lang: HelpLang; label: string }[] = [
   { lang: 'en', label: 'English' },
@@ -14,8 +15,8 @@ const LANGUAGES: readonly { lang: HelpLang; label: string }[] = [
 ];
 
 const BIG_BUTTON = [
-  'inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border-2 px-5 py-2 text-lg font-semibold',
-  'outline-none focus-visible:ring-4 focus-visible:ring-ring/60',
+  'inline-flex min-h-12 items-center justify-center gap-2 rounded border border-input px-4 py-2 text-lg font-semibold',
+  'outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
 ].join(' ');
 
 export const sectionElementId = (id: HelpSectionId) => `help-${id}`;
@@ -29,7 +30,7 @@ function TocLink({ id, number, title }: { id: HelpSectionId; number: number; tit
   return (
     <a
       {...link}
-      className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 text-xl font-medium text-primary underline underline-offset-4 outline-none hover:bg-accent focus-visible:ring-4 focus-visible:ring-ring/60"
+      className="flex min-h-12 items-center gap-3 rounded px-3 py-2 text-lg font-medium text-accent underline underline-offset-4 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <span aria-hidden="true" className="w-8 shrink-0 text-right tabular-nums">{number}.</span>
       <span>{title}</span>
@@ -44,7 +45,7 @@ function BackToContents({ label }: { label: string }) {
     <p className="mt-6 print:hidden">
       <a
         {...link}
-        className="inline-flex min-h-12 items-center gap-2 rounded-lg px-3 py-2 text-lg font-semibold text-primary underline underline-offset-4 outline-none hover:bg-accent focus-visible:ring-4 focus-visible:ring-ring/60"
+        className="inline-flex min-h-12 items-center gap-2 rounded px-3 py-2 text-lg font-semibold text-accent underline underline-offset-4 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <ArrowUpIcon aria-hidden="true" className="size-5" /> {label}
       </a>
@@ -81,6 +82,7 @@ function Toolbar({ doc, lang, onLanguage }: { doc: HelpDocument; lang: HelpLang;
 
 /** The built-in step-by-step guide, in English or Russian. */
 export function HelpPage({ section }: { section: string | null }) {
+  const { locale, t } = useLocale();
   const [lang, setLang] = useState<HelpLang>(() => readHelpLanguage());
   const [showTop, setShowTop] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -118,14 +120,15 @@ export function HelpPage({ section }: { section: string | null }) {
 
   return (
     <HelpNavContext.Provider value={open}>
-      <article lang={lang} className="mx-auto max-w-3xl space-y-8 text-lg leading-relaxed" aria-labelledby="help-title">
+      <article lang={lang} className="mx-auto max-w-[70ch] space-y-8 text-lg leading-relaxed" aria-labelledby="help-title">
         <header className="space-y-4">
-          <h1 id="help-title" ref={titleRef} tabIndex={-1} className="text-4xl font-bold outline-none">{doc.title}</h1>
+          <h1 id="help-title" ref={titleRef} tabIndex={-1} className="text-4xl font-semibold outline-none">{doc.title}</h1>
           <p className="text-xl">{doc.subtitle}</p>
           <Toolbar doc={doc} lang={lang} onLanguage={chooseLanguage} />
+          {locale === 'nl' ? <p className="border-y border-line py-3 text-base text-muted-foreground" aria-label={t('help.ui.availableIn')}>{t('help.ui.languageNote')}</p> : null}
         </header>
 
-        <nav aria-label={doc.ui.contents} className="rounded-xl border-2 bg-card p-4 print:break-inside-avoid">
+        <nav aria-label={doc.ui.contents} className="border-y border-line bg-surface p-4 print:break-inside-avoid">
           <h2 className="mb-2 px-3 text-2xl font-semibold">{doc.ui.contents}</h2>
           <ul>
             {doc.sections.map((entry, index) => (
@@ -139,7 +142,7 @@ export function HelpPage({ section }: { section: string | null }) {
             <h2
               id={`${sectionElementId(entry.id)}-title`}
               tabIndex={-1}
-              className="border-b-4 border-primary/30 pb-2 text-3xl font-bold outline-none"
+              className="border-b border-line pb-3 text-3xl font-semibold outline-none"
             >
               {index + 1}. {entry.title}
             </h2>

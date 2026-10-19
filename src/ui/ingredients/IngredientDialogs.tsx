@@ -9,32 +9,42 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { useCommands, useDocument } from '@/ui/data/DataProvider';
-import { formatEURFromCents, packUnitPriceDisplay, selectPriceAtDate } from '@/ui/domain/calc';
+import { selectPriceAtDate } from '@/ui/domain/calc';
 import type { Ingredient } from '@/ui/domain/types';
 import {
-  validateName, validateNewIngredient, validatePrice, type IngredientDraft, type PriceDraft,
+  validateName, validateNewIngredient, validatePrice, type IngredientDraft, type IngredientValidationCopy, type PriceDraft,
 } from '@/ui/forms/ingredientForm';
-import { formatQuantity, quantityToInput, type EnteredUnit } from '@/ui/forms/numbers';
+import { formatQuantityLocale, quantityToInput, type EnteredUnit } from '@/ui/forms/numbers';
 import { recipesUsing } from '@/ui/forms/recipeForm';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
 import { hrefFor } from '@/ui/router/routes';
-import { formatDate } from './format';
 import { PriceFields } from './PriceFields';
+import { useLocale, useFormatters, type Translate } from '@/ui/i18n';
 
 interface DialogProps {
   onClose: () => void;
   onCloseAutoFocus: (event: Event) => void;
 }
 
+function validationCopy(t: Translate): IngredientValidationCopy {
+  return {
+    nameEmpty: t('ingredients.error.name'), nameLong: t('ingredients.error.nameLong'), packSize: t('ingredients.error.packSize'),
+    packPrice: t('ingredients.error.packPrice'), wrongUnit: (unit, units) => t('ingredients.error.unit', { unit: t(unit === 'g' ? 'units.g' : unit === 'ml' ? 'units.ml' : unit === 'pc' ? 'units.pc' : unit === 'kg' ? 'units.kg' : 'units.l'), units: units.map((entry) => t(entry === 'g' ? 'units.g' : entry === 'ml' ? 'units.ml' : entry === 'pc' ? 'units.pc' : entry === 'kg' ? 'units.kg' : 'units.l')).join(' of ') }),
+  };
+}
+
 function SaveError({ message }: { message: string | null }) {
+  const { t, locale } = useLocale();
   return message === null ? null : (
-    <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{message}</p>
+    <p role="alert" className="rounded-md border border-negative bg-surface p-3 text-sm text-negative">{locale === 'en' ? message : t('error.generic')}</p>
   );
 }
 
 /* ---- Add ingredient ---- */
 
 export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) {
+  const { t } = useLocale();
+  const copy = useMemo(() => validationCopy(t), [t]);
   const { execute } = useCommands();
   const [draft, setDraft] = useState<IngredientDraft>({ name: '', packSize: '', packSizeUnit: 'kg', packPrice: '' });
   const [attempt, setAttempt] = useState(0);
@@ -42,7 +52,7 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstInvalid(formRef, attempt);
 
-  const checked = useMemo(() => validateNewIngredient(draft), [draft]);
+  const checked = useMemo(() => validateNewIngredient(draft, copy), [draft, copy]);
   const errors = attempt > 0 && !checked.ok ? checked.errors : {};
 
   function submit(event: FormEvent) {
@@ -58,28 +68,26 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>Add ingredient</DialogTitle>
-          <DialogDescription>
-            Enter the pack as you buy it. Leave size and price empty to add the price later; recipes will show “cost unknown” until then.
-          </DialogDescription>
+          <DialogTitle>{t('ingredients.add')}</DialogTitle>
+          <DialogDescription>{t('ingredients.addDescription')}</DialogDescription>
         </DialogHeader>
         <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4">
-          <FormField label="Name" error={errors.name}>
+          <FormField label={t('ingredients.name')} error={errors.name}>
             {(control) => (
               <Input
                 {...control}
                 autoComplete="off"
                 value={draft.name}
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                placeholder="Beef mince 80/20"
+                placeholder={t('ingredients.namePlaceholder')}
               />
             )}
           </FormField>
           <PriceFields draft={draft} onChange={(next) => setDraft({ ...draft, ...next })} errors={errors} base={null} />
           <SaveError message={saveError} />
           <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit">Add ingredient</Button>
+            <DialogClose asChild><Button type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
+            <Button type="submit">{t('ingredients.add')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -90,6 +98,9 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
 /* ---- New price ---- */
 
 export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: DialogProps & { ingredient: Ingredient }) {
+  const { t, locale } = useLocale();
+  const f = useFormatters();
+  const copy = useMemo(() => validationCopy(t), [t]);
   const { execute } = useCommands();
   const current = selectPriceAtDate(ingredient.prices);
   const [draft, setDraft] = useState<PriceDraft>(() => {
@@ -102,7 +113,7 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstInvalid(formRef, attempt);
 
-  const checked = useMemo(() => validatePrice(draft, ingredient.unit), [draft, ingredient.unit]);
+  const checked = useMemo(() => validatePrice(draft, ingredient.unit, copy), [draft, ingredient.unit, copy]);
   const errors = attempt > 0 && !checked.ok ? checked.errors : {};
 
   function submit(event: FormEvent) {
@@ -119,19 +130,19 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>New price: {ingredient.name}</DialogTitle>
+          <DialogTitle>{t('ingredients.newPriceFor', { name: ingredient.name })}</DialogTitle>
           <DialogDescription>
             {current
-              ? <>Now: {formatEURFromCents(current.packPriceCents)} excl. VAT for {formatQuantity(current.packSizeMilli, ingredient.unit)}. The old price stays in the history.</>
-              : 'This ingredient has no price yet.'}
+              ? t('ingredients.nowPrice', { price: f.money(current.packPriceCents), size: formatQuantityLocale(current.packSizeMilli, ingredient.unit, locale) })
+              : t('ingredients.noPriceYet')}
           </DialogDescription>
         </DialogHeader>
         <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4">
           <PriceFields draft={draft} onChange={setDraft} errors={errors} base={ingredient.unit} />
           <SaveError message={saveError} />
           <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit">Save price</Button>
+            <DialogClose asChild><Button type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
+            <Button type="submit">{t('ingredients.savePrice')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -148,43 +159,45 @@ function defaultUnit(ingredient: Ingredient): EnteredUnit {
 /* ---- Price history ---- */
 
 export function HistoryDialog({ ingredient, onCloseAutoFocus, onClose }: DialogProps & { ingredient: Ingredient }) {
+  const { t, locale } = useLocale();
+  const f = useFormatters();
   const newestFirst = [...ingredient.prices].reverse();
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Price history: {ingredient.name}</DialogTitle>
-          <DialogDescription>Prices are only ever added, never changed. All prices are excl. VAT.</DialogDescription>
+          <DialogTitle>{t('ingredients.historyFor', { name: ingredient.name })}</DialogTitle>
+          <DialogDescription>{t('ingredients.historyDescription')}</DialogDescription>
         </DialogHeader>
         {newestFirst.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No prices yet.</p>
+          <p className="text-muted-foreground">{t('ingredients.noPrices')}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Pack</TableHead>
-                <TableHead className="text-right">Pack price</TableHead>
-                <TableHead className="text-right">Per kg, l or pc</TableHead>
+                <TableHead>{t('ingredients.date')}</TableHead>
+                <TableHead className="text-right">{t('ingredients.pack')}</TableHead>
+                <TableHead className="text-right">{t('ingredients.packPrice')}</TableHead>
+                <TableHead className="text-right">{t('ingredients.perUnit')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {newestFirst.map((price, index) => (
                 <TableRow key={price.seq}>
                   <TableCell>
-                    {formatDate(price.recordedAt)}
-                    {index === 0 ? <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">current</span> : null}
+                    {f.date(price.recordedAt)}
+                    {index === 0 ? <span className="ml-2 bg-panel px-1.5 py-0.5 text-sm">{t('ingredients.current')}</span> : null}
                   </TableCell>
-                  <TableCell className="text-right">{formatQuantity(price.packSizeMilli, ingredient.unit)}</TableCell>
-                  <TableCell className="text-right">{formatEURFromCents(price.packPriceCents)}</TableCell>
-                  <TableCell className="text-right">{packUnitPriceDisplay(price.packPriceCents, price.packSizeMilli, ingredient.unit)}</TableCell>
+                  <TableCell className="text-right">{formatQuantityLocale(price.packSizeMilli, ingredient.unit, locale)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{f.money(price.packPriceCents)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{f.packPrice(price.packPriceCents, price.packSizeMilli, ingredient.unit)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
         <DialogFooter>
-          <DialogClose asChild><Button type="button">Close</Button></DialogClose>
+          <DialogClose asChild><Button type="button">{t('common.close')}</Button></DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -194,6 +207,8 @@ export function HistoryDialog({ ingredient, onCloseAutoFocus, onClose }: DialogP
 /* ---- Rename ---- */
 
 export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogProps & { ingredient: Ingredient }) {
+  const { t } = useLocale();
+  const copy = useMemo(() => validationCopy(t), [t]);
   const { execute } = useCommands();
   const [name, setName] = useState(ingredient.name);
   const [attempt, setAttempt] = useState(0);
@@ -201,7 +216,7 @@ export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogPr
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstInvalid(formRef, attempt);
 
-  const checked = validateName(name);
+  const checked = validateName(name, copy);
   const error = attempt > 0 && !checked.ok ? checked.error : undefined;
 
   function submit(event: FormEvent) {
@@ -217,17 +232,17 @@ export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogPr
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>Rename ingredient</DialogTitle>
-          <DialogDescription>Recipes that use it keep working under the new name.</DialogDescription>
+          <DialogTitle>{t('ingredients.rename')}</DialogTitle>
+          <DialogDescription>{t('ingredients.renameDescription')}</DialogDescription>
         </DialogHeader>
         <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4">
-          <FormField label="Name" error={error}>
+          <FormField label={t('ingredients.name')} error={error}>
             {(control) => <Input {...control} autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} />}
           </FormField>
           <SaveError message={saveError} />
           <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit">Rename</Button>
+            <DialogClose asChild><Button type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
+            <Button type="submit">{t('ingredients.rename')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -238,6 +253,7 @@ export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogPr
 /* ---- Delete ---- */
 
 export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }: DialogProps & { ingredient: Ingredient }) {
+  const { t } = useLocale();
   const { execute } = useCommands();
   const document = useDocument();
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -253,15 +269,13 @@ export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>Delete {ingredient.name}?</DialogTitle>
-          <DialogDescription>
-            The ingredient and its price history are removed. This cannot be undone. An ingredient used in a recipe cannot be deleted.
-          </DialogDescription>
+          <DialogTitle>{t('ingredients.deleteTitle', { name: ingredient.name })}</DialogTitle>
+          <DialogDescription>{t('ingredients.deleteDescription')}</DialogDescription>
         </DialogHeader>
         <SaveError message={saveError} />
         {users.length > 0 ? (
           <div className="text-sm">
-            <p className="font-medium">Remove it from these recipes first:</p>
+            <p className="font-medium">{t('ingredients.removeFromRecipes')}</p>
             <ul className="mt-1 list-disc pl-5">
               {users.map((recipe) => (
                 <li key={recipe.id}>
@@ -272,8 +286,8 @@ export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }
           </div>
         ) : null}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-          <Button type="button" variant="destructive" onClick={confirm}>Delete ingredient</Button>
+          <DialogClose asChild><Button type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
+          <Button type="button" variant="destructive" onClick={confirm}>{t('ingredients.deleteConfirm')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

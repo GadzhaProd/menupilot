@@ -29,10 +29,11 @@ describe('empty states offer the next step', () => {
   it('Recipes and Simulator link to a new dish', async () => {
     renderApp(emptyStorage());
     await go('#/recipes');
-    expect(await screen.findByText(/No dishes yet\. Add your first dish/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: /New dish/ })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'No dishes yet' })).toBeTruthy();
+    expect(screen.getByText('Add your first dish to start checking recipe-based ingredient costs.')).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: /New dish/ })).toHaveLength(2);
     await go('#/simulator');
     expect(await screen.findByText('No dishes to simulate yet')).toBeTruthy();
-    expect(screen.getByRole('link', { name: /New dish/ })).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: /New dish/ })).toHaveLength(1);
   });
 });

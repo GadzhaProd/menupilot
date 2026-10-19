@@ -44,7 +44,7 @@ describe('Add ingredient', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Add ingredient' });
 
     await u.type(within(dialog).getByLabelText('Name'), 'Mozzarella');
-    await u.type(within(dialog).getByLabelText('Pack size'), '250');
+    await u.type(within(dialog).getByLabelText(/Pack size/), '250');
     await u.selectOptions(within(dialog).getByLabelText('Unit'), 'g');
     await u.type(within(dialog).getByLabelText(/Pack price/), '2,80');
     expect(within(dialog).getByText(/Supplier price excl\. VAT, as on the invoice/)).toBeTruthy();
@@ -65,7 +65,7 @@ describe('Add ingredient', () => {
     await u.click(screen.getByRole('button', { name: 'Add ingredient' }));
     const dialog = await screen.findByRole('dialog');
     await u.type(within(dialog).getByLabelText('Name'), 'Milk');
-    await u.type(within(dialog).getByLabelText('Pack size'), '1.5');
+    await u.type(within(dialog).getByLabelText(/Pack size/), '1.5');
     await u.selectOptions(within(dialog).getByLabelText('Unit'), 'l');
     await u.type(within(dialog).getByLabelText(/Pack price/), '1.65');
     expect(dialog.textContent).toContain('€1.10/l');
@@ -90,12 +90,12 @@ describe('Add ingredient', () => {
     const before = storage.data.get(STORAGE_KEY);
     await u.click(screen.getByRole('button', { name: 'Add ingredient' }));
     const dialog = await screen.findByRole('dialog');
-    await u.type(within(dialog).getByLabelText('Pack size'), '0');
+    await u.type(within(dialog).getByLabelText(/Pack size/), '0');
     await u.type(within(dialog).getByLabelText(/Pack price/), '-2');
     await u.click(within(dialog).getByRole('button', { name: 'Add ingredient' }));
 
     const name = within(dialog).getByLabelText('Name');
-    const size = within(dialog).getByLabelText('Pack size');
+    const size = within(dialog).getByLabelText(/Pack size/);
     const price = within(dialog).getByLabelText(/Pack price/);
     expect(name.getAttribute('aria-invalid')).toBe('true');
     expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent).toBe('Enter a name.');
@@ -117,7 +117,7 @@ describe('Add ingredient', () => {
     await u.click(screen.getByRole('button', { name: 'Add ingredient' }));
     const dialog = await screen.findByRole('dialog');
     await u.type(within(dialog).getByLabelText('Name'), 'Basil');
-    await u.type(within(dialog).getByLabelText('Pack size'), '100');
+    await u.type(within(dialog).getByLabelText(/Pack size/), '100');
     await u.selectOptions(within(dialog).getByLabelText('Unit'), 'g');
     await u.type(within(dialog).getByLabelText(/Pack price/), '1.50');
     storage.failOnSet = new Error('disk is full');
@@ -141,7 +141,7 @@ describe('New price and history', () => {
     await u.click(screen.getByRole('button', { name: 'New price for Beef mince 80/20' }));
     const dialog = await screen.findByRole('dialog', { name: /New price: Beef mince/ });
     // The last pack size is filled in already; only the price is new.
-    expect((within(dialog).getByLabelText('Pack size') as HTMLInputElement).value).toBe('1');
+    expect((within(dialog).getByLabelText(/Pack size/) as HTMLInputElement).value).toBe('1');
     expect(dialog.textContent).toContain('Now: €17.00 excl. VAT for 1 kg');
     await u.type(within(dialog).getByLabelText(/Pack price/), '19,50');
     await u.click(within(dialog).getByRole('button', { name: 'Save price' }));
@@ -164,8 +164,8 @@ describe('New price and history', () => {
     const storage = await openIngredients();
     await u.click(screen.getByRole('button', { name: 'New price for Beef mince 80/20' }));
     const dialog = await screen.findByRole('dialog');
-    await u.clear(within(dialog).getByLabelText('Pack size'));
-    await u.type(within(dialog).getByLabelText('Pack size'), '500');
+    await u.clear(within(dialog).getByLabelText(/Pack size/));
+    await u.type(within(dialog).getByLabelText(/Pack size/), '500');
     await u.selectOptions(within(dialog).getByLabelText('Unit'), 'g');
     await u.type(within(dialog).getByLabelText(/Pack price/), '9');
     expect(dialog.textContent).toContain('€18.00/kg');

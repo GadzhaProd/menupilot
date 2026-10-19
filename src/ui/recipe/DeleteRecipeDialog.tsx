@@ -7,6 +7,8 @@ import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import type { Recipe } from '@/ui/domain/types';
 import { recipesUsing } from '@/ui/forms/recipeForm';
 import { hrefFor } from '@/ui/router/routes';
+import { useLocale } from '@/ui/i18n';
+import { InlineStatus } from '@/components/ui/inline-status';
 
 interface DeleteRecipeDialogProps {
   recipe: Recipe;
@@ -21,12 +23,14 @@ interface DeleteRecipeDialogProps {
  * a prep that dishes still use is refused by the store, and the dialog says where it is used.
  */
 export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDeleted }: DeleteRecipeDialogProps) {
+  const { t, locale, plural } = useLocale();
   const { execute } = useCommands();
   const document = useDocument();
   const [error, setError] = useState<string | null>(null);
   const scenarios = document.scenarios.filter((scenario) => scenario.recipeId === recipe.id);
   const users = error === null || recipe.kind !== 'prep' ? [] : recipesUsing(document, 'prep', recipe.id);
-  const noun = recipe.kind === 'dish' ? 'dish' : 'prep';
+  const noun = recipe.kind === 'dish' ? t('recipe.dish') : t('recipe.prep');
+  const deleteNoun = t(recipe.kind === 'dish' ? 'recipe.dishLower' : 'recipe.prepLower');
 
   function confirm() {
     const result = execute(
@@ -41,27 +45,23 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>Delete {recipe.name}?</DialogTitle>
-          <DialogDescription>
-            The {noun} and its lines are removed. This cannot be undone. Ingredients are not deleted.
-          </DialogDescription>
+          <DialogTitle>{t('recipe.deleteNamed', { name: recipe.name })}</DialogTitle>
+          <DialogDescription>{t('recipe.deleteDescription', { kind: noun })}</DialogDescription>
         </DialogHeader>
         {scenarios.length > 0 ? (
-          <div className="rounded-md border border-input bg-accent p-3 text-sm text-accent-foreground">
-            <p className="font-medium">
-              This dish has {scenarios.length} saved simulator {scenarios.length === 1 ? 'scenario' : 'scenarios'}. They will be deleted too:
-            </p>
+          <div className="border-y border-line bg-panel p-4">
+            <p className="font-medium">{plural('recipe.savedScenarioCount', scenarios.length)}</p>
             <ul className="mt-1 list-disc pl-5">
               {scenarios.map((scenario) => <li key={scenario.id}>{scenario.name}</li>)}
             </ul>
           </div>
         ) : null}
         {error !== null ? (
-          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>
+          <InlineStatus tone="error">{locale === 'en' ? error : t('error.generic')}</InlineStatus>
         ) : null}
         {users.length > 0 ? (
           <div className="text-sm">
-            <p className="font-medium">Remove it from these recipes first:</p>
+            <p className="font-medium">{t('recipe.removeUsersFirst')}</p>
             <ul className="mt-1 list-disc pl-5">
               {users.map((user) => (
                 <li key={user.id}>
@@ -72,9 +72,11 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
           </div>
         ) : null}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+          <DialogClose asChild><Button type="button" variant="outline">{t('common.cancel')}</Button></DialogClose>
           <Button type="button" variant="destructive" onClick={confirm}>
-            {scenarios.length > 0 ? `Delete ${noun} and ${scenarios.length === 1 ? 'its scenario' : `${scenarios.length} scenarios`}` : `Delete ${noun}`}
+            {scenarios.length > 0
+              ? t(scenarios.length === 1 ? 'recipe.deleteScenariosOne' : 'recipe.deleteScenariosOther', { kind: deleteNoun, count: scenarios.length })
+              : t('recipe.deleteKind', { kind: deleteNoun })}
           </Button>
         </DialogFooter>
       </DialogContent>
