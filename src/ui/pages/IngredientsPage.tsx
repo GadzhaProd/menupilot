@@ -21,7 +21,7 @@ type Active =
   | { kind: 'price' | 'history' | 'rename' | 'delete'; id: string };
 
 /** On phones each ingredient becomes a small card: the label comes from `data-label`. */
-const STACKED_CELL = 'max-sm:flex max-sm:justify-between max-sm:gap-4 max-sm:py-1 max-sm:whitespace-normal max-sm:before:text-left max-sm:before:font-normal max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]';
+const STACKED_CELL = 'max-xl:flex max-xl:justify-between max-xl:gap-4 max-xl:py-1 max-xl:whitespace-normal max-xl:before:text-left max-xl:before:font-normal max-xl:before:text-muted-foreground max-xl:before:content-[attr(data-label)]';
 
 function IngredientRow({ ingredient, onOpen }: {
   ingredient: Ingredient;
@@ -31,11 +31,11 @@ function IngredientRow({ ingredient, onOpen }: {
   const f = useFormatters();
   const price = selectPriceAtDate(ingredient.prices);
   return (
-    <TableRow className="max-sm:block max-sm:py-3">
-      <TableCell className="font-medium whitespace-normal max-sm:block max-sm:pb-2 max-sm:text-base">{ingredient.name}</TableCell>
+    <TableRow className="max-xl:block max-xl:py-3">
+      <TableCell className="font-medium whitespace-normal max-xl:block max-xl:pb-2 max-xl:text-base">{ingredient.name}</TableCell>
       <TableCell data-label={t('ingredients.unit')} className={STACKED_CELL}>{localizedUnit(ingredient.unit, locale)}</TableCell>
       {price === null ? (
-        <TableCell colSpan={4} className="whitespace-normal text-muted-foreground max-sm:block">
+        <TableCell colSpan={4} className="whitespace-normal text-muted-foreground max-xl:block">
           {t('ingredients.noPrice')}
         </TableCell>
       ) : (
@@ -48,8 +48,8 @@ function IngredientRow({ ingredient, onOpen }: {
           <TableCell data-label={t('ingredients.lastPrice')} className={`text-right ${STACKED_CELL}`}>{f.date(price.recordedAt)}</TableCell>
         </>
       )}
-      <TableCell className="max-sm:block max-sm:pt-2">
-        <div className="flex flex-wrap justify-end gap-1 sm:flex-nowrap max-sm:justify-start">
+      <TableCell className="max-xl:block max-xl:pt-2">
+        <div className="flex flex-wrap justify-end gap-1 xl:flex-nowrap max-xl:justify-start">
           <Button size="sm" variant="outline" aria-label={t('ingredients.newPriceAction', { name: ingredient.name })} onClick={(event) => onOpen('price', event)}>{t('ingredients.newPrice')}</Button>
           <Button size="sm" variant="ghost" aria-label={t('ingredients.historyFor', { name: ingredient.name })} onClick={(event) => onOpen('history', event)}>{t('ingredients.priceHistory')}</Button>
           <Button size="sm" variant="ghost" aria-label={t('ingredients.renameFor', { name: ingredient.name })} onClick={(event) => onOpen('rename', event)}>{t('ingredients.rename')}</Button>
@@ -85,8 +85,8 @@ export function IngredientsPage() {
           {ingredients.length === 0 ? (
             <EmptyState title={t('ingredients.emptyTitle')} description={t('ingredients.emptyDescription')} action={<Button onClick={(event) => dialog.open({ kind: 'add' }, event)}>{t('ingredients.addFirst')}</Button>} />
           ) : (
-            <Table className="max-sm:block [&_tbody]:max-sm:block">
-              <TableHeader className="max-sm:sr-only">
+            <Table className="max-xl:block [&_tbody]:max-xl:block">
+              <TableHeader className="max-xl:sr-only">
                 <TableRow>
                   <TableHead className="whitespace-normal">{t('ingredients.name')}</TableHead>
                   <TableHead>{t('ingredients.unit')}</TableHead>

@@ -542,3 +542,17 @@ Screenshots saved under the thread storage directory:
 No 21st.dev component was copied; the shared foundation components covered these screens, so no license lookup was needed. `npm run check` was attempted after the merge: typecheck passed; core tests passed (137/137); UI tests had 278 passing and one unrelated-to-scope stale assertion in `test/ui/preferences.test.tsx`, which still searches for the English button `Reset to demo data` after switching the app to Dutch (rendered button is `Terugzetten naar voorbeeldgegevens`). That test file is outside Part 3's allowed file list and was not changed. The chained check therefore stopped before build. Independently, Part 3 focused UI tests passed (119/119 in 6 files), `npm run build` passed (2085 modules), and `git diff --check` passed. No commit was created because the repository workflow requires all tests to pass before committing; coordinator follow-up is needed for the stale Preferences assertion.
 
 During live source editing, Vite emitted a transient Fast Refresh invalidation while multiple provider modules were being replaced, including one `Data hooks must be used inside <DataProvider>` stack. A subsequent stable browser load and all final route/resize checks completed successfully; this HMR-only event was not reproduced by the final navigation flow and is separate from the Shell animation cleanup check.
+
+## Part 3 review follow-up — 2026-10-20
+
+Applied the integration review fixes for link contrast, Dutch store-error wording, quantity decimals, VAT labels, plural counts, Help language notes, and the Ingredients responsive breakpoint. The explicit Impeccable detector command completed with exit 0 and returned `[]`:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect src/ui/pages/IngredientsPage.tsx src/ui/pages/RecipesPage.tsx src/ui/pages/RecipePage.tsx src/ui/pages/DataPage.tsx src/ui/pages/NotFoundPage.tsx src/ui/pages/HelpPage.tsx src/ui/ingredients src/ui/recipe src/ui/data src/ui/help src/ui/forms --json
+```
+
+Manual Impeccable audit/polish pass: all Part 3 links use foreground accent; dialog errors remain visible and NL store messages use stable codes/details; inputs retain the shared 48px controls; page landmarks and Help's visible `role="note"` remain present. Browser measurements show the Ingredients page fits at NL widths 1024, 1280, 1366, and 1440px: it switches to cards below 1280px, table layout at 1280px and above, document width equals viewport, table overflow is zero, and all 48 row action buttons remain inside the viewport. No additional visual correction was identified. HelpLink remains translated by the interface locale.
+
+Review screenshots: [NL Ingredients at 1024px](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-review-nl-ingredients-1024.jpg) and [NL Ingredients at 1440px](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-review-nl-ingredients-1440.jpg).
+
+`npm run check` completed with exit 0: typecheck passed; core tests 137/137; UI tests 285/285 (23 files); production build transformed 2085 modules and completed successfully.

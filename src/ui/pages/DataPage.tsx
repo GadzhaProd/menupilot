@@ -50,7 +50,7 @@ function downloadText(text: string, fileName: string) {
 
 /** Back up, restore and reset the data. Everything lives in this browser, so a backup matters. */
 export function DataPage() {
-  const { locale, t } = useLocale();
+  const { locale, t, plural } = useLocale();
   const document = useDocument();
   const { execute, exportBackup: readBackupText } = useCommands();
   const sessions = useSimulatorSessions();
@@ -61,7 +61,7 @@ export function DataPage() {
 
   function commandError(code: string, message: string, details: readonly string[]): string {
     if (locale === 'en') return [message, ...details, t('data.currentDataUnchanged')].filter(Boolean).join(' ');
-    if (code === 'invalid') return t('data.error.invalid');
+    if (code === 'invalid') return t('data.error.invalid', { detail: details[0] ?? message });
     if (code === 'corrupt-json') return t('data.error.corruptJson');
     if (code === 'unsupported-version') return t('data.error.version');
     if (code === 'quota') return t('data.error.quota');
@@ -130,7 +130,11 @@ export function DataPage() {
       <div className="space-y-1">
         <h1 id="page-title" className="text-4xl font-semibold">{t('data.title')}</h1>
         <p className="max-w-prose text-muted-foreground">{t('data.intro')}</p>
-        <p className="text-sm text-muted-foreground">{t('data.currentCounts', { ingredients: document.ingredients.length, recipes: document.recipes.length, scenarios: document.scenarios.length })}</p>
+        <p className="text-sm text-muted-foreground">{t('data.currentCounts', {
+          ingredients: plural('data.count.ingredients', document.ingredients.length),
+          recipes: plural('data.count.recipes', document.recipes.length),
+          scenarios: plural('data.count.scenarios', document.scenarios.length),
+        })}</p>
         <HelpLink section="data" />
       </div>
 

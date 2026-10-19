@@ -210,7 +210,7 @@ describe('Rename and delete', () => {
     const dialog = await screen.findByRole('alertdialog', { name: /Delete Beef mince/ });
     await u.click(within(dialog).getByRole('button', { name: 'Delete ingredient' }));
 
-    expect(within(dialog).getByRole('alert').textContent).toMatch(/Cannot delete 'Beef mince 80\/20': it is used by .*Classic Burger/);
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/still used by recipes/);
     const links = within(dialog).getAllByRole('link').map((link) => link.textContent);
     expect(links).toContain('Classic Burger');
     expect(within(dialog).getByRole('link', { name: 'Classic Burger' }).getAttribute('href')).toBe('#/recipe/dish_classic_burger');

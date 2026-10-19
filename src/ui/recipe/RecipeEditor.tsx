@@ -16,7 +16,7 @@ import {
 import { HelpLink } from '@/ui/help/HelpLink';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
-import { friendlySaveError } from '@/ui/forms/saveError';
+import { localizedRecipeSaveError } from '@/ui/forms/saveError';
 import { hrefFor } from '@/ui/router/routes';
 import { CostSummary } from './CostSummary';
 import { DeleteRecipeDialog } from './DeleteRecipeDialog';
@@ -55,9 +55,9 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   // Everything below is derived from the draft while rendering: nothing calculated is stored.
   const validationCopy = useMemo<RecipeValidationCopy>(() => ({
     nameEmpty: t('recipe.error.name'), nameLong: t('recipe.error.nameLong'), chooseRef: t('recipe.error.ref'), selfRef: t('recipe.error.self'),
-    wrongUnit: (unit, units) => t('recipe.error.unit', { unit: localizedUnit(unit, locale), units: units.map((entry) => localizedUnit(entry, locale)).join(locale === 'nl' ? ' of ' : ' or ') }), quantity: t('recipe.error.quantity'), yield: t('recipe.error.yield'), price: t('recipe.error.menuPrice'),
+    wrongUnit: (unit, units) => t('recipe.error.unit', { unit: localizedUnit(unit, locale), units: units.map((entry) => localizedUnit(entry, locale)).join(` ${t('common.or')} `) }), quantity: t('recipe.error.quantity'), yield: t('recipe.error.yield'), price: t('recipe.error.menuPrice'),
     portions: t('recipe.error.portions'), vat: t('recipe.error.vat'), volume: t('recipe.error.volume'), output: t('recipe.error.output'),
-  }), [t]);
+  }), [t, locale]);
   const built = useMemo(() => buildRecipe(draft, id, document, validationCopy), [draft, id, document, validationCopy]);
   const lineViews = useMemo(() => draft.lines.map((line) => {
     const parsed = parseLine(line, draft.kind === 'prep' ? id : null, document);
@@ -71,14 +71,14 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const errors = attempt > 0 && !built.ok ? built.errors : {};
 
   const ingredients = useMemo(
-    () => [...document.ingredients].sort((a, b) => a.name.localeCompare(b.name)),
-    [document.ingredients],
+    () => [...document.ingredients].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [document.ingredients, locale],
   );
   const preps = useMemo(
     () => document.recipes
       .filter((entry): entry is Prep => entry.kind === 'prep' && entry.id !== recipe?.id)
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    [document.recipes, recipe?.id],
+      .sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [document.recipes, recipe?.id, locale],
   );
   const missing = useMemo(() => lineViews.flatMap((view, index) => {
     const line = draft.lines[index];
@@ -126,7 +126,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     const result = execute((store) => store.saveRecipe(toSave), { report: false });
     if (!result.ok) {
       // The draft stays exactly as typed; the saved data is unchanged.
-      setSaveError(locale === 'en' ? friendlySaveError(result.error, result.details) : t('error.generic'));
+      setSaveError(localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
       return;
     }
     setSaveError(null);
@@ -156,7 +156,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   return (
     <section aria-labelledby="page-title" className="space-y-6">
       <div className="space-y-1">
-        <a href={hrefFor({ name: 'recipes' })} className="inline-flex min-h-12 items-center text-accent underline-offset-4 hover:underline">{t('recipe.all')}</a>
+        <a href={hrefFor({ name: 'recipes' })} className="inline-flex min-h-12 items-center text-accent-foreground underline-offset-4 hover:bg-panel hover:underline">{t('recipe.all')}</a>
         <h1 id="page-title" className="text-4xl font-semibold">{heading}</h1>
         <p className="max-w-prose text-muted-foreground">{kind === 'dish' ? t('recipe.dishIntro') : t('recipe.prepIntro')}</p>
         <HelpLink section={kind === 'dish' ? 'dishes' : 'preps'} />
@@ -193,7 +193,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
                 <FormField label={t('recipe.vatRate')} error={errors.vatRateBp} hint={t('recipe.vatHint')}>
                   {(control) => (
                     <Select {...control} value={draft.vatRateBp} onChange={(event) => edit({ vatRateBp: event.target.value })}>
-                      {vatOptions(draft.vatRateBp).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      {vatOptions(draft.vatRateBp, locale).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </Select>
                   )}
                 </FormField>
@@ -233,7 +233,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
         </Surface>
 
         <Surface aria-labelledby="recipe-lines-title" className="space-y-4">
-          <header className="space-y-1"><h2 id="recipe-lines-title" className="text-xl font-semibold">{kind === 'dish' ? t('recipe.ingredients') : t('recipe.ingredientsAndPreps')}</h2><p className="max-w-prose text-muted-foreground">{t('recipe.lineDescription', { target: t(kind === 'dish' ? 'recipe.batch' : 'recipe.targetPrep') })}</p></header>
+          <header className="space-y-1"><h2 id="recipe-lines-title" className="text-xl font-semibold">{kind === 'dish' ? t('recipe.ingredients') : t('recipe.ingredientsAndPreps')}</h2><p className="max-w-prose text-muted-foreground">{t('recipe.lineDescription', { target: t(kind === 'dish' ? 'recipe.targetDish' : 'recipe.targetPrep') })}</p></header>
           <div className="space-y-3">
             {draft.lines.length === 0 ? (
               <p className="border-y border-line py-5 text-center text-muted-foreground">{t('recipe.noLines')}</p>

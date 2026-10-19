@@ -21,7 +21,7 @@ export function PriceFields({ draft, onChange, errors, base }: PriceFieldsProps)
   const f = useFormatters();
   const copy: IngredientValidationCopy = {
     nameEmpty: t('ingredients.error.name'), nameLong: t('ingredients.error.nameLong'), packSize: t('ingredients.error.packSize'),
-    packPrice: t('ingredients.error.packPrice'), wrongUnit: (unit, units) => t('ingredients.error.unit', { unit: localizedUnit(unit, locale), units: units.map((entry) => localizedUnit(entry, locale)).join(locale === 'nl' ? ' of ' : ' or ') }),
+    packPrice: t('ingredients.error.packPrice'), wrongUnit: (unit, units) => t('ingredients.error.unit', { unit: localizedUnit(unit, locale), units: units.map((entry) => localizedUnit(entry, locale)).join(` ${t('common.or')} `) }),
   };
   const units: readonly EnteredUnit[] = base === null ? ALL_UNITS : unitsFor(base);
   const parsed = validatePrice(draft, base, copy);

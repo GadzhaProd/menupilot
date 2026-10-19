@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createBaselineSnapshot } from '@/ui/domain/calc';
 import type { MenuDocument } from '@/ui/domain/types';
+import { formatQuantityLocale } from '@/ui/forms/numbers';
+import { vatOptions } from '@/ui/forms/recipeForm';
 import {
   demoCopy, go, memoryStorage, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
@@ -19,6 +21,7 @@ async function open(hash: string, storage = memoryStorage()) {
 }
 
 const line = (position: number) => within(screen.getByRole('group', { name: `Line ${position}` }));
+const dutchLine = (position: number) => within(screen.getByRole('group', { name: `Regel ${position}` }));
 const summary = () => within(screen.getByRole('heading', { name: 'Cost' }).closest('section') as HTMLElement);
 /** The value next to a label in the cost summary. */
 const costOf = (label: RegExp | string) => {
@@ -55,6 +58,91 @@ describe('Recipes list', () => {
   it('is in the main menu', async () => {
     await open('#/recipes');
     expect(screen.getByRole('link', { name: 'Recipes' }).getAttribute('aria-current')).toBe('page');
+  });
+});
+
+describe('localized numeric and link presentation', () => {
+  it('formats stored quantities in EN and NL without converting them to Number', () => {
+    expect(formatQuantityLocale(1_500_000, 'g', 'en')).toBe('1.5 kg');
+    expect(formatQuantityLocale(1_500_000, 'g', 'nl')).toBe('1,5 kg');
+  });
+
+  it('formats a nonstandard VAT rate with the interface decimal separator', () => {
+    expect(vatOptions('650', 'en').at(-1)?.label).toBe('6.5%');
+    expect(vatOptions('650', 'nl').at(-1)?.label).toBe('6,5%');
+  });
+
+  it('uses foreground accent text on recipe editor links', async () => {
+    await open('#/recipe/new?kind=dish');
+    expect(document.querySelectorAll('a[class~="text-accent"]')).toHaveLength(0);
+    expect(document.querySelectorAll('a[class~="text-accent-foreground"]')).not.toHaveLength(0);
+    expect(screen.getByText(/in the batch/)).toBeTruthy();
+    await user().click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    expect(screen.getByText(/in de bereiding/)).toBeTruthy();
+    await go('#/recipe/new?kind=prep');
+    await screen.findByRole('heading', { level: 1, name: 'Nieuw basisrecept' });
+    expect(screen.getByText(/in het basisrecept/)).toBeTruthy();
+  });
+});
+
+describe('Dutch recipe store errors', () => {
+  it('explains a prep cycle and keeps the draft and saved data unchanged', async () => {
+    const u = user();
+    const doc = demoCopy();
+    doc.recipes = [
+      {
+        id: 'prep_cycle_parent', kind: 'prep', name: 'Parent prep', outputMilli: 1_000_000, outputUnit: 'g',
+        lines: [{ id: 'line_cycle_parent', ref: { kind: 'prep', id: 'prep_cycle_child' }, netQtyMilli: 100_000, yieldBp: 10_000 }],
+      },
+      {
+        id: 'prep_cycle_child', kind: 'prep', name: 'Child prep', outputMilli: 1_000_000, outputUnit: 'g',
+        lines: [{ id: 'line_cycle_ingredient', ref: { kind: 'ingredient', id: 'ing_beef' }, netQtyMilli: 100_000, yieldBp: 10_000 }],
+      },
+    ];
+    doc.scenarios = [];
+    const storage = await open('#/recipe/prep_cycle_child', storageWith(doc));
+    await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    await u.click(screen.getByRole('button', { name: 'Regel toevoegen' }));
+    const second = dutchLine(2);
+    await u.selectOptions(second.getByLabelText('Ingrediënt of basisrecept'), 'prep:prep_cycle_parent');
+    await u.type(second.getByLabelText(/Nettohoeveelheid/), '100');
+    const before = savedDocument(storage);
+
+    await u.click(screen.getByRole('button', { name: 'Wijzigingen opslaan' }));
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.map((alert) => alert.textContent).join(' ')).toMatch(/basisrecepten elkaar gebruiken in een lus/i);
+    expect(savedDocument(storage)).toEqual(before);
+    expect((second.getByLabelText(/Nettohoeveelheid/) as HTMLInputElement).value).toBe('100');
+  });
+
+  it('explains the maximum nesting depth in Dutch', async () => {
+    const doc = demoCopy();
+    doc.ingredients = [{ id: 'ing_tomato', name: 'Tomatoes', unit: 'g', prices: [] }];
+    doc.recipes = [];
+    for (let level = 1; level <= 5; level += 1) {
+      doc.recipes.push({
+        id: `prep_${level}`, kind: 'prep', name: `Prep ${level}`, outputMilli: 1_000_000, outputUnit: 'g',
+        lines: [{
+          id: `line_${level}`,
+          ref: level === 1 ? { kind: 'ingredient', id: 'ing_tomato' } : { kind: 'prep', id: `prep_${level - 1}` },
+          netQtyMilli: 100_000, yieldBp: 10_000,
+        }],
+      });
+    }
+    doc.scenarios = [];
+    const storage = await open('#/recipe/new?kind=prep', storageWith(doc));
+    const u = user();
+    await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    await u.type(screen.getByLabelText('Naam'), 'Diepe saus');
+    await u.type(screen.getByLabelText(/Opbrengst van één bereiding/), '1');
+    await u.selectOptions(dutchLine(1).getByLabelText('Ingrediënt of basisrecept'), 'prep:prep_5');
+    await u.type(dutchLine(1).getByLabelText(/Nettohoeveelheid/), '100');
+    const before = savedDocument(storage);
+
+    await u.click(screen.getByRole('button', { name: 'Basisrecept opslaan' }));
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.map((alert) => alert.textContent).join(' ')).toMatch(/maximaal 5 niveaus.*6/i);
+    expect(savedDocument(storage)).toEqual(before);
   });
 });
 
@@ -413,7 +501,7 @@ describe('Deleting a recipe', () => {
     await u.click(screen.getByRole('button', { name: 'Delete prep' }));
     const dialog = await screen.findByRole('alertdialog', { name: /Delete Burger sauce/i });
     await u.click(within(dialog).getByRole('button', { name: 'Delete prep' }));
-    expect(within(dialog).getByRole('alert').textContent).toMatch(/Cannot delete .*it is used by/);
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/still used by other recipes/);
     expect(within(dialog).getByText('Remove it from these recipes first:')).toBeTruthy();
     expect(within(dialog).getAllByRole('link').length).toBeGreaterThan(0);
     expect(storage.data.get(STORAGE_KEY)).toBe(before);

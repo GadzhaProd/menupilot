@@ -26,7 +26,7 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
   const { t, locale, plural } = useLocale();
   const { execute } = useCommands();
   const document = useDocument();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const scenarios = document.scenarios.filter((scenario) => scenario.recipeId === recipe.id);
   const users = error === null || recipe.kind !== 'prep' ? [] : recipesUsing(document, 'prep', recipe.id);
   const noun = recipe.kind === 'dish' ? t('recipe.dish') : t('recipe.prep');
@@ -38,7 +38,7 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
       { report: false },
     );
     if (result.ok) onDeleted();
-    else setError(result.error);
+    else setError({ code: result.code, message: result.error });
   }
 
   return (
@@ -57,7 +57,7 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
           </div>
         ) : null}
         {error !== null ? (
-          <InlineStatus tone="error">{locale === 'en' ? error : t('error.generic')}</InlineStatus>
+          <InlineStatus tone="error">{error.code === 'in-use' ? t('recipe.error.inUse') : locale === 'en' ? error.message : t('error.generic')}</InlineStatus>
         ) : null}
         {users.length > 0 ? (
           <div className="text-sm">

@@ -30,7 +30,7 @@ function TocLink({ id, number, title }: { id: HelpSectionId; number: number; tit
   return (
     <a
       {...link}
-      className="flex min-h-12 items-center gap-3 rounded px-3 py-2 text-lg font-medium text-accent underline underline-offset-4 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="flex min-h-12 items-center gap-3 rounded px-3 py-2 text-lg font-medium text-accent-foreground underline underline-offset-4 outline-none hover:bg-panel focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <span aria-hidden="true" className="w-8 shrink-0 text-right tabular-nums">{number}.</span>
       <span>{title}</span>
@@ -45,7 +45,7 @@ function BackToContents({ label }: { label: string }) {
     <p className="mt-6 print:hidden">
       <a
         {...link}
-        className="inline-flex min-h-12 items-center gap-2 rounded px-3 py-2 text-lg font-semibold text-accent underline underline-offset-4 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="inline-flex min-h-12 items-center gap-2 rounded px-3 py-2 text-lg font-semibold text-accent-foreground underline underline-offset-4 outline-none hover:bg-panel focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <ArrowUpIcon aria-hidden="true" className="size-5" /> {label}
       </a>
@@ -82,12 +82,13 @@ function Toolbar({ doc, lang, onLanguage }: { doc: HelpDocument; lang: HelpLang;
 
 /** The built-in step-by-step guide, in English or Russian. */
 export function HelpPage({ section }: { section: string | null }) {
-  const { locale, t } = useLocale();
+  const { t } = useLocale();
   const [lang, setLang] = useState<HelpLang>(() => readHelpLanguage());
   const [showTop, setShowTop] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const doc = HELP_CONTENT[lang];
   const target = asSectionId(section);
+  const languageNote = t('help.ui.languageNote');
 
   const scrollTo = useCallback((id: HelpSectionId | null) => {
     const heading = id === null ? titleRef.current : window.document.getElementById(`${sectionElementId(id)}-title`);
@@ -125,7 +126,7 @@ export function HelpPage({ section }: { section: string | null }) {
           <h1 id="help-title" ref={titleRef} tabIndex={-1} className="text-4xl font-semibold outline-none">{doc.title}</h1>
           <p className="text-xl">{doc.subtitle}</p>
           <Toolbar doc={doc} lang={lang} onLanguage={chooseLanguage} />
-          {locale === 'nl' ? <p className="border-y border-line py-3 text-base text-muted-foreground" aria-label={t('help.ui.availableIn')}>{t('help.ui.languageNote')}</p> : null}
+          {languageNote ? <p role="note" className="border-y border-line py-3 text-base text-muted-foreground">{languageNote}</p> : null}
         </header>
 
         <nav aria-label={doc.ui.contents} className="border-y border-line bg-surface p-4 print:break-inside-avoid">

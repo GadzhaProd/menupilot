@@ -117,7 +117,13 @@ export function localizedUnit(unit: EnteredUnit, locale: Locale): string {
 
 export function formatQuantityLocale(milli: number, base: BaseUnit, locale: Locale): string {
   const value = quantityToInput(milli, base);
-  return `${value.text} ${localizedUnit(value.unit, locale)}`;
+  const [integerPart, fractionPart] = value.text.split('.');
+  const number = new Intl.NumberFormat(locale);
+  const integer = number.format(BigInt(integerPart ?? value.text));
+  const decimal = fractionPart
+    ? `${new Intl.NumberFormat(locale, { minimumFractionDigits: 1 }).formatToParts(1n).find((part) => part.type === 'decimal')?.value ?? '.'}${fractionPart}`
+    : '';
+  return `${integer}${decimal} ${localizedUnit(value.unit, locale)}`;
 }
 
 /** Tenths of a percent as text: 285n becomes "28.5%". Works on BigInt, never converts to Number. */

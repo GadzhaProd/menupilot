@@ -50,6 +50,25 @@ function ingredientNames(doc: { ingredients: { name: string }[] }) {
 }
 
 describe('Data page', () => {
+  it('localizes singular counts and includes the first NL validation detail for an invalid import', async () => {
+    const doc = demoCopy();
+    doc.ingredients = doc.ingredients.slice(0, 1);
+    doc.recipes = [];
+    doc.scenarios = [];
+    const storage = await openData(storageWith(doc));
+    expect(screen.getByText('Now: 1 ingredient, 0 recipes, 0 saved scenarios.')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    expect(screen.getByText('Nu: 1 ingrediënt, 0 recepten, 0 opgeslagen scenario’s.')).toBeTruthy();
+    await userEvent.upload(screen.getByLabelText('Reservekopiebestand'), jsonFile(JSON.stringify({ version: 1 })));
+    await userEvent.click(within(await dialog()).getByRole('button', { name: 'Vervangen door reservekopie' }));
+
+    const alert = await within(await dialog()).findByRole('alert');
+    expect(alert.textContent).toContain('Deze gegevens passen niet bij het MenuPilot-formaat');
+    expect(alert.textContent).toContain('settings');
+    expect(savedDocument(storage).ingredients).toHaveLength(1);
+  });
+
   it('is reachable from the main navigation and explains where data lives', async () => {
     renderApp();
     await userEvent.click(screen.getByRole('link', { name: 'Data' }));

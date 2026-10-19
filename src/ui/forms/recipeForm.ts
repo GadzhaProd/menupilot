@@ -132,11 +132,15 @@ export function draftFromRecipe(recipe: Recipe, catalog: Catalog): RecipeDraft {
 }
 
 /** VAT choices: 9 % (default), 21 %, 0 %, plus the dish's own rate when it is something else. */
-export function vatOptions(currentBp: string): { value: string; label: string }[] {
+export function vatOptions(currentBp: string, locale: 'en' | 'nl' = 'en'): { value: string; label: string }[] {
   const standard = [900, 2100, 0].map((bp) => ({ value: String(bp), label: `${bp / 100}%` }));
   if (standard.some((option) => option.value === currentBp)) return standard;
-  const bp = Number(currentBp);
-  return [...standard, { value: currentBp, label: `${Number.isFinite(bp) ? bp / 100 : currentBp}%` }];
+  if (!/^\d+$/.test(currentBp)) return [...standard, { value: currentBp, label: `${currentBp}%` }];
+  const padded = currentBp.padStart(3, '0');
+  const whole = padded.slice(0, -2);
+  const fraction = padded.slice(-2).replace(/0+$/, '');
+  const decimal = new Intl.NumberFormat(locale, { minimumFractionDigits: 1 }).formatToParts(1n).find((part) => part.type === 'decimal')?.value ?? '.';
+  return [...standard, { value: currentBp, label: `${whole}${fraction ? `${decimal}${fraction}` : ''}%` }];
 }
 
 export type LineParse =
