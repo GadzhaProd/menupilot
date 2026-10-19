@@ -5,7 +5,7 @@ import { useSectionLink } from './HelpNav';
 import { HELP_IMAGES, helpImageUrl } from './images';
 import type { HelpBlock, HelpDocument, HelpImage, HelpSectionId, HelpStep, Rich } from './types';
 
-const LINK = 'rounded-sm font-medium text-primary underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
+const LINK = 'rounded-sm font-medium text-accent underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 function SectionLink({ section, children }: { section: HelpSectionId; children: ReactNode }) {
   const link = useSectionLink(section);
@@ -55,10 +55,10 @@ function Steps({ title, steps, ui }: { title: string; steps: readonly HelpStep[]
       <h3 className="text-2xl font-semibold">{title}</h3>
       <ol className="space-y-4">
         {steps.map((step, index) => (
-          <li key={index} className="flex gap-4 rounded-xl border-2 bg-card p-4 print:break-inside-avoid">
+          <li key={index} className="flex gap-4 border-b border-line py-4 print:break-inside-avoid">
             <span
               aria-hidden="true"
-              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground print:border print:border-black print:bg-white print:text-black"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-xl font-semibold text-accent-foreground print:border print:border-black print:bg-white print:text-black"
             >
               {index + 1}
             </span>
@@ -85,8 +85,8 @@ function Note({ block }: { block: Extract<HelpBlock, { kind: 'note' }> }) {
   return (
     <aside
       className={cn(
-        'my-5 flex gap-3 rounded-xl border-2 p-4 print:break-inside-avoid',
-        safe ? 'border-primary/50 bg-accent/60' : 'border-input bg-accent text-accent-foreground',
+        'my-5 flex gap-3 border-y p-4 print:break-inside-avoid',
+        safe ? 'border-positive bg-surface' : 'border-negative bg-surface text-negative',
       )}
     >
       <Icon aria-hidden="true" className="mt-1 size-6 shrink-0" />
@@ -115,10 +115,10 @@ export function HelpBlockView({ block, ui }: { block: HelpBlock; ui: HelpDocumen
       return (
         <dl className="my-4 space-y-4">
           {block.items.map((item) => (
-            <div key={item.term} className="rounded-xl border-2 bg-card p-4 print:break-inside-avoid">
+            <div key={item.term} className="border-y border-line py-4 print:break-inside-avoid">
               <dt className="text-xl font-semibold">{item.term}</dt>
               <dd className="mt-1"><RichText text={item.meaning} /></dd>
-              {item.example ? <dd className="mt-2 border-l-4 border-primary/40 pl-3"><RichText text={item.example} /></dd> : null}
+              {item.example ? <dd className="mt-2 border-t border-line pt-3 text-muted-foreground"><RichText text={item.example} /></dd> : null}
             </div>
           ))}
         </dl>
@@ -127,9 +127,9 @@ export function HelpBlockView({ block, ui }: { block: HelpBlock; ui: HelpDocumen
       return (
         <dl className="my-4 space-y-4">
           {block.items.map((item) => (
-            <div key={item.message} className="rounded-xl border-2 bg-card p-4 print:break-inside-avoid">
+            <div key={item.message} className="border-y border-line py-4 print:break-inside-avoid">
               <dt className="sr-only">{ui.messageHeader}</dt>
-              <dd className="rounded-md border border-destructive/40 bg-destructive/5 p-3 font-medium text-destructive print:text-black">{item.message}</dd>
+              <dd className="border-y border-negative bg-surface p-3 font-medium text-negative print:text-black">{item.message}</dd>
               <dt className="sr-only">{ui.meaningHeader}</dt>
               <dd className="mt-2"><RichText text={item.meaning} /></dd>
             </div>

@@ -3,7 +3,8 @@ import { demoForLocale } from '@/ui/data/demo';
 import { useRef, useState, type ChangeEvent } from 'react';
 import { DownloadIcon, FilePlusIcon, RotateCcwIcon, UploadIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Surface } from '@/components/ui/surface';
+import { InlineStatus } from '@/components/ui/inline-status';
 import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import { ReplaceDataDialog } from '@/ui/data/ReplaceDataDialog';
 import { HelpLink } from '@/ui/help/HelpLink';
@@ -21,23 +22,18 @@ export function backupFileName(date: Date): string {
   return `menupilot-backup-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
 }
 
-function successText(done: Pending): string {
-  if (done.kind === 'import') return `Backup ${done.fileName} was imported. Your data is replaced.`;
-  return done.kind === 'empty' ? 'All data was removed. Start by adding ingredients on the Ingredients page.' : 'Demo data restored.';
-}
-
-function dialogText(pending: Pending) {
+function dialogText(pending: Pending, t: ReturnType<typeof useLocale>['t']) {
   if (pending.kind === 'import') {
-    return { title: 'Import this backup?', description: `File: ${pending.fileName}.`, confirmLabel: 'Replace with backup' };
+    return { title: t('data.confirmImport'), description: t('data.file', { file: pending.fileName }), confirmLabel: t('data.replaceBackup') };
   }
   if (pending.kind === 'empty') {
     return {
-      title: 'Start with empty data?',
-      description: 'Ingredients, prices, recipes and saved scenarios are all removed. Export a backup first if you want to keep them.',
-      confirmLabel: 'Start with empty data',
+      title: t('data.confirmEmpty'),
+      description: t('data.confirmEmptyDescription'),
+      confirmLabel: t('data.confirmEmptyAction'),
     };
   }
-  return { title: 'Reset to demo data?', description: 'The fictional demo restaurant is loaded.', confirmLabel: 'Reset to demo data' };
+  return { title: t('data.confirmDemo'), description: t('data.confirmDemoDescription'), confirmLabel: t('data.reset') };
 }
 
 function downloadText(text: string, fileName: string) {
@@ -54,7 +50,7 @@ function downloadText(text: string, fileName: string) {
 
 /** Back up, restore and reset the data. Everything lives in this browser, so a backup matters. */
 export function DataPage() {
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   const document = useDocument();
   const { execute, exportBackup: readBackupText } = useCommands();
   const sessions = useSimulatorSessions();
@@ -63,20 +59,31 @@ export function DataPage() {
   const openImport = useRef<HTMLButtonElement>(null);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
+  function commandError(code: string, message: string, details: readonly string[]): string {
+    if (locale === 'en') return [message, ...details, t('data.currentDataUnchanged')].filter(Boolean).join(' ');
+    if (code === 'invalid') return t('data.error.invalid');
+    if (code === 'corrupt-json') return t('data.error.corruptJson');
+    if (code === 'unsupported-version') return t('data.error.version');
+    if (code === 'quota') return t('data.error.quota');
+    if (code === 'write-failed') return t('data.error.write');
+    if (code === 'in-use') return t('data.error.inUse');
+    return t('error.generic');
+  }
+
   function downloadBackup() {
     const result = readBackupText();
     if (!result.ok) {
-      setNotice({ tone: 'error', text: `The backup could not be created. ${result.error}` });
+      setNotice({ tone: 'error', text: t('data.exportFail', { error: commandError(result.code, result.error, result.details) }) });
       return;
     }
     const fileName = backupFileName(new Date());
     try {
       downloadText(result.value, fileName);
     } catch (error) {
-      setNotice({ tone: 'error', text: `The backup could not be downloaded (${error instanceof Error ? error.message : 'unknown error'}).` });
+      setNotice({ tone: 'error', text: t('data.downloadFail', { error: t('error.generic') }) });
       return;
     }
-    setNotice({ tone: 'ok', text: `Backup saved as ${fileName}. Keep it somewhere safe.` });
+    setNotice({ tone: 'ok', text: t('data.backupSaved', { file: fileName }) });
   }
 
   async function chooseFile(event: ChangeEvent<HTMLInputElement>) {
@@ -85,14 +92,14 @@ export function DataPage() {
     input.value = ''; // choosing the same file again must work
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
-      setNotice({ tone: 'error', text: `${file.name} is too large for a backup (limit 5 MB). Your current data was not changed.` });
+      setNotice({ tone: 'error', text: t('data.fileTooLarge', { file: file.name }) });
       return;
     }
     let text: string;
     try {
       text = await file.text();
     } catch {
-      setNotice({ tone: 'error', text: `${file.name} could not be read. Your current data was not changed.` });
+      setNotice({ tone: 'error', text: t('data.fileUnreadable', { file: file.name }) });
       return;
     }
     setNotice(null);
@@ -107,10 +114,12 @@ export function DataPage() {
       : pending.kind === 'empty'
         ? execute((store) => store.resetToEmpty(), { report: false })
         : execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false });
-    if (!result.ok) return result.error;
+    if (!result.ok) return commandError(result.code, result.error, result.details);
     sessions.clear();
     dialog.close();
-    setNotice({ tone: 'ok', text: successText(pending) });
+    setNotice({ tone: 'ok', text: pending.kind === 'import'
+      ? t('data.importSuccess', { file: pending.fileName })
+      : pending.kind === 'empty' ? t('data.emptySuccess') : t('data.demoSuccess') });
     return null;
   }
 
@@ -119,77 +128,43 @@ export function DataPage() {
   return (
     <section aria-labelledby="page-title" className="space-y-6">
       <div className="space-y-1">
-        <h1 id="page-title" className="text-2xl font-semibold">Data</h1>
-        <p className="text-sm text-muted-foreground">
-          Your data lives only in this browser. Export a backup regularly.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Now: {document.ingredients.length} ingredients, {document.recipes.length} recipes, {document.scenarios.length} saved scenarios.
-        </p>
+        <h1 id="page-title" className="text-4xl font-semibold">{t('data.title')}</h1>
+        <p className="max-w-prose text-muted-foreground">{t('data.intro')}</p>
+        <p className="text-sm text-muted-foreground">{t('data.currentCounts', { ingredients: document.ingredients.length, recipes: document.recipes.length, scenarios: document.scenarios.length })}</p>
         <HelpLink section="data" />
       </div>
 
       {notice !== null ? (
-        <p
-          role={notice.tone === 'error' ? 'alert' : 'status'}
-          className={notice.tone === 'error'
-            ? 'rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive'
-            : 'rounded-md border border-border bg-secondary/60 p-3 text-sm'}
-        >
-          {notice.text}
-        </p>
+        <InlineStatus tone={notice.tone === 'error' ? 'error' : 'success'}>{notice.text}</InlineStatus>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Export backup</CardTitle>
-          <CardDescription>Download all ingredients, prices, recipes and saved scenarios as one JSON file.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button type="button" onClick={downloadBackup}><DownloadIcon aria-hidden="true" /> Export backup</Button>
-        </CardContent>
-      </Card>
+      <Surface aria-labelledby="export-title" className="space-y-4"><div className="space-y-1"><h2 id="export-title" className="text-xl font-semibold">{t('data.exportTitle')}</h2><p className="text-muted-foreground">{t('data.exportDescription')}</p></div><Button type="button" onClick={downloadBackup}><DownloadIcon aria-hidden="true" /> {t('data.export')}</Button></Surface>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Import backup</CardTitle>
-          <CardDescription>Restore from a MenuPilot backup file. This replaces all current data. A file that cannot be used is rejected and nothing changes.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <input ref={fileInput} type="file" accept=".json,application/json" aria-label="Backup file" className="hidden" onChange={chooseFile} />
+      <Surface aria-labelledby="import-title" className="space-y-4">
+          <div className="space-y-1"><h2 id="import-title" className="text-xl font-semibold">{t('data.importTitle')}</h2><p className="text-muted-foreground">{t('data.importDescription')}</p></div>
+          <input ref={fileInput} type="file" accept=".json,application/json" aria-label={t('data.backupFile')} className="hidden" onChange={chooseFile} />
           <Button ref={openImport} type="button" variant="outline" onClick={() => fileInput.current?.click()}>
-            <UploadIcon aria-hidden="true" /> Import backup
+            <UploadIcon aria-hidden="true" /> {t('data.import')}
           </Button>
-        </CardContent>
-      </Card>
+      </Surface>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Reset to demo data</CardTitle>
-          <CardDescription>Replace everything with the fictional demo restaurant. Export a backup first if you want to keep your data.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Surface aria-labelledby="reset-title" className="space-y-4">
+          <div className="space-y-1"><h2 id="reset-title" className="text-xl font-semibold">{t('data.resetTitle')}</h2><p className="text-muted-foreground">{t('data.resetDescription')}</p></div>
           <Button type="button" variant="outline" onClick={(event) => dialog.open({ kind: 'reset' }, event)}>
-            <RotateCcwIcon aria-hidden="true" /> Reset to demo data
+            <RotateCcwIcon aria-hidden="true" /> {t('data.reset')}
           </Button>
-        </CardContent>
-      </Card>
+      </Surface>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Start with empty data</CardTitle>
-          <CardDescription>Remove everything, including the demo restaurant, and start with a blank page. Export a backup first if you want to keep your data.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Surface aria-labelledby="empty-title" className="space-y-4">
+          <div className="space-y-1"><h2 id="empty-title" className="text-xl font-semibold">{t('data.emptyTitle')}</h2><p className="text-muted-foreground">{t('data.emptyDescription')}</p></div>
           <Button type="button" variant="outline" onClick={(event) => dialog.open({ kind: 'empty' }, event)}>
-            <FilePlusIcon aria-hidden="true" /> Start with empty data
+            <FilePlusIcon aria-hidden="true" /> {t('data.startEmpty')}
           </Button>
-        </CardContent>
-      </Card>
+      </Surface>
 
       {dialog.state !== null ? (
         <ReplaceDataDialog
-          {...dialogText(dialog.state)}
+          {...dialogText(dialog.state, t)}
           unsavedScenarios={unsaved}
           onClose={dialog.close}
           onCloseAutoFocus={dialog.onCloseAutoFocus}

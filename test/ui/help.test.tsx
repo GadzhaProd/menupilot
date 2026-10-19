@@ -328,12 +328,12 @@ describe('"Help for this page" links', () => {
     }
   });
 
-  it('is shown in the language of the guide', async () => {
+  it('follows the interface language when the guide is in Russian', async () => {
     window.localStorage.setItem(HELP_LANGUAGE_KEY, 'ru');
     renderApp();
     await go('#/ingredients');
     await screen.findByRole('heading', { level: 1, name: 'Ingredients' });
-    expect(screen.getByRole('link', { name: HELP_LINK_LABEL.ru }).getAttribute('href')).toBe('#/help/ingredients');
+    expect(screen.getByRole('link', { name: 'Help for this page' }).getAttribute('href')).toBe('#/help/ingredients');
   });
 
   it('opens the right section when clicked', async () => {

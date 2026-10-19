@@ -512,3 +512,33 @@ Production browser verification using bb browser-automation, local headless host
 - [375 EN light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-375-en-light.jpg), [desktop NL dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-desktop-nl-dark.jpg); both visually inspected. Mobile screenshot is scrolled to main by the existing navigation focus behaviour.
 
 Browser session closed; preview stopped (Ctrl+C, exit130). `git diff --check` clean; no push/merge.
+
+## Part 3 — Ingredients, Recipes, Data, Help — 2026-10-19
+
+Merged `bb/astra-c-1-i18n-thr_6uihmdg9pz` through foundation commit `a8f49e6` (fast-forward). Verified `git rev-parse --short HEAD` = `a8f49e6`; the Shell navigation animation is CSS-based in the merged foundation.
+
+Ran Impeccable from the project root before edits earlier in this part (`context`, exit 0), then ran the required detector after implementation:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect --json src/ui/pages/IngredientsPage.tsx src/ui/ingredients src/ui/pages/RecipesPage.tsx src/ui/recipe src/ui/pages/DataPage.tsx src/ui/data/ReplaceDataDialog.tsx src/ui/pages/NotFoundPage.tsx src/ui/pages/HelpPage.tsx src/ui/help/HelpBlocks.tsx src/ui/help/HelpLink.tsx
+```
+
+Detector result: exit 0, `[]` (no deterministic findings). Manual audit/polish review covered translated labels and field errors, visible dialog focus, 48px foundation controls, semantic page regions, responsive layout, theme tokens, long Russian Help content, and print mode. Browser evidence: NL dark mobile Ingredients/Recipes and invalid price field; EN dark mobile data confirmation; EN light desktop Ingredients; EN dark desktop recipe editor; NL light desktop Data; NL dark desktop Russian Help; NL light mobile Add Ingredient. Print emulation from dark Help produced light page/background and hides Shell navigation. Inspection found no remaining Part 3 UI corrections.
+
+Final Shell regression-browser check after merging `a8f49e6`: using the local dev server and default browser motion preference (`matchMedia('(prefers-reduced-motion: reduce)').matches` returned `false`, no reduced-motion emulation), opened mobile navigation at 375×812, followed Recipes, resized to 1440×900, followed Data, resized back to 375×812, opened navigation, followed Help, and resized to desktop again. Snapshots showed the expected routes and localized content; all browser automation runs exited 0 and no resize/transition crash occurred.
+
+Screenshots saved under the thread storage directory:
+
+- [NL dark mobile Recipes](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-dark-mobile-recipes.jpg)
+- [NL dark mobile price validation](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-dark-mobile-price-error.jpg)
+- [EN light desktop Ingredients](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-en-light-desktop-ingredients.jpg)
+- [EN dark desktop recipe editor](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-en-dark-desktop-recipe.jpg)
+- [NL light desktop Data](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-light-desktop-data.jpg)
+- [NL dark desktop Russian Help](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-dark-desktop-help.jpg)
+- [EN light mobile recipe editor](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-en-light-mobile-recipe.jpg)
+- [EN dark mobile reset dialog](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-en-dark-mobile-data-dialog.jpg)
+- [NL light mobile Add Ingredient](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-light-mobile-add-ingredient.jpg)
+
+No 21st.dev component was copied; the shared foundation components covered these screens, so no license lookup was needed. `npm run check` was attempted after the merge: typecheck passed; core tests passed (137/137); UI tests had 278 passing and one unrelated-to-scope stale assertion in `test/ui/preferences.test.tsx`, which still searches for the English button `Reset to demo data` after switching the app to Dutch (rendered button is `Terugzetten naar voorbeeldgegevens`). That test file is outside Part 3's allowed file list and was not changed. The chained check therefore stopped before build. Independently, Part 3 focused UI tests passed (119/119 in 6 files), `npm run build` passed (2085 modules), and `git diff --check` passed. No commit was created because the repository workflow requires all tests to pass before committing; coordinator follow-up is needed for the stale Preferences assertion.
+
+During live source editing, Vite emitted a transient Fast Refresh invalidation while multiple provider modules were being replaced, including one `Data hooks must be used inside <DataProvider>` stack. A subsequent stable browser load and all final route/resize checks completed successfully; this HMR-only event was not reproduced by the final navigation flow and is separate from the Shell animation cleanup check.

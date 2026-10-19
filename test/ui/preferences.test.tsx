@@ -61,9 +61,9 @@ it('reset loads the current language demo, while changing locale alone keeps dat
   systemTheme(); const storage = memoryStorage(); renderApp(storage);
   await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
   await userEvent.click(screen.getByRole('link', { name: 'Gegevens' }));
-  await userEvent.click(screen.getByRole('button', { name: 'Reset to demo data' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Terugzetten naar voorbeeldgegevens' }));
   const dialog = screen.getByRole('alertdialog');
-  const confirm = [...dialog.querySelectorAll('button')].find((button) => button.textContent === 'Reset to demo data')!;
+  const confirm = [...dialog.querySelectorAll('button')].find((button) => button.textContent === 'Terugzetten naar voorbeeldgegevens')!;
   await userEvent.click(confirm);
   expect(JSON.parse(storage.getItem(STORAGE_KEY)!).recipes[2].name).toBe('Klassieke burger');
   expect(storage.getItem('menupilot.ui.locale.v1')).toBe('nl');
