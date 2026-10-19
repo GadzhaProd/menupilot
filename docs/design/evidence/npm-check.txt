@@ -1,0 +1,9 @@
+
+> menupilot@0.1.0 check
+> npm run typecheck && npm test && npm run build
+
+
+> menupilot@0.1.0 typecheck
+> tsc --noEmit
+
+sh: tsc: command not found

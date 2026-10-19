@@ -1,0 +1,90 @@
+[
+  {
+    "pair": "ink/surface",
+    "foreground": "#18313d",
+    "background": "#ffffff",
+    "ratio": 13.59,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "muted/surface",
+    "foreground": "#51636e",
+    "background": "#ffffff",
+    "ratio": 6.25,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "muted/background",
+    "foreground": "#51636e",
+    "background": "#edf1f3",
+    "ratio": 5.5,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "white/primary",
+    "foreground": "#ffffff",
+    "background": "#185abd",
+    "ratio": 6.49,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "white/hover",
+    "foreground": "#ffffff",
+    "background": "#114998",
+    "ratio": 8.64,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "white/active",
+    "foreground": "#ffffff",
+    "background": "#103b79",
+    "ratio": 10.92,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "primary/selected",
+    "foreground": "#185abd",
+    "background": "#e8f0ff",
+    "ratio": 5.67,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "positive/bg",
+    "foreground": "#176246",
+    "background": "#eaf5ee",
+    "ratio": 6.54,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "negative/bg",
+    "foreground": "#9b3e16",
+    "background": "#fff0e5",
+    "ratio": 6.09,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "error/bg",
+    "foreground": "#a61b32",
+    "background": "#fff0f2",
+    "ratio": 6.73,
+    "required": 4.5,
+    "pass": true
+  },
+  {
+    "pair": "input border/surface",
+    "foreground": "#7d8f9b",
+    "background": "#ffffff",
+    "ratio": 3.35,
+    "required": 3,
+    "pass": true
+  }
+]

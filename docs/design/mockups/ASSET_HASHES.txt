@@ -1,0 +1,2 @@
+63de0da0cc05298e2e9c6e5cef506d8454ca665f6e668a99d94f51174b9256ed  docs/design/mockups/fonts/SourceSans3-Regular.woff2
+c248b0a178c362916db7c853ed640db77f184d19a0ed9fa5591fa707d3089635  docs/design/mockups/fonts/SourceSans3-Semibold.woff2

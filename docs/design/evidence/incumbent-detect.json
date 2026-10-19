@@ -1,0 +1,12 @@
+[
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_b74qeeshii-1/RestaurantAI/src/ui/help/HelpBlocks.tsx",
+    "line": 121,
+    "snippet": "border-l-4"
+  }
+]

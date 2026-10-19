@@ -1,0 +1,192 @@
+{
+  "date": "2026-10-19",
+  "mcpSearchCalls": 10,
+  "mcpGetComponentCalls": 10,
+  "searchResultsScreened": 20,
+  "candidates": [
+    {
+      "id": 19371,
+      "name": "Sidebar 1",
+      "author": "uiable",
+      "url": "https://21st.dev/@uiable/components/uiable-sidebar-1",
+      "licenseOutput": "- Author: [uiable](https://21st.dev/@uiable)\n- Library: [uiable](https://21st.dev/@uiable/library/uiable)\n- License: MIT",
+      "sourceImports": [
+        "react",
+        "@/components/ui/button",
+        "@/components/ui/card",
+        "@/components/ui/input",
+        "@/components/ui/scroll-area",
+        "lucide-react"
+      ],
+      "registryNpmDependencies": {
+        "@radix-ui/react-slot": "latest",
+        "class-variance-authority": "latest",
+        "@radix-ui/react-scroll-area": "latest",
+        "@radix-ui/react-separator": "latest"
+      },
+      "sourceInspected": true
+    },
+    {
+      "id": 4245,
+      "name": "Statistics Card 10",
+      "author": "sean0205",
+      "url": "https://21st.dev/@sean0205/components/statistics-card-10",
+      "previewUrl": "https://cdn.21st.dev/sean0205/statistics-card-10/default/preview.1753168295511.png",
+      "licenseOutput": "- Author: [Sean Hello](https://21st.dev/@sean0205)\n- Library: [ReUI](https://21st.dev/@sean0205/library/reui)\n- License: mit",
+      "registryNpmDependencies": {
+        "radix-ui": "latest",
+        "lucide-react": "latest",
+        "class-variance-authority": "latest"
+      },
+      "sourceImports": [
+        "@/lib/utils",
+        "react",
+        "@/components/ui/badge-2",
+        "@/components/ui/button-1",
+        "@/components/ui/card",
+        "lucide-react"
+      ],
+      "sourceInspected": true
+    },
+    {
+      "id": 26827,
+      "name": "Comparison Table",
+      "author": "mohammadshehadeh",
+      "url": "https://21st.dev/@mohammadshehadeh/components/comparison-02",
+      "previewUrl": "https://cdn.21st.dev/hirael/comparison-02/default/preview.1788886784002-5a66db36-8f7b-418d-939c-da2c3e4f31d9.png",
+      "licenseOutput": "- Author: [Mohammad Shehadeh](https://21st.dev/@mohammadshehadeh)\n- Library: [Hirael](https://21st.dev/@mohammadshehadeh/library/hirael)\n- License: MIT",
+      "registryNpmDependencies": {
+        "@radix-ui/react-slot": "latest",
+        "class-variance-authority": "latest"
+      },
+      "sourceImports": [
+        "lucide-react",
+        "@/components/ui/badge",
+        "@/components/ui/button",
+        "@/lib/utils",
+        "@/components/ui/comparison-02"
+      ],
+      "sourceInspected": true
+    },
+    {
+      "id": 23604,
+      "name": "Records Table",
+      "author": "theshanelevine",
+      "url": "https://21st.dev/@theshanelevine/components/records-table",
+      "previewUrl": "https://cdn.21st.dev/user_registry_theshanelevine_1785470434583/records-table/default/preview.1785759813209.png",
+      "licenseOutput": "- Author: [theshanelevine](https://21st.dev/@theshanelevine)\n- License: no-license",
+      "registryNpmDependencies": {},
+      "sourceImports": [
+        "react",
+        "@/components/ui/records-table"
+      ],
+      "sourceInspected": true
+    },
+    {
+      "id": 124,
+      "name": "Input",
+      "author": "originui",
+      "url": "https://21st.dev/@originui/components/input",
+      "previewUrl": "https://cdn.21st.dev/user_originui/input/input-with-inline-add-ons/preview.png?v=1",
+      "licenseOutput": "- Author: [Origin UI](https://21st.dev/@originui)\n- Library: [Origin UI](https://21st.dev/@originui/library/origin-ui)\n- License: mit",
+      "registryNpmDependencies": {},
+      "sourceImports": [
+        "@/lib/utils",
+        "react",
+        "@/components/ui/input",
+        "@/components/ui/label"
+      ],
+      "sourceInspected": true
+    },
+    {
+      "id": 370,
+      "name": "Dialog",
+      "author": "originui",
+      "url": "https://21st.dev/@originui/components/dialog",
+      "previewUrl": "https://cdn.21st.dev/user_originui/dialog/feedback-dialog/preview.png?v=1",
+      "licenseOutput": "- Author: [Origin UI](https://21st.dev/@originui)\n- Library: [Origin UI](https://21st.dev/@originui/library/origin-ui)\n- License: mit",
+      "registryNpmDependencies": {
+        "@radix-ui/react-label": "latest",
+        "class-variance-authority": "latest"
+      },
+      "sourceImports": [
+        "@radix-ui/react-dialog",
+        "react",
+        "@/lib/utils",
+        "@radix-ui/react-icons",
+        "@/components/ui/button",
+        "@/components/ui/textarea"
+      ],
+      "sourceInspected": true
+    },
+    {
+      "id": 18266,
+      "name": "Empty Background",
+      "author": "uiable",
+      "url": "https://21st.dev/@uiable/components/empty-background",
+      "previewUrl": "https://cdn.21st.dev/uiable/empty-background/default/preview.1784710202666-b46a9c58-534c-43ed-9eb4-cffefa81c320.png",
+      "licenseOutput": "- Author: [uiable](https://21st.dev/@uiable)\n- Library: [uiable](https://21st.dev/@uiable/library/uiable)\n- License: MIT",
+      "registryNpmDependencies": {
+        "@radix-ui/react-slot": "latest",
+        "class-variance-authority": "latest",
+        "@radix-ui/react-avatar": "latest"
+      },
+      "sourceImports": [
+        "@/components/ui/button",
+        "iconsax-reactjs",
+        "@/components/ui/empty-background"
+      ],
+      "sourceInspected": true
+    },
+    {
+      "id": 34764,
+      "name": "Segmented Control",
+      "author": "halaska-studio",
+      "url": "https://21st.dev/@halaska-studio/components/segmented-control",
+      "previewUrl": "https://cdn.21st.dev/user_registry_halaska-studio_1790790197996/segmented-control/full-width/preview.1790886932054.webp",
+      "licenseOutput": "- Author: [halaska-studio](https://21st.dev/@halaska-studio)\n- Library: @delego\n- License: MIT",
+      "registryNpmDependencies": {},
+      "sourceImports": [
+        "@/components/ui/segmented-control",
+        "react"
+      ],
+      "sourceInspected": true
+    },
+    {
+      "id": 24297,
+      "name": "Toast",
+      "author": "cnippet-dev",
+      "url": "https://21st.dev/@cnippet-dev/components/toast",
+      "previewUrl": "https://cdn.21st.dev/user_36Tbt0v8JdD4jEycmBFhR8tojnR/toast/default/preview.1786656804488.webp",
+      "licenseOutput": "- Author: [Cnippet](https://21st.dev/@cnippet-dev)\n- Library: [Cnippet](https://21st.dev/@cnippet-dev/library/cnippet)\n- License: no-license",
+      "registryNpmDependencies": {
+        "@base-ui/react": "latest",
+        "class-variance-authority": "latest"
+      },
+      "sourceImports": [
+        "@base-ui/react/toast",
+        "react",
+        "@/lib/utils",
+        "@/components/ui/button",
+        "@/components/ui/toast"
+      ],
+      "sourceInspected": true
+    },
+    {
+      "id": 514,
+      "name": "Badge Delta",
+      "author": "serafimcloud",
+      "url": "https://21st.dev/@serafimcloud/components/badge-delta",
+      "previewUrl": "https://cdn.21st.dev/user_2nElBLvklOKlAURm6W1PTu6yYFh/badge-delta/default/preview.png?v=1",
+      "licenseOutput": "- Author: [Serafim](https://21st.dev/@serafimcloud)\n- License: mit",
+      "registryNpmDependencies": {},
+      "sourceImports": [
+        "react",
+        "class-variance-authority",
+        "@/lib/utils",
+        "@/components/ui/badge-delta"
+      ],
+      "sourceInspected": true
+    }
+  ]
+}
