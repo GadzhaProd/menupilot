@@ -14,6 +14,7 @@ import {
   type LineDraft, type RecipeDraft,
 } from '@/ui/forms/recipeForm';
 import { friendlySaveError } from '@/ui/forms/saveError';
+import { HelpLink } from '@/ui/help/HelpLink';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
 import { hrefFor } from '@/ui/router/routes';
@@ -153,6 +154,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
             ? 'A dish on your menu. Costs are calculated from the lines below at the latest ingredient prices.'
             : 'A prep: a batch you make once and use in dishes. It has no menu price.'}
         </p>
+        <HelpLink section={kind === 'dish' ? 'dishes' : 'preps'} />
       </div>
 
       <form ref={formRef} noValidate onSubmit={submit} className="space-y-6">

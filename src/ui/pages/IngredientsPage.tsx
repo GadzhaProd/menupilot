@@ -12,6 +12,7 @@ import {
   AddIngredientDialog, DeleteIngredientDialog, HistoryDialog, NewPriceDialog, RenameDialog,
 } from '@/ui/ingredients/IngredientDialogs';
 import { formatQuantity } from '@/ui/forms/numbers';
+import { HelpLink } from '@/ui/help/HelpLink';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 
 type Active =
@@ -71,6 +72,7 @@ export function IngredientsPage() {
           <p className="text-sm text-muted-foreground">
             What you buy and what it costs. When a supplier changes a price, add a new price: the old one stays in the history.
           </p>
+          <HelpLink section="ingredients" />
         </div>
         <Button onClick={(event) => dialog.open({ kind: 'add' }, event)}>
           <PlusIcon aria-hidden="true" /> Add ingredient

@@ -1,11 +1,12 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { renderApp } from './helpers';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NOW, renderApp } from './helpers';
 
 beforeEach(() => {
   window.location.hash = '';
 });
+afterEach(() => { vi.useRealTimers(); });
 
 function dishTable() {
   return screen.getByRole('table', { name: 'Dish cost comparison' });
@@ -75,6 +76,9 @@ describe('Dashboard date comparison', () => {
   });
 
   it('ignores dates after today and exposes today as the maximum date', () => {
+    // "Today" must not depend on the real clock: the demo is written for NOW.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(NOW));
     renderApp();
     const datePicker = screen.getByLabelText('Comparison date');
     expect(datePicker.getAttribute('max')).toBe('2026-10-18');

@@ -9,6 +9,7 @@ import {
   compareRuns, isStale, NO_CHANGES, rebaseOverrides, runScenario, takeBaseline, type Run, type ScenarioOverrides,
 } from '@/ui/domain/simulator';
 import type { Dish, Scenario, ScenarioInput } from '@/ui/domain/types';
+import { HelpLink } from '@/ui/help/HelpLink';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { hrefFor } from '@/ui/router/routes';
 import { BaselineCards } from './BaselineCards';
@@ -175,6 +176,7 @@ export function Workbench({ dish }: { dish: Dish }) {
         <p className="max-w-3xl text-sm text-muted-foreground">
           Try what-if changes on a copy of this dish and compare them with today. Nothing here changes your real prices or recipes.
         </p>
+        <HelpLink section="simulator" />
       </div>
 
       <BaselineCards run={baselineRun} />

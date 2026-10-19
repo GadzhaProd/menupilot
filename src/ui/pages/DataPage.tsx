@@ -1,21 +1,41 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { DownloadIcon, RotateCcwIcon, UploadIcon } from 'lucide-react';
+import { DownloadIcon, FilePlusIcon, RotateCcwIcon, UploadIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import { ReplaceDataDialog } from '@/ui/data/ReplaceDataDialog';
+import { HelpLink } from '@/ui/help/HelpLink';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useSimulatorSessions } from '@/ui/simulator/session';
 
 /** Same limit as the store: a backup is about the size of the whole browser storage quota. */
 const MAX_FILE_BYTES = 5_000_000;
 
-type Pending = { kind: 'import'; fileName: string; text: string } | { kind: 'reset' };
+type Pending = { kind: 'import'; fileName: string; text: string } | { kind: 'reset' } | { kind: 'empty' };
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
 export function backupFileName(date: Date): string {
   return `menupilot-backup-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
+}
+
+function successText(done: Pending): string {
+  if (done.kind === 'import') return `Backup ${done.fileName} was imported. Your data is replaced.`;
+  return done.kind === 'empty' ? 'All data was removed. Start by adding ingredients on the Ingredients page.' : 'Demo data restored.';
+}
+
+function dialogText(pending: Pending) {
+  if (pending.kind === 'import') {
+    return { title: 'Import this backup?', description: `File: ${pending.fileName}.`, confirmLabel: 'Replace with backup' };
+  }
+  if (pending.kind === 'empty') {
+    return {
+      title: 'Start with empty data?',
+      description: 'Ingredients, prices, recipes and saved scenarios are all removed. Export a backup first if you want to keep them.',
+      confirmLabel: 'Start with empty data',
+    };
+  }
+  return { title: 'Reset to demo data?', description: 'The fictional demo restaurant is loaded.', confirmLabel: 'Reset to demo data' };
 }
 
 function downloadText(text: string, fileName: string) {
@@ -81,14 +101,13 @@ export function DataPage() {
     if (pending === null) return null;
     const result = pending.kind === 'import'
       ? execute((store) => store.importJSON(pending.text), { report: false })
-      : execute((store) => store.resetToDemo(), { report: false });
+      : pending.kind === 'empty'
+        ? execute((store) => store.resetToEmpty(), { report: false })
+        : execute((store) => store.resetToDemo(), { report: false });
     if (!result.ok) return result.error;
     sessions.clear();
     dialog.close();
-    setNotice({
-      tone: 'ok',
-      text: pending.kind === 'import' ? `Backup ${pending.fileName} was imported. Your data is replaced.` : 'Demo data restored.',
-    });
+    setNotice({ tone: 'ok', text: successText(pending) });
     return null;
   }
 
@@ -104,6 +123,7 @@ export function DataPage() {
         <p className="text-sm text-muted-foreground">
           Now: {document.ingredients.length} ingredients, {document.recipes.length} recipes, {document.scenarios.length} saved scenarios.
         </p>
+        <HelpLink section="data" />
       </div>
 
       {notice !== null ? (
@@ -152,11 +172,21 @@ export function DataPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Start with empty data</CardTitle>
+          <CardDescription>Remove everything, including the demo restaurant, and start with a blank page. Export a backup first if you want to keep your data.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button type="button" variant="outline" onClick={(event) => dialog.open({ kind: 'empty' }, event)}>
+            <FilePlusIcon aria-hidden="true" /> Start with empty data
+          </Button>
+        </CardContent>
+      </Card>
+
       {dialog.state !== null ? (
         <ReplaceDataDialog
-          title={dialog.state.kind === 'import' ? 'Import this backup?' : 'Reset to demo data?'}
-          description={dialog.state.kind === 'import' ? `File: ${dialog.state.fileName}.` : 'The fictional demo restaurant is loaded.'}
-          confirmLabel={dialog.state.kind === 'import' ? 'Replace with backup' : 'Reset to demo data'}
+          {...dialogText(dialog.state)}
           unsavedScenarios={unsaved}
           onClose={dialog.close}
           onCloseAutoFocus={dialog.onCloseAutoFocus}

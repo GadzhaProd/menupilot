@@ -15,6 +15,7 @@ import { DishImpactTable } from '@/ui/dashboard/DishImpactTable';
 import { PrepCostList } from '@/ui/dashboard/PrepCostList';
 import { SummaryCards } from '@/ui/dashboard/SummaryCards';
 import { formatCents } from '@/ui/dashboard/format';
+import { HelpLink } from '@/ui/help/HelpLink';
 import { hrefFor } from '@/ui/router/routes';
 
 function dateDaysAgo(days: number): string {
@@ -67,6 +68,7 @@ export function DashboardPage() {
           Recipe-based ingredient cost is theoretical, based on your recipes.
           Prices are excl. VAT unless marked incl. VAT.
         </p>
+        <HelpLink section="dashboard" />
       </div>
 
       <ComparisonPicker
