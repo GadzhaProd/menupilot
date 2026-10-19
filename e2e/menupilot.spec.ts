@@ -131,6 +131,8 @@ test('language and theme preferences persist while user recipe names remain unch
   await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
   await page.getByLabel('Thema').selectOption('light');
   await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
   await page.getByRole('link', { name: 'Recepten', exact: true }).click();
   await expect(page.getByRole('link', { name: 'My house burger' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Classic Burger' })).toHaveCount(0);
