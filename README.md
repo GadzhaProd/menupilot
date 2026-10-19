@@ -27,6 +27,7 @@ MenuPilot keeps ingredients with their price history, builds dish and prep (sub-
 - **Price history.** Ingredient prices are append-only. The current price is the latest entry and older ones stay visible.
 - **VAT handling.** The menu price is entered incl. VAT (9% or 21%); all calculations use the price excl. VAT. Every price on screen is labelled "incl. VAT" or "excl. VAT".
 - **Backup.** The *Data* page exports all data as one JSON file, imports it back (atomic: a bad file changes nothing) and resets to the demo data.
+- A step-by-step user guide (EN/RU) is built into the app: **Help**.
 
 | Simulator with three scenarios | Recipe with a prep |
 |---|---|

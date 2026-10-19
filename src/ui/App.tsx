@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode, useEffect } from 'react';
+import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useEffect } from 'react';
 import { useDataState } from '@/ui/data/DataProvider';
 import { Shell } from '@/ui/layout/Shell';
 import { DashboardPage } from '@/ui/pages/DashboardPage';
@@ -12,6 +12,9 @@ import type { Route } from '@/ui/router/routes';
 import { SimulatorSessionProvider } from '@/ui/simulator/session';
 import { useRoute } from '@/ui/router/useRoute';
 
+// The guide is large (text and its Russian twin), so it is downloaded only when somebody opens it.
+const HelpPage = lazy(() => import('@/ui/pages/HelpPage').then((module) => ({ default: module.HelpPage })));
+
 const TITLES: Record<Route['name'], string> = {
   dashboard: 'Dashboard',
   ingredients: 'Ingredients',
@@ -20,6 +23,7 @@ const TITLES: Record<Route['name'], string> = {
   'recipe-new': 'New recipe',
   recipe: 'Recipe',
   simulator: 'Simulator',
+  help: 'Help',
   'not-found': 'Not found',
 };
 
@@ -83,6 +87,7 @@ function Page({ route }: { route: Route }) {
     case 'recipe-new': return <RecipePage id={null} kind={route.kind} />;
     case 'recipe': return <RecipePage id={route.id} />;
     case 'simulator': return <SimulatorPage id={route.id} />;
+    case 'help': return <HelpPage section={route.section} />;
     case 'not-found': return <NotFoundPage />;
   }
 }
@@ -119,15 +124,21 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <Shell route={route}>
-        {loadError === null ? (
-          <SimulatorSessionProvider>
+      {/* One provider above every route, so unsaved scenario drafts survive a visit to the guide. */}
+      <SimulatorSessionProvider>
+        <Shell route={route}>
+          {route.name === 'help' ? (
+            // The guide needs no saved data, so it stays readable when the data cannot be opened.
+            <Suspense fallback={<p role="status" className="text-lg">Loading the guide…</p>}>
+              <HelpPage section={route.section} />
+            </Suspense>
+          ) : loadError === null ? (
             <Page route={route} />
-          </SimulatorSessionProvider>
-        ) : (
-          <LoadError message={loadError} />
-        )}
-      </Shell>
+          ) : (
+            <LoadError message={loadError} />
+          )}
+        </Shell>
+      </SimulatorSessionProvider>
     </ErrorBoundary>
   );
 }

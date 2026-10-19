@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useDocument } from '@/ui/data/DataProvider';
 import { dishRows, formatEURFromMicro } from '@/ui/domain/calc';
+import { HelpLink } from '@/ui/help/HelpLink';
 import { hrefFor } from '@/ui/router/routes';
 import { useSimulatorSessions } from './session';
 
@@ -21,6 +22,7 @@ export function DishPicker() {
         <p className="max-w-3xl text-sm text-muted-foreground">
           Choose a dish, then try a different menu price, ingredient price or quantity and compare it with today. Your real prices and recipes never change.
         </p>
+        <HelpLink section="simulator" />
       </div>
       {dishes.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed p-8 text-center">

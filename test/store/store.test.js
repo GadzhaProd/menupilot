@@ -3,7 +3,7 @@ import test from 'node:test';
 import { selectPriceAtDate } from '../../src/calc/costing.js';
 import { DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
 import { STORAGE_KEY, StoreError, createStore } from '../../src/store/store.js';
-import { validateDocument } from '../../src/store/schema.js';
+import { emptyDocument, validateDocument } from '../../src/store/schema.js';
 import {
   clone, daysBefore, deepFreeze, dish, line, makeScenario, memoryStorage, prep, quotaError, readDemo, smallDocument,
 } from './fixtures.js';
@@ -97,6 +97,38 @@ test('resetToDemo is the explicit way out of a broken state', () => {
   assert.deepEqual(validateDocument(doc).errors, []);
   assert.deepEqual(JSON.parse(storage.data.get(STORAGE_KEY)), doc);
   assert.deepEqual(newStore(storage).load(), doc);
+});
+
+test('resetToEmpty replaces everything with a valid empty document and writes it', () => {
+  const { storage, store } = seeded();
+  const before = store.getDocument();
+  assert.ok(before.ingredients.length > 0);
+  const doc = store.resetToEmpty();
+  assert.deepEqual(doc, emptyDocument());
+  assert.deepEqual(validateDocument(doc).errors, []);
+  assert.ok(Object.isFrozen(doc));
+  assert.equal(store.getDocument(), doc);
+  assert.deepEqual(JSON.parse(storage.data.get(STORAGE_KEY)), emptyDocument());
+  assert.deepEqual(newStore(storage).load(), emptyDocument());
+  assert.ok(before.ingredients.length > 0, 'the earlier document is not changed in place');
+});
+
+test('resetToEmpty is also a way out of a broken state', () => {
+  const storage = memoryStorage({ [STORAGE_KEY]: 'garbage' });
+  const store = newStore(storage);
+  assertStoreError(() => store.load(), 'corrupt-json');
+  assert.deepEqual(store.resetToEmpty(), emptyDocument());
+  assert.deepEqual(newStore(storage).load(), emptyDocument());
+});
+
+test('resetToEmpty is atomic: a write failure leaves memory and storage as they were', () => {
+  const { storage, store } = seeded();
+  const before = store.getDocument();
+  const rawBefore = storage.data.get(STORAGE_KEY);
+  storage.failOnSet = quotaError();
+  assertStoreError(() => store.resetToEmpty(), 'quota');
+  assert.equal(store.getDocument(), before);
+  assert.equal(storage.data.get(STORAGE_KEY), rawBefore);
 });
 
 test('write failure (quota): clear error, memory and storage stay as before', () => {

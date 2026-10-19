@@ -1,7 +1,7 @@
 import { instantNotAfter, isObject } from './check.js';
 import { shiftDemoDates } from './demo.js';
 import { StoreError } from './errors.js';
-import { FORMAT_VERSION, assertValidDocument } from './schema.js';
+import { FORMAT_VERSION, assertValidDocument, emptyDocument } from './schema.js';
 
 export { StoreError };
 export const STORAGE_KEY = 'menupilot:v1';
@@ -285,6 +285,11 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
 
     resetToDemo() {
       return persist(demoDocument());
+    },
+
+    /** Replace all data with an empty document (nothing is kept). Like resetToDemo, atomic. */
+    resetToEmpty() {
+      return persist(emptyDocument());
     },
   };
 }

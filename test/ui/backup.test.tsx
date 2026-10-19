@@ -167,6 +167,47 @@ describe('Data page', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reset to demo data' }));
   });
 
+  it('start with empty data asks first, warns about backups, then removes everything', async () => {
+    const storage = memoryStorage();
+    await openData(storage);
+    expect(screen.getByText(new RegExp(`Now: ${demoCopy().ingredients.length} ingredients`))).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Start with empty data' }));
+    expect(storage.setCalls).toBe(0);
+    const confirmation = await dialog();
+    expect(within(confirmation).getByRole('heading', { name: 'Start with empty data?' })).toBeTruthy();
+    expect(confirmation.textContent).toMatch(/Export a backup first/);
+    await userEvent.click(within(confirmation).getByRole('button', { name: 'Start with empty data' }));
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(savedDocument(storage)).toEqual({
+      version: 1, settings: { defaultVatRateBp: 900 }, ingredients: [], recipes: [], scenarios: [],
+    });
+    expect(screen.getByText('Now: 0 ingredients, 0 recipes, 0 saved scenarios.')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toMatch(/All data was removed/);
+  });
+
+  it('cancel in the start-with-empty-data dialog changes nothing', async () => {
+    const storage = storageWith(sauceDoc());
+    await openData(storage);
+    await userEvent.click(screen.getByRole('button', { name: 'Start with empty data' }));
+    await userEvent.click(within(await dialog()).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(storage.setCalls).toBe(0);
+    expect(screen.getByText(/Now: 3 ingredients/)).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start with empty data' }));
+  });
+
+  it('a failed write keeps the data and shows the reason in the dialog', async () => {
+    const storage = storageWith(sauceDoc());
+    await openData(storage);
+    storage.failOnSet = new Error('disk is full');
+    await userEvent.click(screen.getByRole('button', { name: 'Start with empty data' }));
+    await userEvent.click(within(await dialog()).getByRole('button', { name: 'Start with empty data' }));
+    expect(within(await dialog()).getByRole('alert').textContent).toMatch(/disk is full.*current data was not changed/i);
+    expect(screen.getByText(/Now: 3 ingredients/)).toBeTruthy();
+  });
+
   it('export, reset and import brings the exported data back', async () => {
     const storage = storageWith(sauceDoc());
     await openData(storage);
@@ -204,6 +245,13 @@ describe('unsaved simulator scenarios', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Reset to demo data' }));
       expect(within(await dialog()).queryByText(/unsaved simulator/)).toBeNull();
+
+      // The same warning is shown before starting with empty data.
+      await go('#/simulator/dish_classic_burger');
+      await userEvent.click(await screen.findByRole('button', { name: /Add scenario/ }));
+      await go('#/data');
+      await userEvent.click(await screen.findByRole('button', { name: 'Start with empty data' }));
+      expect(within(await dialog()).getByText(/1 unsaved simulator scenario\. They will be lost/)).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }

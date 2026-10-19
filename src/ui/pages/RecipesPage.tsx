@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useDocument } from '@/ui/data/DataProvider';
 import { dishRows, formatEURFromMicro } from '@/ui/domain/calc';
 import { prepRows } from '@/ui/domain/recipeCosts';
+import { HelpLink } from '@/ui/help/HelpLink';
 import { hrefFor } from '@/ui/router/routes';
 
 function EmptyList({ text }: { text: string }) {
@@ -25,6 +26,7 @@ export function RecipesPage() {
         <p className="text-sm text-muted-foreground">
           A dish is something on your menu. A prep is something you make in a batch and use in dishes, such as a sauce.
         </p>
+        <HelpLink section="dishes" />
       </div>
 
       <Card>

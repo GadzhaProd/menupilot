@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useDocument } from '@/ui/data/DataProvider';
+import { HelpLink } from '@/ui/help/HelpLink';
 import { DishPicker } from '@/ui/simulator/DishPicker';
 import { Workbench } from '@/ui/simulator/Workbench';
 import { hrefFor } from '@/ui/router/routes';
@@ -20,6 +21,7 @@ export function SimulatorPage({ id }: { id: string | null }) {
           A prep is made in a batch and used inside dishes, so it has no menu price to simulate. Open a dish that uses it and change the prices of its ingredients there: the change flows through the prep.
         </p>
         <Button asChild><a href={hrefFor({ name: 'simulator', id: null })}>Choose a dish</a></Button>
+        <HelpLink section="simulator" className="block" />
       </section>
     );
   }

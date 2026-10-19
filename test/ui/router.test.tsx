@@ -20,11 +20,16 @@ describe('parseHash', () => {
     ['#/recipe/new', { name: 'recipe-new', kind: 'dish' }],
     ['#/recipe/new?kind=dish', { name: 'recipe-new', kind: 'dish' }],
     ['#/recipe/new?kind=prep', { name: 'recipe-new', kind: 'prep' }],
+    ['#/help', { name: 'help', section: null }],
+    ['#/help/', { name: 'help', section: null }],
+    ['#/help/dishes', { name: 'help', section: 'dishes' }],
+    ['#/help/no-such-section', { name: 'help', section: 'no-such-section' }],
+    ['#/help/%E0%A4%A', { name: 'help', section: null }],
   ])('%s', (hash, route) => {
     expect(parseHash(hash)).toEqual(route);
   });
 
-  it.each(['#/nope', '#/recipe', '#/recipe/new?kind=soup', '#/recipes/x', '#/data/x', '#/recipe/a/b', '#/ingredients/x', '#/recipe/%E0%A4%A', '#//recipe//'])(
+  it.each(['#/nope', '#/recipe', '#/recipe/new?kind=soup', '#/recipes/x', '#/data/x', '#/recipe/a/b', '#/ingredients/x', '#/recipe/%E0%A4%A', '#//recipe//', '#/help/a/b', '#/helps'])(
     '%s is not found',
     (hash) => {
       expect(parseHash(hash).name).toBe('not-found');
@@ -36,7 +41,7 @@ describe('parseHash', () => {
       { name: 'dashboard' }, { name: 'ingredients' }, { name: 'recipe', id: 'a b/c' },
       { name: 'simulator', id: 'x' }, { name: 'simulator', id: null },
       { name: 'recipes' }, { name: 'recipe-new', kind: 'dish' }, { name: 'recipe-new', kind: 'prep' },
-      { name: 'data' },
+      { name: 'data' }, { name: 'help', section: null }, { name: 'help', section: 'simulator' },
     ] as const) {
       expect(parseHash(hrefFor(route))).toEqual(route);
     }

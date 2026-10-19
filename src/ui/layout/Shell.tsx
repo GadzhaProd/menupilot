@@ -10,6 +10,7 @@ const NAV = [
   { label: 'Recipes', route: { name: 'recipes' }, active: ['recipes', 'recipe', 'recipe-new'] },
   { label: 'Simulator', route: { name: 'simulator', id: null }, active: ['simulator'] },
   { label: 'Data', route: { name: 'data' }, active: ['data'] },
+  { label: 'Help', route: { name: 'help', section: null }, active: ['help'] },
 ] as const;
 
 export function Shell({ route, children }: { route: Route; children: ReactNode }) {
@@ -24,6 +25,8 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
       firstRender.current = false;
       return;
     }
+    // The guide moves focus to the section it scrolls to; focusing <main> would scroll back to the top.
+    if (route.name === 'help') return;
     mainRef.current?.focus();
   }, [route]);
 
@@ -32,11 +35,11 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
       <a
         href="#main"
         onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-10 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:ring-2 focus:ring-ring"
+        className="sr-only print:hidden focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-10 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:ring-2 focus:ring-ring"
       >
         Skip to content
       </a>
-      <header className="border-b bg-card">
+      <header className="border-b bg-card print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
           <a href={hrefFor({ name: 'dashboard' })} className="rounded-md text-lg font-semibold tracking-tight outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
             MenuPilot

@@ -135,6 +135,8 @@ declare module '@/store/store.js' {
     exportJSON(): string;
     importJSON(text: string): T.MenuDocument;
     resetToDemo(): T.MenuDocument;
+    /** Replace everything with an empty document. */
+    resetToEmpty(): T.MenuDocument;
   }
 
   export function createStore(
