@@ -139,8 +139,9 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     }
   }
 
-  function demoDocument() {
-    const doc = shiftDemoDates(demo, isoNow());
+  function demoDocument(source = demo) {
+    assertValidDocument(source);
+    const doc = shiftDemoDates(source, isoNow());
     assertValidDocument(doc, { now: isoNow() });
     return doc;
   }
@@ -283,8 +284,9 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
       return persist(parseDocumentText(text, 'The imported file', { now: isoNow() }));
     },
 
-    resetToDemo() {
-      return persist(demoDocument());
+    /** Optional translated demo; validated before shifting/writing, never mutates the caller. */
+    resetToDemo(source = demo) {
+      return persist(demoDocument(source));
     },
 
     /** Replace all data with an empty document (nothing is kept). Like resetToDemo, atomic. */

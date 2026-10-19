@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useLocale } from '@/ui/i18n';
+import { InlineStatus } from '@/components/ui/inline-status';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -21,26 +23,23 @@ interface ReplaceDataDialogProps {
 export function ReplaceDataDialog({
   title, description, confirmLabel, unsavedScenarios, onClose, onCloseAutoFocus, onConfirm,
 }: ReplaceDataDialogProps) {
+  const { t, plural } = useLocale();
   const [error, setError] = useState<string | null>(null);
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>This replaces all current data. {description}</DialogDescription>
+          <DialogDescription>{t('data.replacementWarning', { description })}</DialogDescription>
         </DialogHeader>
         {unsavedScenarios > 0 ? (
-          <p className="rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm text-amber-950">
-            You have {unsavedScenarios} unsaved simulator {unsavedScenarios === 1 ? 'scenario' : 'scenarios'}. They will be lost.
-          </p>
+          <InlineStatus>{plural('data.unsavedScenarios', unsavedScenarios)}</InlineStatus>
         ) : null}
         {error !== null ? (
-          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            {error} Your current data was not changed.
-          </p>
+          <InlineStatus tone="error">{error}</InlineStatus>
         ) : null}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+          <DialogClose asChild><Button type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
           <Button type="button" variant="destructive" onClick={() => setError(onConfirm())}>{confirmLabel}</Button>
         </DialogFooter>
       </DialogContent>

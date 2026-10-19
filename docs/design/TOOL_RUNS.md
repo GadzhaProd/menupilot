@@ -283,3 +283,375 @@ sh scripts/21st.sh license @kuratlielia/components/segmented-control
 `npm run check` повторно запущен в `/tmp/menupilot-cplus-check-vo_9ds45` на копии tracked source, с node_modules основного checkout после проверки совпадения package-lock и exact direct versions. Exit0: tsc; core125pass/0fail; UI248pass/16files; Vite8.3.4,2064modules,458ms. [Полный вывод](alternatives/C-plus/npm-check.txt). Warning Node25 --localstorage-file сохранён. Временная копия удалена; dependencies/package/lockfile/src/test в worktree не менялись.
 
 Финальная проверка документов C+:14HTML,353локальныеHTML-ссылки,125локальныхMarkdown-ссылок,0битых ссылок/повторныхid;8основныхJPEG. Изменённый пакет около1.03MB(<3MB). Исходные A/B/C HTML/CSS/JPEG побайтно неизменны относительноb37e34f, архив A DESIGN отличается только разрешением относительных ссылок по новому расположению. [validation.json](alternatives/C-plus/validation.json). git diff --check прошёл. Финальная браузерная session закрыта (state closed,exit0), HTTP server остановлен Ctrl+C (Keyboard interrupt received, exiting.,exit0). Push/merge/publish не выполнялись.
+
+
+## C+ implementation, part 1 — 2026-10-19 (Codex / Astra)
+
+Scope: runtime foundation only. Existing screens retain their layout and EN body copy for parts 2–3; only a few fixed amber colours were replaced with semantic tokens so dark-mode statuses remain legible. `data/demo.json` already has English names and was not modified. Full integration API and chosen NL vocabulary: [src/ui/i18n/README.md](../../src/ui/i18n/README.md).
+
+### Impeccable: actual calls and findings
+
+Read PRODUCT.md, DESIGN.md, implementation/component plans, C+ index/previews, the installed Impeccable SKILL.md and reference/craft-floor.md. Direction was already owner-approved; no new design interview or delegation was started.
+
+Command executed from the project root before UI edits:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context
+```
+
+Exit 0. Actual resolved context: `productPath: PRODUCT.md`, `designPath: DESIGN.md`, `hasVisualImplementation: true`, `platform: web`. Output required manual `detect --json <changed targets>` because no automatic design hook was active. It also reported installed v4.3.1 / available v4.7.0; no skill update performed.
+
+Detector was executed once over changed `.tsx/.ts/.css` under src/ui and src/components plus src/index.css (tracked diff + new files). Actual exit **2**, five findings below; exit was not treated as a clean audit:
+
+```json
+[
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/components/ui/table.tsx",
+    "line": 12,
+    "snippet": "text-[…] class: 17px is off the DESIGN.md type ramp",
+    "advisory": true,
+    "ignoreValue": "17px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/index.css",
+    "line": 110,
+    "snippet": "font-size: 17px is off the DESIGN.md type ramp",
+    "advisory": true,
+    "ignoreValue": "17px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/index.css",
+    "line": 112,
+    "snippet": "font-size: 22px is off the DESIGN.md type ramp",
+    "advisory": true,
+    "ignoreValue": "22px"
+  },
+  {
+    "antipattern": "design-system-font-size",
+    "name": "Font size outside DESIGN.md",
+    "description": "A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/index.css",
+    "line": 120,
+    "snippet": "font-size: 31px is off the DESIGN.md type ramp",
+    "advisory": true,
+    "ignoreValue": "31px"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_6uihmdg9pz-1/RestaurantAI/src/ui/help/HelpBlocks.tsx",
+    "line": 121,
+    "snippet": "border-l-4"
+  }
+]
+```
+
+Review: 17px body-on-mobile and 17px tables, plus 31px mobile h1, are explicitly specified in DESIGN.md prose, although absent from its YAML ramp. The 22px mobile wordmark is a deliberate compact brand size between the 18px body and 31px heading; no low-contrast or clipped type was found. Table mobile size was made explicit at 16px, matching DESIGN.md. `border-l-4` is an existing Help block (only warning colour was changed); its composition belongs to part 3 and was not redesigned here. Detector is mechanical evidence, not a claim of visual certification.
+
+### 21st.dev and motion
+
+Actual calls (only through the approved wrapper):
+
+```sh
+sh scripts/21st.sh license @haydenbleasel/components/theme-switcher
+# - Author: [Hayden Bleasel](https://21st.dev/@haydenbleasel)
+# - Library: [Kibo UI](https://21st.dev/@haydenbleasel/library/kibo-ui)
+# - License: mit
+sh scripts/21st.sh search 'theme switcher' --limit 2 --json
+# Results: 6609 / ncdai / @ncdai/components/theme-switcher-1
+#          1714 / shugar / @shugar/components/theme-switcher
+```
+
+Followed C+ COMPONENT_PLAN decision: **build own** labelled native select, existing Radix dialogs and primitives. No new 21st source copied or rewritten; search results are catalogue-only, not licence-approved adoptions. Existing badge/alert source comments and third_party licences remain intact. New numeric fields are original composition over FormField/Input.
+
+Installed `motion@14.4.0` exactly, lockfile + permitted dependency line updated. `npm ls` confirms framer-motion14.4.0, motion-dom14.4.0, motion-utils14.1.1. Read [official accessibility guidance](https://motion.dev/docs/react-accessibility). Runtime uses `motion/mini` for a single 160ms navigation underline emphasis, instantaneous colours/money, explicit reduced-motion check. Full `motion` import originally produced 517.41kB main chunk and Vite size warning; mini reduced it to 462.87kB /139.46kB gzip, without that warning. The mini API requires Element.animate; the first targeted jsdom rerun exposed its absence (33 tests failed). A capability check now preserves immediate selection without animation when unavailable; the subsequent full test run passes. No test-only animation shim was added.
+
+### Fonts and data
+
+Archivo existing licensed TTF converted to WOFF2 using an isolated `/tmp/menupilot-font-tools` Python environment (fontTools/Brotli, not project dependencies). Source Sans 3 regular/semibold WOFF2 copied unchanged from licensed design assets. Full OFL notices under public/fonts and THIRD_PARTY_NOTICES.md. Public production copies are necessary for Vite `/menupilot/fonts/` URLs; archival design assets were retained as required by the file scope. Browser resource list confirmed only local font requests and `document.fonts.status=loaded`.
+
+Locale formatter logic was taken from `git show bb/luna-en-nl-thr_97zhejtw7g:src/calc/money.js`; tests adapted from that branch with negative sign policy, bounded Intl cache, no BigInt→Number, pp in both languages, n.v.t. in NL, null and 10^30 coverage. Old unlocalised APIs remain unchanged for existing screens/core. On this runtime en-NL integer grouping produced `€2.145.00` with the currency template; explicit en-GB gives the reviewed English `€2,145.00`. This deliberate correction is documented in the API notes.
+
+New EN/NL demo parity test strips only `name` and compares all remaining structure, IDs, values, prices and dates. Store reset accepts an optional translated document, validates before processing, then persists atomically. UI only selects translated demo on initial bundled-demo load or explicit reset, never when the language alone changes. Terminology: basisrecept / Huidige situatie / Foodcostpercentage / Verkocht per maand / Voorbeeldgegevens / je-jouw. Browser language default overrides the older plan's EN-only default, per the task.
+
+### Browser evidence
+
+Actual session: `bb browser-automation open --backend local --headless --machine host_mqe28unaid --json`, ID `774177f6-cf44-4f89-bbc0-bf37d3002e2b`. Production `npm run preview -- --host 127.0.0.1 --port 4173`, URL `/menupilot/`.
+
+- Eight combinations EN/NL × light/dark ×1440/375: **scrollWidth=viewport width**, fonts loaded, Shell translated, demo names follow initial locale. Dashboard body copy deliberately remains EN for part 2.
+- 1024px: navigation moves to a separate row, no body overflow.
+- Mobile Menu opens, Escape closes and returns focus to Menu; computed focus outline `rgb(242,199,92) solid 3px` in dark mode.
+- Ingredient dialog at375: invalid empty name gives linked nearby `Enter a name`, first invalid field focused, input height48px, dialog height719px within900px viewport; Shift+Tab remains trapped; Escape closes and focus returns to Add ingredient. No valid ingredient was saved in the browser check.
+- Print from dark: body `rgb(245,246,243)`, header `display:none`, saved choice remains dark; screen restored `rgb(39,42,41)`. Screenshot is CSS print emulation, not physical paper/PDF pagination certification. Existing screen-specific print composition remains for parts2–3.
+- System media change: first immediate post-emulation read was light; next browser turn read `systemDark:dark,matches:true` (async media event). Manual light survives dark OS. Reduced motion during navigation reports **0 Web Animations calls**.
+- One browser inspection used an unquoted multiword FontFaceSet.check name and raised SyntaxError; corrected inspection used loaded resource URLs/font status. This was tooling only, not an app error.
+- No claims of native Safari/Firefox or physical touchscreen testing.
+
+Evidence directory: `/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz`.
+
+Screenshots: [NL desktop light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-nl-light-desktop.jpg), [NL desktop dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-nl-dark-desktop.jpg), [NL375 light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-nl-light-375.jpg), [NL375 dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-nl-dark-375.jpg), [EN desktop light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-en-light-desktop.jpg), [EN desktop dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-en-dark-desktop.jpg), [EN375 light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-en-light-375.jpg), [EN375 dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-en-dark-375.jpg), [Menu](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-menu.jpg), [Dialog/error](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-dialog.jpg), [Print](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-print.jpg). Raw run JSON files and detect JSON are alongside these artifacts.
+
+### Tests
+
+Initial npm run check could not start: `tsc: command not found` in the fresh worktree. `npm ci` installed the existing exact lockfile, then motion was installed explicitly. TDD red: new formatters were absent; reset ignored the translated document and accepted invalid source; NL demo absent. After implementation: all new tests pass. Tests use in-memory storage only.
+
+Final `npm run check` exit0: typecheck + node:test + Vitest + Vite. Actual summary:
+
+```text
+ℹ tests 130
+ℹ pass 130
+ℹ fail 0
+Test Files 19 passed (19)
+Tests 259 passed (259)
+✓ 2359 modules transformed.
+dist/assets/index-CCOZ-ytb.js 462.87 kB │ gzip: 139.46 kB
+✓ built in 254ms
+```
+
+Full output: [/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-final.log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-final.log). Existing Node warning about `--localstorage-file` remains; tests do not use browser localStorage. `git diff --check` clean. After the check, only a CSS max-width correction1604→1540 and removal of npm's incidental root license metadata from lockfile were applied; final build/check evidence is updated below before delivery.
+
+Delivery rerun after the final CSS/lockfile adjustments: `npm run check` **exit0**, core130/130, UI259/259 in19files, typecheck pass; Vite2359 modules, main462.87kB /139.46kB gzip, built253ms. [Full delivery output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-delivery.log). Browser session closed (`state:closed`, exit0); preview server stopped with Ctrl+C (exit130). No server left running by this task. No push, merge or publication.
+
+## Foundation review follow-up — 2026-10-19
+
+Coordinator authorised Sonnet items 2–12; item 13 needs no change. Read the final review via `bb thread log thr_zcgt59yc95`. No new component selection or copied 21st code: no additional 21st license lookup needed. BadgeDelta's MIT source header now describes its actual semantic text colours, removed solid fills and metric-dependent tone.
+
+Before UI edits ran:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context
+```
+
+Result: exit 0, PRODUCT.md / DESIGN.md resolved, `MANUAL_DETECTOR_REQUIRED`. Same approved C+ context and craft-floor as the foundation implementation.
+
+After UI edits ran once:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect --json src/components/numeric-field.tsx src/ui/layout/Shell.tsx src/ui/i18n/LocaleSelect.tsx src/components/ui/badge-delta.tsx src/index.css
+```
+
+Result: exit 0, three `design-system-font-size` findings, all `severity: advisory`:
+
+```text
+src/index.css:111  font-size: 17px is off the DESIGN.md type ramp
+src/index.css:113  font-size: 22px is off the DESIGN.md type ramp
+src/index.css:121  font-size: 31px is off the DESIGN.md type ramp
+```
+
+[Exact detector JSON](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-impeccable-detect.json). These are the previously reviewed sizes: 17px and 31px occur in DESIGN.md prose; 22px is the compact mobile brand size. This follow-up does not change those sizes. No other detector findings. The browser screenshot confirms readable, unclipped mobile navigation.
+
+TDD evidence: MoneyField tests first failed 5/6 (missing automatic VAT labels), then passed in both languages and VAT modes. Shell tests first failed 4/8 (Escape outside nav, EN label, StrictMode initial focus), then passed; motion is stopped on subsequent navigation/unmount. Locale tests first failed for missing normalization API and invalid date RangeError; all pass after fixing. Rich message tests first failed 3/3 before the API existed; now test typed required parameters/components, translation order, and literal user markup.
+
+`test/ui/bootstrap.test.ts` executes the real inline index.html script in jsdom with injected memory storage/matchMedia; 160 preference/browser/system combinations match runtime parsers, plus blocked storage. Inline constants deliberately remain synchronous copies (no asynchronous module fetch before first paint); parity tests assert the actual read keys. Plural tests check both pair directions, parameters and rich tag parity. A warning-only legacy formatter scan is in `test/ui/legacy-formatters.test.ts`; screen migration remains assigned to parts 2–3. [Supplementary rg inventory](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-legacy-formatters.txt).
+
+Real browser: `bb browser-automation open --backend local --headless --machine host_mqe28unaid --json`; production `npm run preview -- --host 127.0.0.1 --port 4173`, `/menupilot/`.
+
+- EN desktop light, NL mobile dark (375×900): both locale buttons measure exactly 48×48; no horizontal overflow at 375. Escape from the language control closes Menu and focuses its trigger.
+- Both font preloads resolve under `/menupilot/fonts/`; performance entries confirm each was fetched once.
+- Print emulation from dark mode: background token `#f5f6f3`, header `display:none`, Dashboard date input and period button `display:block`, no global `@page` rules. Reset confirmation and its Radix overlay both become `display:none` during print; no reset was confirmed.
+- [NL mobile dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-nl-dark-375.jpg), [EN desktop light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-en-light-desktop.jpg), [Print](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-print-desktop.jpg). Screenshots inspected visually. Existing Dashboard English copy is intentionally awaiting part 2.
+
+Full `npm run check` (typecheck, core, UI, build), exit 0:
+
+```text
+ℹ tests 137
+ℹ pass 137
+ℹ fail 0
+Test Files 23 passed (23)
+Tests 279 passed (279)
+✓ 2360 modules transformed.
+✓ built in 489ms
+```
+
+[Check log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-final-check.log). Existing Node `--localstorage-file` warning remains. No dependencies changed. No push/merge.
+
+Delivery check after strengthening the plural-parameter parity assertion: `npm run check` exit 0, core137/137, UI279/279 (23 files), typecheck passed, Vite2360 modules /545ms. [Delivery log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-delivery-check.log). Browser session closed (`state:closed`); preview stopped with Ctrl+C (exit130). No server left running by this follow-up.
+
+## Critical Shell resize fix — 2026-10-19
+
+Reproduced in a regression test with Motion's cleanup mocked to throw the browser's `InvalidStateError: Failed to execute 'commitStyles': Target element is not rendered` for a hidden/detached target. The old Shell entered ErrorBoundary after hiding its nav and navigating. [Failing test output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-red.log). Inspected installed `motion-dom/dist/es/animation/NativeAnimation.mjs`: `stop()` calls `commitStyles()`; its connected-element check does not exclude `display:none` ancestors.
+
+Removed the JS nav animation, target ref and cleanup; selection now uses a CSS 160ms underline-offset transition, disabled by the existing reduced-motion rule. `rg` over src confirms no remaining runtime motion/animate/commitStyles/stop calls. The approved pinned dependency is retained for subsequent screen work. README updated. Regression test covers hidden nav, Dashboard→Simulator, resize back, language/theme switch, StrictMode initial focus and unmount.
+
+Ran Impeccable context before editing and one detector pass afterward:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect --json src/ui/layout/Shell.tsx src/index.css
+```
+
+Both exit0. Detector returns only the same three existing advisory type-ramp findings (17px at line111, 22px at113, 31px at121); no new findings. These sizes are unchanged and their interpretation is documented above. [Exact output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-detect.json). No new components or 21st code used.
+
+`npm run check` exit0: **137 core /137 pass, 279 UI /279 pass (23 files), typecheck passed, build2079 modules /274ms**. [Full output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-check.log).
+
+Production browser verification using bb browser-automation, local headless host_mqe28unaid, `/menupilot/`:
+
+- 1440→375, EN, light, `#/`→`#/simulator`: `errors:[]`, heading Simulator, lang en, theme light, nav display none.
+- 375→1440, dark, NL, `#/`→`#/simulator`: `errors:[]`, heading Simulator, lang nl, theme dark, nav display block, active Simulator.
+- Reduced-motion emulation: `matches:true`, computed transition duration `0s` (normal `0.16s`).
+- [375 EN light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-375-en-light.jpg), [desktop NL dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-desktop-nl-dark.jpg); both visually inspected. Mobile screenshot is scrolled to main by the existing navigation focus behaviour.
+
+Browser session closed; preview stopped (Ctrl+C, exit130). `git diff --check` clean; no push/merge.
+
+## Part 2
+
+### Scope and integration
+
+C+ Dashboard (`#/`), dish picker (`#/simulator`), and selected-scenario workbench (`#/simulator/:id`). Read AGENTS.md, DESIGN.md, planning/architecture and design implementation plans, C+ dashboard/simulator HTML and JPG references, i18n README, the real Impeccable skill and craft-floor. Kept calc/store unchanged; domain adapters expose existing BigInt results and structured translation notes. Own dictionaries are part2.en.ts/part2.nl.ts with two-line import/spread additions to the foundation dictionaries.
+
+Merged foundation through `a8f49e6`: packPrice/prepCost, required MoneyField vat, EN/NL controls, and the Shell animation fix. Git printed a packed-refs.lock permission warning during fast-forward; HEAD was verified as a8f49e6. No foundation implementation edits. Coordinator explicitly authorized only Dashboard heading expectations in help/router/shell tests and the changed price-field accessible label in help.test.tsx (two occurrences in the same test); behavior assertions are preserved.
+
+### Actual Impeccable calls and bounded review
+
+Before implementation, ran from the repository root:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context --target src/ui/pages/DashboardPage.tsx
+```
+
+Exit 0; PRODUCT.md / DESIGN.md resolved and manual detector required. Applied reference/audit.md and reference/polish.md as review playbooks; these are not invented CLI commands. After implementation, ran the detector on the two pages and component directories, then once more after the bounded polish pass:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect --json src/ui/pages/DashboardPage.tsx src/ui/pages/SimulatorPage.tsx src/ui/dashboard src/ui/simulator
+```
+
+Exit 0. Initial: 12 advisory font-size findings. Final: 10, all `design-system-font-size`, no other finding kinds. [Final detector JSON](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-detect-final.json). Removed the two 26px headings in favor of text-xl. Retained C+ headline/figure sizes 31/42/46/60px (specified in the design prose/mockups but not the detector's type-ramp list), 13px mobile table hints, and 11px print table text. These are documented intentional exceptions, not a claim of zero detector findings.
+
+Audit (0–4 per dimension, scoped technical review, 16/20; no formal WCAG certification):
+- Accessibility 3: semantic headings/tables, radio scenario selection, labelled fields, error association and first-error focus; Tab/Escape in deletion dialog and focus return verified. Delta direction has text/sign/icon as well as color. Native screen-reader and full contrast-ratio audit were not run.
+- Performance 3: no new dependencies/assets, memoized calculations, at most three mounted editors to preserve drafts; no screen-specific animation. Production main bundle 489.79 kB / gzip 145.79 kB. No profiler claim.
+- Theming 4: semantic theme tokens, both themes and languages inspected, currency signs/separators follow locale; print switches from dark to light.
+- Responsive 3: desktop table, mobile cards and baseline/selected comparison columns; 375/1024/1440 have no document overflow on exercised data. Radio labels/controls and inputs have 48px targets. Extreme-length arbitrary user data was not exhaustively browser-tested.
+- Implementation integrity 3: C+ hierarchy, no invented financial calculations or translated user data; typed translation keys for validation/rebase; detector exceptions above. Existing EN HelpLink is outside scope and still Russian in this branch, assigned to Part 3.
+
+Polish findings and resolution: moved primary menu/volume inputs ahead of derived results; collapsed shared estimate so the scenario controls align with comparison; made mobile radio selector use the whole row; replaced ad-hoc price/quantity inputs with shared fields and explicit VAT; removed dead legacy formatters/disclaimer text and global print page orientation. Preserved simultaneous scenario calculations, independent invalid drafts, save/delete/rebase semantics and unknown-vs-zero behavior.
+
+### Actual 21st calls
+
+```sh
+sh scripts/21st.sh search 'comparison table' --limit 3 --json
+sh scripts/21st.sh search 'segmented control' --limit 2 --json
+sh scripts/21st.sh license @mohammadshehadeh/components/comparison-02
+sh scripts/21st.sh license @halaska-studio/components/segmented-control
+```
+
+Comparison result 26827: Mohammad Shehadeh, Hirael, MIT. Segmented result 34763: halaska-studio, @delego, MIT. License responses rechecked and stored: [comparison](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-21st-comparison-license.txt), [segmented](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-21st-segmented-license.txt). No component source was fetched/copied/adapted: implemented C+ with existing shadcn primitives and native radio/table elements. No third-party notice or dependency added.
+
+### Verification and browser evidence
+
+`VITEST_MAX_WORKERS=2 npm run check` passed (the worker limit avoids contention with parallel threads without changing checks). [Final full log](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-check-final.log):
+
+```text
+tsc --noEmit: exit 0
+ℹ tests 137
+ℹ pass 137
+ℹ fail 0
+Test Files 25 passed (25)
+Tests 283 passed (283)
+✓ 2086 modules transformed.
+✓ built in 557ms
+```
+
+New tests cover largest positive comparable cost increase/ties/unknown/no-volume, NL dashboard, independent scenario drafts including invalid input across locale/theme switches, and unknown costs with a zero estimate. Existing calculator/store and scenario behaviors still pass. Initial integration failures from the renamed EN/NL controls and MoneyField label were corrected; under unrestricted parallel load an earlier run hit existing help-loading timeouts, hence bounded workers. Node still reports its pre-existing invalid --localstorage-file warning.
+
+Real browser: `bb browser-automation open --backend local --headless --machine host_mqe28unaid --json`; production preview `npm run preview -- --host 127.0.0.1 --port 4175`, served under `/menupilot/`. Main session 9b3798ca-c371-465f-89bc-e5c6857f0647. Initial resize/navigation exposed a foundation P1: Motion stop() called commitStyles on a hidden nav link. Reported to coordinator; temporary reduced-motion matrix was followed by a full final matrix after merging a8f49e6 with `prefers-reduced-motion: no-preference` (confirmed false). Final 24 route/state captures: EN/NL × light/dark × 1440/375 × dashboard/picker/workbench. No render crash or horizontal overflow; fonts loaded. [Matrix output](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-matrix-final.log). Files follow `part2-{dashboard|picker|simulator}-{en|nl}-{light|dark}-{1440|375}.jpg` in thread storage. Representative final screenshots were visually inspected in both themes/languages and sizes.
+
+- [Dashboard EN light desktop](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-dashboard-en-light-1440.jpg), [NL dark mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-dashboard-nl-dark-375.jpg).
+- [Simulator NL dark desktop](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-simulator-nl-dark-1440.jpg), [EN light mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-simulator-en-light-375.jpg).
+- [Dish picker NL light mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-picker-nl-light-375.jpg), [1024px](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-tablet-1024.jpg), [print from dark](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-print.jpg).
+
+Browser interaction checks: create three scenarios, change and save independent price/volume values, select A/B/C, retain drafts across theme/language; invalid menu price focuses its input on save ([capture](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-invalid-field.jpg)); saved deletion opens with Cancel focus, Tab reaches delete, Escape closes and returns focus to Delete. Changing Beef mince price through the ingredient UI produces [Baseline changed](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-stale.jpg), hides stale deltas, excludes stale scenarios from ranking; Update baseline preserves applicable overrides and requires Save. No estimate shows [Not enough data](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-no-estimate.jpg); entering zero is valid ([zero volume NL](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-zero-volume.jpg)). These mutations affect only the isolated headless demo profile. Unknown ingredient cost is additionally covered in the UI regression suite, not claimed as a separate manual browser fixture.
+
+Print emulation verified all Baseline/A/B/C columns visible, editor hidden, light background rgb(245,246,243), and full table. No native Safari/Firefox, physical touch device, screen reader, or PDF pagination checks claimed. EN HelpLink integration remains assigned to Part 3.
+
+Session closed with state:closed; preview stopped with Ctrl+C (exit 130). No preview server remains running from Part 2. Final git diff --check passed. No push or integration merge performed by this thread.
+
+## Part 3 — Ingredients, Recipes, Data, Help — 2026-10-19
+
+Merged `bb/astra-c-1-i18n-thr_6uihmdg9pz` through foundation commit `a8f49e6` (fast-forward). Verified `git rev-parse --short HEAD` = `a8f49e6`; the Shell navigation animation is CSS-based in the merged foundation.
+
+Ran Impeccable from the project root before edits earlier in this part (`context`, exit 0), then ran the required detector after implementation:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect --json src/ui/pages/IngredientsPage.tsx src/ui/ingredients src/ui/pages/RecipesPage.tsx src/ui/recipe src/ui/pages/DataPage.tsx src/ui/data/ReplaceDataDialog.tsx src/ui/pages/NotFoundPage.tsx src/ui/pages/HelpPage.tsx src/ui/help/HelpBlocks.tsx src/ui/help/HelpLink.tsx
+```
+
+Detector result: exit 0, `[]` (no deterministic findings). Manual audit/polish review covered translated labels and field errors, visible dialog focus, 48px foundation controls, semantic page regions, responsive layout, theme tokens, long Russian Help content, and print mode. Browser evidence: NL dark mobile Ingredients/Recipes and invalid price field; EN dark mobile data confirmation; EN light desktop Ingredients; EN dark desktop recipe editor; NL light desktop Data; NL dark desktop Russian Help; NL light mobile Add Ingredient. Print emulation from dark Help produced light page/background and hides Shell navigation. Inspection found no remaining Part 3 UI corrections.
+
+Final Shell regression-browser check after merging `a8f49e6`: using the local dev server and default browser motion preference (`matchMedia('(prefers-reduced-motion: reduce)').matches` returned `false`, no reduced-motion emulation), opened mobile navigation at 375×812, followed Recipes, resized to 1440×900, followed Data, resized back to 375×812, opened navigation, followed Help, and resized to desktop again. Snapshots showed the expected routes and localized content; all browser automation runs exited 0 and no resize/transition crash occurred.
+
+Screenshots saved under the thread storage directory:
+
+- [NL dark mobile Recipes](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-dark-mobile-recipes.jpg)
+- [NL dark mobile price validation](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-dark-mobile-price-error.jpg)
+- [EN light desktop Ingredients](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-en-light-desktop-ingredients.jpg)
+- [EN dark desktop recipe editor](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-en-dark-desktop-recipe.jpg)
+- [NL light desktop Data](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-light-desktop-data.jpg)
+- [NL dark desktop Russian Help](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-dark-desktop-help.jpg)
+- [EN light mobile recipe editor](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-en-light-mobile-recipe.jpg)
+- [EN dark mobile reset dialog](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-en-dark-mobile-data-dialog.jpg)
+- [NL light mobile Add Ingredient](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-nl-light-mobile-add-ingredient.jpg)
+
+No 21st.dev component was copied; the shared foundation components covered these screens, so no license lookup was needed. `npm run check` was attempted after the merge: typecheck passed; core tests passed (137/137); UI tests had 278 passing and one unrelated-to-scope stale assertion in `test/ui/preferences.test.tsx`, which still searches for the English button `Reset to demo data` after switching the app to Dutch (rendered button is `Terugzetten naar voorbeeldgegevens`). That test file is outside Part 3's allowed file list and was not changed. The chained check therefore stopped before build. Independently, Part 3 focused UI tests passed (119/119 in 6 files), `npm run build` passed (2085 modules), and `git diff --check` passed. No commit was created because the repository workflow requires all tests to pass before committing; coordinator follow-up is needed for the stale Preferences assertion.
+
+During live source editing, Vite emitted a transient Fast Refresh invalidation while multiple provider modules were being replaced, including one `Data hooks must be used inside <DataProvider>` stack. A subsequent stable browser load and all final route/resize checks completed successfully; this HMR-only event was not reproduced by the final navigation flow and is separate from the Shell animation cleanup check.
+
+### Part 2 review corrections — 2026-10-20
+
+Read the full Sonnet review (thr_am8u47tvcw) and coordinator's ten requested corrections. Fixed all ten in the Part 2 branch. Ranking now requires equal known monthlyVolume for every eligible column, including the current situation; different volumes produce an explicit EN/NL message and no highest badge. Monthly calculations/deltas remain unchanged. Removed dead domain excludedReasons and moved its assertion to actual NL UI; added missing-volume text and largest-increase row tint. Made the shared estimate label visually hidden under its single summary, constrained the first desktop grid row to its natural height, kept scenario letters on one line, matched the visible date label, and set print hints to 10px below 11px table text. Removed the dead dashboard formatter and its isolated tests, seven unused dictionary keys, and the English fallback run text.
+
+Coordinator authorized additive foundation APIs: f.integer(number|bigint), rejecting fractional/unsafe numbers while preserving bigint precision; plural(key, count, params?) with typed optional display parameters and numeric selection count. Existing calls remain compatible. Added README examples and tests. Updated specified whole-message plurals and formatted displayed counts; editable input strings remain intact.
+
+Regression-first run: 6 failed / 9 passed across four files before fixes ([red log](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-red.log)). Targeted suite then passed. Final full `VITEST_MAX_WORKERS=2 npm run check`, exit 0 ([log](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-check.log)):
+
+```text
+tsc --noEmit: passed
+core: 137 passed, 0 failed
+Test Files 25 passed (25)
+Tests 285 passed (285)
+✓ 2086 modules transformed.
+✓ built in 262ms
+```
+
+Tests cover a 1000-sale scenario against a 300-sale baseline (both languages, no winner), equal-volume ties, unknown exclusion, formatted integer/bigint counts, numeric plural selection with custom display parameters, each requested sales plural, NL excluded reasons, date label, missing-volume explanation and largest-increase highlight, and accessible but visually hidden duplicate field label. CSS layout/print behavior is checked in the real browser instead of tests that mirror CSS source.
+
+Browser: new local/headless session c1205078-1e92-42d4-9f46-46488a2744f2; production preview /menupilot/ on port 4175. Both screens checked EN/light and NL/dark at both 1440 and 375, without reduced motion. All measured document widths match the viewport. Scenario labels measure one 21px text line at 375. Desktop selector-to-heading gap is 24px, including with a 3499px-tall expanded ingredient editor. Empty-state field label has a 1×1px visually hidden box, its summary remains visible and accessible label retained. Print computed table cell 11px, hint 10px. Representative screenshots visually inspected:
+- [Dashboard EN desktop](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-dashboard-en-1440.jpg), [NL mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-dashboard-nl-375.jpg)
+- [Simulator EN desktop](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-simulator-en-1440.jpg), [NL mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-simulator-nl-375.jpg)
+- [Print](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-print.jpg), [layout measurements](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-print-layout.json)
+
+Bounded audit/polish confirmed the requested layout corrections. Actual final Impeccable detect on the same two pages/directories returned 11 advisory font-size findings: the ten previously documented choices plus requested 10px print hints; no other finding kind ([JSON](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-detect.json)). No new component adoption or 21st code. Browser closed; preview stopped (exit 130). Existing out-of-scope EN HelpLink is still pending Part 3 integration; this follow-up does not merge other branches or push.
+
+## Part 3 review follow-up — 2026-10-20
+
+Applied the integration review fixes for link contrast, Dutch store-error wording, quantity decimals, VAT labels, plural counts, Help language notes, and the Ingredients responsive breakpoint. The explicit Impeccable detector command completed with exit 0 and returned `[]`:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect src/ui/pages/IngredientsPage.tsx src/ui/pages/RecipesPage.tsx src/ui/pages/RecipePage.tsx src/ui/pages/DataPage.tsx src/ui/pages/NotFoundPage.tsx src/ui/pages/HelpPage.tsx src/ui/ingredients src/ui/recipe src/ui/data src/ui/help src/ui/forms --json
+```
+
+Manual Impeccable audit/polish pass: all Part 3 links use foreground accent; dialog errors remain visible and NL store messages use stable codes/details; inputs retain the shared 48px controls; page landmarks and Help's visible `role="note"` remain present. Browser measurements show the Ingredients page fits at NL widths 1024, 1280, 1366, and 1440px: it switches to cards below 1280px, table layout at 1280px and above, document width equals viewport, table overflow is zero, and all 48 row action buttons remain inside the viewport. No additional visual correction was identified. HelpLink remains translated by the interface locale.
+
+Review screenshots: [NL Ingredients at 1024px](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-review-nl-ingredients-1024.jpg) and [NL Ingredients at 1440px](/Users/gadzha/.bb/thread-storage/thr_xp55vaipfk/part3-review-nl-ingredients-1440.jpg).
+
+`npm run check` completed with exit 0: typecheck passed; core tests 137/137; UI tests 285/285 (23 files); production build transformed 2085 modules and completed successfully.

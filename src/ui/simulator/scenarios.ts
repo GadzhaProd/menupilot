@@ -5,7 +5,7 @@
  * so a half-typed number never blanks the results.
  */
 import type { Baseline, Scenario } from '@/ui/domain/types';
-import type { Rebased, ScenarioOverrides } from '@/ui/domain/simulator';
+import type { Rebased, RebaseNote, ScenarioOverrides } from '@/ui/domain/simulator';
 import {
   emptyFields, fieldsFromOverrides, parseFields, priceKey, qtyKey, sanitizeOverrides, signature,
   type FieldErrors, type FieldsDraft,
@@ -28,7 +28,7 @@ export interface ScenarioDraft {
   applied: ScenarioOverrides;
   errors: FieldErrors;
   /** Changes dropped by "Update baseline", in words. */
-  notes: string[];
+  notes: RebaseNote[];
   /** Signature of what is saved; null while the scenario was never saved. */
   savedSignature: string | null;
   /** The baseline was refreshed in this draft and the refresh is not saved yet. */
@@ -159,7 +159,7 @@ export function scenariosReducer(drafts: ScenarioDraft[], action: ScenarioAction
           fields,
           errors: parsed.errors,
           applied: keepPrevious(rebased.overrides, parsed.overrides, parsed.errors),
-          notes: rebased.dropped,
+          notes: rebased.notes,
           baselineUpdated: true,
         };
       });

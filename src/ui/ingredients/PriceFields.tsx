@@ -1,10 +1,11 @@
-import { FormField } from '@/components/form-field';
-import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { packUnitPriceDisplay } from '@/ui/domain/calc';
+import { MoneyField, QuantityField } from '@/components/numeric-field';
+import { FormField } from '@/components/form-field';
+import { useLocale, useFormatters } from '@/ui/i18n';
 import type { BaseUnit } from '@/ui/domain/types';
-import { validatePrice, type FieldErrors, type PriceDraft, type PriceField } from '@/ui/forms/ingredientForm';
+import { validatePrice, type FieldErrors, type IngredientValidationCopy, type PriceDraft, type PriceField } from '@/ui/forms/ingredientForm';
 import { ALL_UNITS, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
+import { localizedUnit } from '@/ui/forms/numbers';
 
 interface PriceFieldsProps {
   draft: PriceDraft;
@@ -16,51 +17,53 @@ interface PriceFieldsProps {
 
 /** Pack size, pack price excl. VAT, and the equivalent price per kg, l or pc as you type. */
 export function PriceFields({ draft, onChange, errors, base }: PriceFieldsProps) {
+  const { t, locale } = useLocale();
+  const f = useFormatters();
+  const copy: IngredientValidationCopy = {
+    nameEmpty: t('ingredients.error.name'), nameLong: t('ingredients.error.nameLong'), packSize: t('ingredients.error.packSize'),
+    packPrice: t('ingredients.error.packPrice'), wrongUnit: (unit, units) => t('ingredients.error.unit', { unit: localizedUnit(unit, locale), units: units.map((entry) => localizedUnit(entry, locale)).join(` ${t('common.or')} `) }),
+  };
   const units: readonly EnteredUnit[] = base === null ? ALL_UNITS : unitsFor(base);
-  const parsed = validatePrice(draft, base);
-  const perUnit = parsed.ok ? packUnitPriceDisplay(parsed.value.packPriceCents, parsed.value.packSizeMilli, parsed.value.unit) : null;
+  const parsed = validatePrice(draft, base, copy);
+  const perUnit = parsed.ok ? f.packPrice(parsed.value.packPriceCents, parsed.value.packSizeMilli, parsed.value.unit) : null;
 
   return (
     <>
       <div className="grid grid-cols-[minmax(0,1fr)_6rem] items-start gap-2">
-        <FormField label="Pack size" error={errors.packSize} hint="What you buy in one pack, as on the invoice.">
-          {(control) => (
-            <Input
-              {...control}
-              inputMode="decimal"
-              autoComplete="off"
-              value={draft.packSize}
-              onChange={(event) => onChange({ ...draft, packSize: event.target.value })}
-              placeholder="1"
-            />
-          )}
-        </FormField>
-        <FormField label="Unit">
+        <QuantityField
+          label={t('ingredients.packSize')}
+          unit={localizedUnit(draft.packSizeUnit, locale)}
+          error={errors.packSize}
+          hint={t('ingredients.packHint')}
+          autoComplete="off"
+          value={draft.packSize}
+          onValueChange={(packSize) => onChange({ ...draft, packSize })}
+          placeholder="1"
+        />
+        <FormField label={t('ingredients.unitLabel')}>
           {(control) => (
             <Select
               {...control}
               value={draft.packSizeUnit}
               onChange={(event) => onChange({ ...draft, packSizeUnit: event.target.value as EnteredUnit })}
             >
-              {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              {units.map((unit) => <option key={unit} value={unit}>{localizedUnit(unit, locale)}</option>)}
             </Select>
           )}
         </FormField>
       </div>
-      <FormField label="Pack price (€, excl. VAT)" error={errors.packPrice} hint="Supplier price excl. VAT, as on the invoice">
-        {(control) => (
-          <Input
-            {...control}
-            inputMode="decimal"
-            autoComplete="off"
-            value={draft.packPrice}
-            onChange={(event) => onChange({ ...draft, packPrice: event.target.value })}
-            placeholder="11.20"
-          />
-        )}
-      </FormField>
+      <MoneyField
+        vat="excl"
+        supplier
+        label={t('ingredients.packPriceInput')}
+        error={errors.packPrice}
+        autoComplete="off"
+        value={draft.packPrice}
+        onValueChange={(packPrice) => onChange({ ...draft, packPrice })}
+        placeholder={t('ingredients.priceExample')}
+      />
       <p aria-live="polite" className="text-sm text-muted-foreground">
-        {perUnit === null ? 'Fill in the pack size and price to see the price per kg, l or pc.' : <>That is <strong className="text-foreground">{perUnit}</strong> excl. VAT.</>}
+        {perUnit === null ? t('ingredients.fillPriceToSee') : <>{t('ingredients.perUnitPreview')} <strong className="text-foreground">{perUnit}</strong> {t('common.exclVat')}.</>}
       </p>
     </>
   );

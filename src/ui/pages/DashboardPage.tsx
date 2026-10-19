@@ -1,21 +1,19 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { useDocument } from '@/ui/data/DataProvider';
-import { dashboardData } from '@/ui/domain/dashboard';
+import { dashboardData, largestCostIncrease, type DashboardDishRow } from '@/ui/domain/dashboard';
 import { ComparisonPicker } from '@/ui/dashboard/ComparisonPicker';
 import { DishImpactCards } from '@/ui/dashboard/DishImpactCards';
 import { DishImpactTable } from '@/ui/dashboard/DishImpactTable';
 import { PrepCostList } from '@/ui/dashboard/PrepCostList';
 import { SummaryCards } from '@/ui/dashboard/SummaryCards';
-import { formatCents } from '@/ui/dashboard/format';
+import { useFormatters, useLocale } from '@/ui/i18n';
+import { Surface } from '@/components/ui/surface';
+import { MoneyValue, BeforeAfter } from '@/components/ui/money-value';
+import { useDishFigures } from '@/ui/dashboard/useDishFigures';
+import { EmptyState } from '@/components/ui/empty-state';
 import { HelpLink } from '@/ui/help/HelpLink';
+import type { Translate } from '@/ui/i18n/messages';
 import { hrefFor } from '@/ui/router/routes';
 
 function dateDaysAgo(days: number): string {
@@ -34,8 +32,19 @@ function isSelectableDate(date: string): boolean {
     && date <= new Date().toISOString().slice(0, 10);
 }
 
+function excludedReasons(rows: readonly DashboardDishRow[], t: Translate): string[] {
+  const excluded = rows.filter(row => row.monthlyVolume !== null && row.monthlyImpactCents === null);
+  return [...new Set(excluded.map(row => {
+    if (row.status === 'no-price-on-date') return t('dashboard.noPrice');
+    return t(row.status === 'cost-unknown' ? 'common.costUnknown' : 'common.notApplicable');
+  }))];
+}
+
 export function DashboardPage() {
   const document = useDocument();
+  const { t, plural } = useLocale();
+  const f = useFormatters();
+  const figures = useDishFigures();
   const [comparisonDate, setComparisonDate] = useState(() => dateDaysAgo(30));
   const [quickDays, setQuickDays] = useState('30');
   const comparisonInstant = `${comparisonDate}T23:59:59.999Z`;
@@ -55,88 +64,57 @@ export function DashboardPage() {
     setComparisonDate(date);
   }
 
-  return (
-    <section aria-labelledby="page-title" className="space-y-6">
-      <div className="space-y-1">
-        <h1 id="page-title" className="text-2xl font-semibold">
-          Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Recipe composition is current; only prices differ
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Recipe-based ingredient cost is theoretical, based on your recipes.
-          Prices are excl. VAT unless marked incl. VAT.
-        </p>
-        <HelpLink section="dashboard" />
-      </div>
-
-      <ComparisonPicker
-        comparisonDate={comparisonDate}
-        quickDays={quickDays}
-        onPreset={selectPreset}
-        onDateChange={selectDate}
-      />
-      <SummaryCards data={data} />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Dishes</CardTitle>
-          <CardDescription>
-            Contribution is before other costs. Monthly impact uses your volume
-            estimate and is not a forecast.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {data.dishes.length === 0 ? (
-            <div className="space-y-3 rounded-lg border border-dashed p-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                No dishes yet. Add a dish to see how supplier prices change its cost.
-              </p>
-              <Button asChild size="sm">
-                <a href={hrefFor({ name: 'recipe-new', kind: 'dish' })}>Add your first dish</a>
-              </Button>
-            </div>
-          ) : (
-            <>
-              <DishImpactTable
-                rows={data.dishes}
-                comparisonDate={comparisonDate}
-              />
-              <DishImpactCards rows={data.dishes} />
-            </>
-          )}
-          <div className="mt-4 flex flex-wrap justify-between gap-2 border-t pt-4 text-sm">
-            <span>Menu monthly impact (dishes with a volume estimate)</span>
-            <strong>
-              {formatCents(data.totalMonthlyImpactCents)}
-              {data.excludedWithVolume > 0 && ' (incomplete)'}
-            </strong>
-            <span>{data.excludedWithoutVolume} {data.excludedWithoutVolume === 1 ? 'dish' : 'dishes'} without volume excluded</span>
-            {data.excludedWithVolume > 0 && (
-              <span>
-                {data.excludedWithVolume} {data.excludedWithVolume === 1 ? 'dish' : 'dishes'} excluded: {' '}
-                {data.excludedReasons.join(', ')}
-              </span>
-            )}
+  const largest = largestCostIncrease(data.dishes);
+  const total = data.totalMonthlyImpactCents;
+  const reasons = excludedReasons(data.dishes, t);
+  return <section aria-labelledby="page-title" className="space-y-8">
+    <div className="space-y-2">
+      <h1 id="page-title" className="text-[31px] leading-tight font-semibold sm:text-4xl">{t('dashboard.title')}</h1>
+      <p className="text-muted-foreground">{t('dashboard.intro')}</p>
+      <HelpLink section="dashboard" />
+    </div>
+    <div className="grid border-y border-line bg-surface lg:grid-cols-[0.6fr_1fr]">
+      <section aria-labelledby="impact-title" className="space-y-3 p-5 sm:p-8">
+        <h2 id="impact-title" className="text-xl font-semibold">{t('dashboard.monthly')}</h2>
+        <MoneyValue value={total === null ? '—' : `${total > 0n ? '+' : ''}${f.money(total)}`} tone={total === null || total === 0n ? 'neutral' : total < 0n ? 'negative' : 'positive'} className="block text-[46px] leading-tight sm:text-[60px]" />
+        {data.excludedWithVolume > 0 && <p className="text-sm">{t('dashboard.incomplete')}</p>}
+        <p className="max-w-lg text-sm text-muted-foreground">{t('dashboard.monthlyHint')}</p>
+        <p className="text-xs text-muted-foreground">{f.date(comparisonDate)} → {t('dashboard.now')} · {t('common.exclVat')}</p>
+      </section>
+      <section aria-labelledby="largest-title" className="space-y-4 border-t border-line p-5 sm:p-8 lg:border-t-0 lg:border-l">
+        <h2 id="largest-title" className="text-sm text-muted-foreground">{t('dashboard.largest')}</h2>
+        {largest ? <>
+          <div className="flex flex-wrap items-start justify-between gap-3"><h3 className="text-xl font-semibold">{largest.dish.name}</h3><span className="text-sm text-negative">{figures(largest.dish).change} {t('common.exclVat')}</span></div>
+          <div className="[&_.text-3xl]:text-[42px] sm:[&_.text-3xl]:text-[48px]"><BeforeAfter before={f.microMoney(largest.dish.comparisonCostMicro!)} after={f.microMoney(largest.dish.currentCostMicro!)} tone="negative" beforeLabel={f.date(comparisonDate)} /></div>
+          <p className="text-xs text-muted-foreground">{t('dashboard.perPortion')}</p>
+          {largest.tied && <p className="text-sm">{t('dashboard.tied')}</p>}
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><p className="font-semibold text-negative">{figures(largest.dish).monthly} <span className="text-sm font-normal">{t('dashboard.monthly')}</span></p><p className="text-xs text-muted-foreground">{largest.dish.monthlyVolume === null ? t('simulator.noEstimate') : plural('simulator.sold', largest.dish.monthlyVolume, { count: f.integer(largest.dish.monthlyVolume) })}</p></div>
+            <Button asChild><a href={hrefFor({ name: 'simulator', id: largest.dish.id })}>{t('dashboard.try')}</a></Button>
           </div>
-        </CardContent>
-      </Card>
-
-      <PrepCostList rows={data.preps} />
-
-      <p className="text-xs text-muted-foreground">
-        Food cost is an operational reference. NL horeca average ≈ 30% (Sligro,
-        2025); this is not a target or rule.{' '}
-        <a
-          className="underline"
-          href="https://www.sligro.nl/inspiratie/rendement-kosten/kengetallen.html"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Sligro reference
-        </a>
-      </p>
-    </section>
-  );
+        </> : <p>{t('dashboard.noIncrease')}</p>}
+      </section>
+    </div>
+    <ComparisonPicker comparisonDate={comparisonDate} quickDays={quickDays} onPreset={selectPreset} onDateChange={selectDate} />
+    <Surface aria-labelledby="dishes-title" className="max-sm:px-4">
+      <h2 id="dishes-title" className="text-xl font-semibold">{t('dashboard.dishes')}</h2>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">{t('dashboard.perPortion')}</p>
+      {data.dishes.length === 0 ? <EmptyState title={t('dashboard.dishes')} description={t('dashboard.empty')} action={<Button asChild><a href={hrefFor({ name: 'recipe-new', kind: 'dish' })}>{t('dashboard.add')}</a></Button>} /> : <>
+        <DishImpactTable rows={data.dishes} comparisonDate={comparisonDate} largestId={largest?.dish.id} />
+        <DishImpactCards rows={data.dishes} />
+      </>}
+      <div className="mt-4 flex flex-wrap justify-between gap-3 border-t-2 border-line pt-5">
+        <span>{t('dashboard.total')}</span><strong className="tabular-nums">{total === null ? '—' : f.money(total)}</strong>
+        <div className="basis-full space-y-1 text-sm text-muted-foreground">
+          <p>{plural('dashboard.withoutVolume', data.excludedWithoutVolume, { count: f.integer(data.excludedWithoutVolume) })}</p>
+          {data.excludedWithVolume > 0 && <p>{plural('dashboard.excluded', data.excludedWithVolume, { count: f.integer(data.excludedWithVolume), reasons: reasons.join(', ') })}</p>}
+          <p>{t('dashboard.dishesHint')}</p>
+        </div>
+      </div>
+    </Surface>
+    <PrepCostList rows={data.preps} />
+    <SummaryCards data={data} />
+    <p className="text-xs text-muted-foreground">{t('dashboard.costHint')}</p>
+    <p className="text-xs text-muted-foreground">{t('dashboard.reference')} <a className="underline" href="https://www.sligro.nl/inspiratie/rendement-kosten/kengetallen.html" target="_blank" rel="noreferrer">{t('dashboard.source')}</a></p>
+  </section>;
 }

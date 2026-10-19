@@ -1,92 +1,36 @@
-import { formatEURFromCents } from '@/ui/domain/calc';
 import type { DashboardDishRow } from '@/ui/domain/dashboard';
 import { hrefFor } from '@/ui/router/routes';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  comparisonStatus,
-  formatCostChange,
-  formatCurrentContribution,
-  formatCurrentCost,
-  formatHistoricalCost,
-  formatMoney,
-  formatMonthlyImpact,
-  formatPoints,
-} from './format';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useFormatters, useLocale } from '@/ui/i18n';
+import { contributionTone, costTone, useDishFigures } from './useDishFigures';
 
-interface DishImpactTableProps {
-  rows: readonly DashboardDishRow[];
-  comparisonDate: string;
-}
-
-const HEAD = 'h-auto whitespace-normal py-2 align-bottom';
-
-function dateLabel(date: string): string {
-  const [year, month, day] = date.split('-');
-  return `${year}-${month}-${day} UTC`;
-}
-
-function DishRow({ row }: { row: DashboardDishRow }) {
-  const status = comparisonStatus(row);
-  const gotMoreExpensive = row.costDeltaCents !== null
-    && row.costDeltaCents > 0n;
-
-  return (
-    <TableRow>
-      <TableCell className="font-medium whitespace-normal">
-        <a className="underline-offset-4 hover:underline focus-visible:underline" href={hrefFor({ name: 'recipe', id: row.id })}>{row.name}</a>
-        {gotMoreExpensive && (
-          <span className="ml-2 whitespace-nowrap text-amber-800">↑ Cost increased</span>
-        )}
-      </TableCell>
-      <TableCell>{formatEURFromCents(row.menuPriceInclVatCents)}</TableCell>
-      <TableCell>{formatMoney(row.priceExclVatMicro)}</TableCell>
-      <TableCell>{formatHistoricalCost(row)}</TableCell>
-      <TableCell>{formatCurrentCost(row)}</TableCell>
-      <TableCell>{formatCostChange(row)}</TableCell>
-      <TableCell>{status ?? formatPoints(row.foodCostDeltaTenthsPct)}</TableCell>
-      <TableCell>{formatCurrentContribution(row)}</TableCell>
-      <TableCell>{formatMonthlyImpact(row)}</TableCell>
-      <TableCell>
-        <a className="underline-offset-4 hover:underline focus-visible:underline" href={hrefFor({ name: 'simulator', id: row.id })}>Simulate</a>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-export function DishImpactTable({ rows, comparisonDate }: DishImpactTableProps) {
-  return (
-    <div className="hidden md:block">
-      <Table aria-label="Dish cost comparison">
-        <TableHeader className="border-b">
-          <TableRow>
-            <TableHead className={HEAD}>Dish</TableHead>
-            <TableHead className={HEAD}>Menu price (incl. VAT)</TableHead>
-            <TableHead className={HEAD}>Price (excl. VAT)</TableHead>
-            <TableHead className={HEAD}>
-              Recipe-based ingredient cost at {dateLabel(comparisonDate)}
-              {' '}(excl. VAT)
-            </TableHead>
-            <TableHead className={HEAD}>
-              Recipe-based ingredient cost now (excl. VAT)
-            </TableHead>
-            <TableHead className={HEAD}>Change (€)</TableHead>
-            <TableHead className={HEAD}>Food cost change (pts)</TableHead>
-            <TableHead className={HEAD}>Contribution now (before other costs)</TableHead>
-            <TableHead className={HEAD}>Monthly impact at your volume</TableHead>
-            <TableHead className={HEAD}>Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => <DishRow key={row.id} row={row} />)}
-        </TableBody>
-      </Table>
-    </div>
-  );
+export function DishImpactTable({ rows, comparisonDate, largestId }: { rows: readonly DashboardDishRow[]; comparisonDate: string; largestId?: string }) {
+  const { t } = useLocale();
+  const f = useFormatters();
+  const figures = useDishFigures();
+  return <div className="hidden md:block print:block">
+    <Table aria-label={t('dashboard.table')} className="dashboard-table">
+      <TableHeader><TableRow>
+        {[t('dashboard.dish'), f.date(comparisonDate), t('dashboard.now'), t('dashboard.change'), t('dashboard.contribution'), t('dashboard.monthly')].map((label, i) =>
+          <TableHead key={label} className={`h-auto whitespace-normal py-4 align-bottom ${i ? 'text-right' : 'w-[27%]'}`}>{label}</TableHead>)}
+      </TableRow></TableHeader>
+      <TableBody>{rows.map((row) => {
+        const v = figures(row);
+        return <TableRow key={row.id} className={row.id === largestId ? 'break-inside-avoid bg-panel' : 'break-inside-avoid'}>
+          <TableCell className="whitespace-normal align-top">
+            <a className="font-semibold underline-offset-4 hover:underline" href={hrefFor({ name: 'recipe', id: row.id })}>{row.name}</a>
+            <span className="mt-1 block text-xs text-muted-foreground">{v.menu} {t('common.inclVat')} · {v.net} {t('common.exclVat')}</span>
+            <a className="mt-2 inline-flex min-h-12 items-center text-sm underline underline-offset-4 no-print" href={hrefFor({ name: 'simulator', id: row.id })}>{t('dashboard.simulate')}</a>
+          </TableCell>
+          <TableCell className="text-right align-top whitespace-normal">{v.before}</TableCell>
+          <TableCell className="text-right align-top whitespace-normal font-semibold">{v.now}</TableCell>
+          <TableCell className={`text-right align-top whitespace-normal ${costTone(row.costDeltaCents)}`}>
+            <span>{v.change}</span><span className="mt-1 block text-xs">{v.points}</span>
+          </TableCell>
+          <TableCell className="text-right align-top whitespace-normal">{v.contribution}</TableCell>
+          <TableCell className={`text-right align-top whitespace-normal font-semibold ${contributionTone(row.monthlyImpactCents)}`}>{v.monthly}{row.monthlyVolume === null && <span className="mt-1 block text-xs font-normal text-muted-foreground">{t('dashboard.volumeMissing')}</span>}</TableCell>
+        </TableRow>;
+      })}</TableBody>
+    </Table>
+  </div>;
 }

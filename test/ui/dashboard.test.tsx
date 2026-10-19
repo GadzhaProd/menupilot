@@ -27,27 +27,27 @@ describe('Dashboard date comparison', () => {
     renderApp();
 
     await user.click(screen.getByRole('button', { name: '7 days' }));
-    expect(dishCells('Classic Burger').slice(3, 6)).toEqual([
-      '€4.85', '€4.85', '€0.00',
+    expect(dishCells('Classic Burger').slice(1, 4)).toEqual([
+      '€4.85', '€4.85', '€0.000.0 pp',
     ]);
-    expect(dishCells('Classic Burger')[8]).toBe('€0.00');
+    expect(dishCells('Classic Burger')[5]).toBe('€0.00');
 
     await user.click(screen.getByRole('button', { name: '30 days' }));
-    expect(dishCells('Classic Burger').slice(3, 5)).toEqual(['€4.20', '€4.85']);
-    expect(dishCells('Classic Burger')[8]).toBe('-€195.00');
+    expect(dishCells('Classic Burger').slice(1, 3)).toEqual(['€4.20', '€4.85']);
+    expect(dishCells('Classic Burger')[5]).toBe('-€195.00');
 
     await user.click(screen.getByRole('button', { name: '90 days' }));
     expect(screen.getByRole('button', { name: '90 days' }).getAttribute('aria-pressed'))
       .toBe('true');
-    expect(dishCells('Classic Burger').slice(3, 6)).toEqual([
-      'no price on this date', '€4.85', 'no price on this date',
+    expect(dishCells('Classic Burger').slice(1, 4)).toEqual([
+      'no price on this date', '€4.85', 'no price on this dateno price on this date',
     ]);
     expect(screen.getByText(/4 dishes excluded/)).toBeTruthy();
     expect(screen.getByText(/incomplete/)).toBeTruthy();
 
-    const datePicker = screen.getByLabelText('Comparison date');
+    const datePicker = screen.getByLabelText('Choose date');
     fireEvent.change(datePicker, { target: { value: '2026-10-11' } });
-    expect(dishCells('Classic Burger').slice(3, 5)).toEqual(['€4.85', '€4.85']);
+    expect(dishCells('Classic Burger').slice(1, 3)).toEqual(['€4.85', '€4.85']);
   });
 
   it('shows recipe and simulator links for a dish', () => {
@@ -80,12 +80,12 @@ describe('Dashboard date comparison', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(NOW));
     renderApp();
-    const datePicker = screen.getByLabelText('Comparison date');
+    const datePicker = screen.getByLabelText('Choose date');
     expect(datePicker.getAttribute('max')).toBe('2026-10-18');
     fireEvent.change(datePicker, { target: { value: '2026-10-19' } });
-    expect(dishCells('Classic Burger').slice(3, 5)).toEqual(['€4.20', '€4.85']);
+    expect(dishCells('Classic Burger').slice(1, 3)).toEqual(['€4.20', '€4.85']);
     fireEvent.change(datePicker, { target: { value: '275760-09-13' } });
-    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
-    expect(dishCells('Classic Burger').slice(3, 5)).toEqual(['€4.20', '€4.85']);
+    expect(screen.getByRole('heading', { name: 'What has changed on your menu?' })).toBeTruthy();
+    expect(dishCells('Classic Burger').slice(1, 3)).toEqual(['€4.20', '€4.85']);
   });
 });

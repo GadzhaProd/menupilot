@@ -1,3 +1,5 @@
+import { MoneyField, QuantityField } from '@/components/numeric-field';
+import { useLocale, useFormatters } from '@/ui/i18n';
 import { useRef, useState, type ReactNode } from 'react';
 import { ChevronDownIcon, RefreshCwIcon, SaveIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { FormField } from '@/components/form-field';
@@ -6,17 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { packUnitPriceDisplay } from '@/ui/domain/calc';
 import {
   dishLines, ingredientInfos, type IngredientInfo, type LineInfo, type Run, type ScenarioDelta,
 } from '@/ui/domain/simulator';
 import type { SimulateResult } from '@/ui/domain/types';
-import { formatDate } from '@/ui/ingredients/format';
-import { formatQuantity, parseMoneyField, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
+import { centsToInput, formatQuantity, parseMoneyField, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
-import { Delta, euro, signedEuro } from './format';
+import { Delta } from './format';
 import {
-  countChanges, NAME_MAX_LENGTH, priceKey, qtyKey, validateName, type FieldsDraft,
+  countChanges, NAME_MAX_LENGTH, priceKey, qtyKey, validateName, type FieldsDraft, type FormErrorKey,
 } from './scenarioForm';
 import { slotLetter, type ScenarioDraft } from './scenarios';
 
@@ -47,6 +47,7 @@ interface ScenarioCardProps {
 function Disclosure({ title, changed, hasError, defaultOpen, children }: {
   title: string; changed: number; hasError: boolean; defaultOpen: boolean; children: ReactNode;
 }) {
+  const { t } = useLocale(); const f = useFormatters();
   const [open, setOpen] = useState(defaultOpen);
   return (
     <details
@@ -54,10 +55,10 @@ function Disclosure({ title, changed, hasError, defaultOpen, children }: {
       onToggle={(event) => setOpen(event.currentTarget.open)}
       className="group rounded-lg border bg-background"
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 min-h-12 rounded-lg px-3 py-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
         <span>{title}</span>
         <span className="flex items-center gap-2">
-          {changed > 0 ? <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs text-primary">{changed} changed</span> : null}
+          {changed > 0 ? <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs text-primary">{t('simulator.changed', { count: f.integer(changed) })}</span> : null}
           <ChevronDownIcon aria-hidden="true" className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
         </span>
       </summary>
@@ -67,45 +68,36 @@ function Disclosure({ title, changed, hasError, defaultOpen, children }: {
 }
 
 function IngredientPriceRow({ info, text, error, onChange }: {
-  info: IngredientInfo; text: string; error: string | undefined; onChange: (text: string) => void;
+  info: IngredientInfo; text: string; error: FormErrorKey | undefined; onChange: (text: string) => void;
 }) {
+  const { t } = useLocale(); const f = useFormatters();
+  const euro = (v: number | bigint) => f.money(v);
   const { price, earlier } = info;
   const typed = text.trim() === '' || price === null ? null : parseMoneyField(text, '');
   return (
     <li>
-      <div role="group" aria-label={`Price of ${info.name}`} className="space-y-1.5 rounded-md border p-2.5">
+      <div role="group" aria-label={t('simulator.priceOf', { name: info.name })} className="space-y-1.5 rounded-md border p-2.5">
         <div>
           <p className="text-sm font-medium">{info.name}</p>
-          <p className="text-xs text-muted-foreground">Used in: {info.usedIn.join(', ')}</p>
+          <p className="text-xs text-muted-foreground">{t('simulator.usedIn', { names: info.usedIn.join(', ') })}</p>
         </div>
         {price === null ? (
-          <p className="text-xs text-muted-foreground">No price yet, so it cannot be changed here. Add one on the Ingredients screen.</p>
+          <p className="text-xs text-muted-foreground">{t('simulator.noIngredientPrice')}</p>
         ) : (
           <>
             <p className="text-xs text-muted-foreground">
-              Now: {euro(price.packPriceCents)} per {formatQuantity(price.packSizeMilli, info.unit)} pack
-              {' '}(<strong className="font-medium text-foreground">{packUnitPriceDisplay(price.packPriceCents, price.packSizeMilli, info.unit)}</strong>)
-              {earlier ? <> · Before: {packUnitPriceDisplay(earlier.packPriceCents, earlier.packSizeMilli, info.unit)} ({formatDate(earlier.recordedAt)})</> : null}
+              {t('simulator.nowPack', { price: euro(price.packPriceCents), size: formatQuantity(price.packSizeMilli, info.unit) })}
+              {' '}(<strong className="font-medium text-foreground">{f.packPrice(price.packPriceCents, price.packSizeMilli, info.unit)}</strong>)
+              {earlier ? <> · {t('simulator.earlier', { price: f.packPrice(earlier.packPriceCents, earlier.packSizeMilli, info.unit), date: f.date(earlier.recordedAt) })}</> : null} {t('common.exclVat')}
             </p>
-            <FormField
-              label={<span>New pack price (€, excl. VAT)<span className="sr-only"> of {info.name}</span></span>}
-              hint="Supplier price excl. VAT, as on the invoice"
-              error={error}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={text}
-                  placeholder={euro(price.packPriceCents).slice(1)}
-                  onChange={(event) => onChange(event.target.value)}
-                />
-              )}
-            </FormField>
+            <MoneyField vat="excl" supplier
+              label={t('simulator.packInput', { name: info.name })}
+              error={error ? t(error) : undefined} autoComplete="off"
+              value={text} placeholder={centsToInput(price.packPriceCents)} onValueChange={onChange}
+            />
             {typed?.ok ? (
               <p aria-live="polite" className="text-xs">
-                That is <strong>{packUnitPriceDisplay(typed.value, price.packSizeMilli, info.unit)}</strong> excl. VAT.
+                {t('simulator.unitPrice', { price: f.packPrice(typed.value, price.packSizeMilli, info.unit) })}
               </p>
             ) : null}
           </>
@@ -116,14 +108,15 @@ function IngredientPriceRow({ info, text, error, onChange }: {
 }
 
 function LineRow({ line, draft, error, onChange }: {
-  line: LineInfo; draft: { text: string; unit: EnteredUnit } | undefined; error: string | undefined;
+  line: LineInfo; draft: { text: string; unit: EnteredUnit } | undefined; error: FormErrorKey | undefined;
   onChange: (next: { text: string; unit: EnteredUnit }) => void;
 }) {
+  const { t } = useLocale();
   if (line.refKind === 'prep') {
     return (
       <li className="rounded-md border border-dashed p-2.5 text-xs text-muted-foreground">
-        <span className="text-sm font-medium text-foreground">{line.name}</span> (prep) · {formatQuantity(line.netQtyMilli, line.unit)}
-        <br />Not editable here: a prep’s own quantities are changed in the recipe. Change the prices of the ingredients inside it above.
+        <span className="text-sm font-medium text-foreground">{line.name}</span> ({t('simulator.prep')}) · {formatQuantity(line.netQtyMilli, line.unit)}
+        <br />{t('simulator.prepQuantity')}
       </li>
     );
   }
@@ -131,23 +124,15 @@ function LineRow({ line, draft, error, onChange }: {
   const value = draft ?? { text: '', unit: units[0] ?? 'g' };
   return (
     <li>
-      <div role="group" aria-label={`Quantity of ${line.name}`} className="space-y-1.5 rounded-md border p-2.5">
+      <div role="group" aria-label={t('simulator.quantityOf', { name: line.name })} className="space-y-1.5 rounded-md border p-2.5">
         <p className="text-sm font-medium">{line.name}</p>
-        <p className="text-xs text-muted-foreground">In Baseline: {formatQuantity(line.netQtyMilli, line.unit)} net per portion batch</p>
+        <p className="text-xs text-muted-foreground">{t('simulator.inBaseline', { quantity: formatQuantity(line.netQtyMilli, line.unit) })}</p>
         <div className="grid grid-cols-[minmax(0,1fr)_5rem] items-start gap-2">
-          <FormField label={<span>New net quantity<span className="sr-only"> of {line.name}</span></span>} error={error}>
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="decimal"
-                autoComplete="off"
-                value={value.text}
-                placeholder="unchanged"
-                onChange={(event) => onChange({ ...value, text: event.target.value })}
-              />
-            )}
-          </FormField>
-          <FormField label={<span>Unit<span className="sr-only"> of {line.name}</span></span>}>
+          <QuantityField label={t('simulator.newQuantity', { name: line.name })} unit={value.unit}
+            error={error ? t(error) : undefined} autoComplete="off" value={value.text}
+            placeholder={t('simulator.unchanged')} onValueChange={text => onChange({ ...value, text })}
+          />
+          <FormField label={t('simulator.unit', { name: line.name })}>
             {(control) => (
               <Select
                 {...control}
@@ -170,6 +155,9 @@ export function ScenarioCard({
   draft, index, run, delta, ownBaseline, sharedVolume, stale, dirty, problem, attempt,
   onRename, onFields, onSave, onDelete, onUpdateBaseline, onDismissNotes,
 }: ScenarioCardProps) {
+  const { t, plural } = useLocale(); const f = useFormatters();
+  const euro = (v: number | bigint | null) => v === null ? '—' : f.money(v);
+  const signedEuro = (v: bigint) => `${v > 0n ? '+' : ''}${f.money(v)}`;
   const root = useRef<HTMLElement>(null);
   useFocusFirstInvalid(root, attempt);
   const { fields, errors } = draft;
@@ -183,12 +171,11 @@ export function ScenarioCard({
   const hasErrors = Object.keys(errors).length > 0 || nameError !== null;
 
   return (
-    <section ref={root} aria-label={`Scenario ${letter}`} data-scenario={draft.key}>
+    <section ref={root} aria-label={t('simulator.scenario', { letter })} data-scenario={draft.key}>
       <Card className="gap-4">
         <CardHeader className="gap-3">
           <div className="flex items-start gap-3">
-            <span aria-hidden="true" className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{letter}</span>
-            <FormField label={<span className="sr-only">Scenario name</span>} error={nameError ?? undefined} className="flex-1">
+            <FormField label={t('simulator.name')} error={nameError ? t(nameError) : undefined} className="flex-1">
               {(control) => (
                 <Input
                   {...control}
@@ -201,27 +188,7 @@ export function ScenarioCard({
               )}
             </FormField>
           </div>
-          {run.ok ? (
-            <dl className="grid grid-cols-2 gap-2 rounded-lg bg-secondary/50 p-3" aria-label={`Result of scenario ${letter}`}>
-              <div>
-                <dt className="text-xs text-muted-foreground">Contribution per portion</dt>
-                <dd className="text-lg font-semibold tabular-nums">{euro(run.result.contributionCents)}</dd>
-                <dd>{delta && !stale ? <Delta value={delta.contributionDeltaCents} format={signedEuro} better="higher" /> : null}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Monthly contribution (your estimate)</dt>
-                <dd className="text-lg font-semibold tabular-nums">{euro(run.result.monthlyContributionCents)}</dd>
-                <dd>{delta && !stale ? <Delta value={delta.monthlyContributionDeltaCents} format={signedEuro} better="higher" /> : null}</dd>
-              </div>
-              <div className="col-span-2"><dd className="text-xs text-muted-foreground">
-                {run.result.monthlyVolume === null
-                  ? 'No sales estimate, so no monthly figure.'
-                  : `Calculated with ${run.result.monthlyVolume} sales per month${draft.applied.monthlyVolume === undefined ? ' (shared estimate)' : ' (saved with this scenario)'}.`}
-              </dd></div>
-            </dl>
-          ) : (
-            <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">This scenario cannot be calculated: {run.error}</p>
-          )}
+
         </CardHeader>
 
         <CardContent className="space-y-3">
@@ -229,47 +196,37 @@ export function ScenarioCard({
             <Alert variant="warning">
               <TriangleAlertIcon aria-hidden="true" />
               <AlertDescription>
-                <p className="font-medium">Baseline changed since this scenario was {draft.id === null ? 'made' : 'saved'}</p>
-                <p>A price or recipe is different now, so these numbers use older data. Update the baseline to calculate on today’s data; your changes are kept where they still apply. Nothing is saved until you press Save.</p>
+                <p className="font-medium">{t(draft.id === null ? 'simulator.staleMade' : 'simulator.staleSaved')}</p>
+                <p>{t('simulator.staleDescription')}</p>
               </AlertDescription>
               <AlertAction>
-                <Button size="sm" onClick={onUpdateBaseline}><RefreshCwIcon aria-hidden="true" /> Update baseline</Button>
+                <Button size="sm" onClick={onUpdateBaseline}><RefreshCwIcon aria-hidden="true" /> {t('simulator.update')}</Button>
               </AlertAction>
             </Alert>
           ) : null}
           {draft.notes.length > 0 ? (
             <Alert>
               <AlertDescription>
-                <p className="font-medium">Baseline updated. Some changes no longer apply and were removed (save to keep this):</p>
+                <p className="font-medium">{t('simulator.updated')}</p>
                 <ul className="list-disc pl-5">
-                  {draft.notes.map((note) => <li key={note}>{note}</li>)}
+                  {draft.notes.map((note, i) => <li key={i}>{t(note.key, note.params)}</li>)}
                 </ul>
               </AlertDescription>
-              <AlertAction><Button size="sm" variant="outline" onClick={onDismissNotes}>OK</Button></AlertAction>
+              <AlertAction><Button size="sm" variant="outline" onClick={onDismissNotes}>{t('simulator.ok')}</Button></AlertAction>
             </Alert>
           ) : null}
 
-          <FormField
-            label="Menu price (incl. VAT, €)"
-            hint={ownBaseline ? `In this scenario's baseline: ${euro(ownBaseline.menuPriceInclVatCents)} incl. VAT. Leave empty to keep it.` : undefined}
-            error={errors.menuPrice}
-          >
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="decimal"
-                autoComplete="off"
-                value={fields.menuPrice}
-                placeholder={ownBaseline ? euro(ownBaseline.menuPriceInclVatCents).slice(1) : undefined}
-                onChange={(event) => onFields({ ...fields, menuPrice: event.target.value })}
-              />
-            )}
-          </FormField>
+          <MoneyField vat="incl" label={t('simulator.menuInput')}
+            hint={ownBaseline ? t('simulator.menuHint', { price: euro(ownBaseline.menuPriceInclVatCents) }) : undefined}
+            error={errors.menuPrice ? t(errors.menuPrice) : undefined} autoComplete="off"
+            value={fields.menuPrice} placeholder={ownBaseline ? centsToInput(ownBaseline.menuPriceInclVatCents) : undefined}
+            onValueChange={menuPrice => onFields({ ...fields, menuPrice })}
+          />
 
           <FormField
-            label="Own sales per month (optional)"
-            hint={sharedVolume === undefined ? 'Empty: no monthly figure.' : `Empty: uses the shared estimate (${sharedVolume}).`}
-            error={errors.volume}
+            label={t('simulator.ownVolume')}
+            hint={sharedVolume === undefined ? t('simulator.emptyVolume') : t('simulator.usesShared', { count: f.integer(sharedVolume) })}
+            error={errors.volume ? t(errors.volume) : undefined}
           >
             {(control) => (
               <Input
@@ -282,9 +239,31 @@ export function ScenarioCard({
             )}
           </FormField>
 
-          <Disclosure title="Ingredient prices" changed={changes.ingredients} hasError={hasPriceError} defaultOpen={changes.ingredients > 0}>
+          {run.ok ? (
+            <dl className="grid gap-3 border-y border-line py-4" aria-label={t('simulator.result', { letter })}>
+              <div>
+                <dt className="text-xs text-muted-foreground">{t('simulator.contribution')} · {t('simulator.otherCosts')}</dt>
+                <dd className="text-2xl font-semibold tabular-nums">{euro(run.result.contributionCents)}</dd>
+                <dd>{delta && !stale ? <Delta value={delta.contributionDeltaCents} format={signedEuro} better="higher" /> : null}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">{t('simulator.monthlyOwn')}</dt>
+                <dd className="text-2xl font-semibold tabular-nums">{euro(run.result.monthlyContributionCents)}</dd>
+                <dd>{delta && !stale ? <Delta value={delta.monthlyContributionDeltaCents} format={signedEuro} better="higher" /> : null}</dd>
+              </div>
+              <div className="min-w-0"><dd className="text-xs text-muted-foreground">
+                {run.result.monthlyVolume === null
+                  ? t('simulator.noEstimate')
+                  : plural(draft.applied.monthlyVolume === undefined ? 'simulator.calculatedShared' : 'simulator.calculatedOwn', run.result.monthlyVolume, { count: f.integer(run.result.monthlyVolume) })}
+              </dd></div>
+            </dl>
+          ) : (
+            <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{t('simulator.failedScenario')}</p>
+          )}
+
+          <Disclosure title={t('simulator.ingredients')} changed={changes.ingredients} hasError={hasPriceError} defaultOpen={changes.ingredients > 0}>
             <p className="text-xs text-muted-foreground">
-              A new pack price counts everywhere the ingredient is used, also inside preps. The real price on the Ingredients screen is never changed.
+              {t('simulator.priceHint')}
             </p>
             <ul className="space-y-2">
               {infos.map((info) => (
@@ -299,9 +278,9 @@ export function ScenarioCard({
             </ul>
           </Disclosure>
 
-          <Disclosure title="Quantities in the dish" changed={changes.quantities} hasError={hasQtyError} defaultOpen={changes.quantities > 0}>
+          <Disclosure title={t('simulator.quantities')} changed={changes.quantities} hasError={hasQtyError} defaultOpen={changes.quantities > 0}>
             <p className="text-xs text-muted-foreground">
-              Only the dish’s own lines can be changed. Changing a quantity may affect quality, food safety or allergen information: check before changing a recipe.
+              {t('simulator.quantityHint')}
             </p>
             <ul className="space-y-2">
               {lines.map((line) => (
@@ -319,14 +298,14 @@ export function ScenarioCard({
 
         <CardFooter className="flex flex-wrap items-center gap-2">
           <Button onClick={onSave} disabled={!dirty && draft.id !== null}>
-            <SaveIcon aria-hidden="true" /> {draft.id === null ? 'Save scenario' : 'Save changes'}
+            <SaveIcon aria-hidden="true" /> {t(draft.id === null ? 'simulator.save' : 'simulator.saveChanges')}
           </Button>
           <Button variant="ghost" onClick={onDelete}>
-            <Trash2Icon aria-hidden="true" /> {draft.id === null ? 'Remove' : 'Delete'}
+            <Trash2Icon aria-hidden="true" /> {t(draft.id === null ? 'simulator.remove' : 'simulator.delete')}
           </Button>
           <p aria-live="polite" className="basis-full text-xs text-muted-foreground sm:basis-auto">
-            {draft.id === null ? 'Not saved yet.' : dirty ? 'Unsaved changes.' : 'Saved.'}
-            {hasErrors ? ' Fix the marked fields to save; results show your last valid values.' : ''}
+            {t(draft.id === null ? 'simulator.notSaved' : dirty ? 'simulator.unsaved' : 'simulator.saved')}
+            {hasErrors && <> {t('simulator.fixFields')}</>}
           </p>
           {problem !== null ? (
             <p role="alert" className="basis-full rounded-md border border-destructive/40 bg-destructive/5 p-2 text-sm text-destructive">{problem}</p>

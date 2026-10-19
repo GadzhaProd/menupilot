@@ -13,8 +13,10 @@ export {
   metrics,
   netPriceMicro,
   packUnitPriceDisplay,
+  packUnitPriceCents,
   prepLineCostMicro,
   prepUnitCostDisplay,
+  prepUnitCostCents,
   recipeCost,
   selectPriceAtDate,
 } from '@/calc/costing.js';
@@ -74,3 +76,5 @@ export function dishRows(data: Pick<MenuDocument, 'ingredients' | 'recipes'>, as
     .filter((recipe): recipe is Dish => recipe.kind === 'dish')
     .map((dish) => dishRow(dish, data, asOf));
 }
+
+export { normalizeLocale, formatEURFromCentsLocale, formatEURFromMicroLocale, formatPercentTenthsLocale, formatPointsLocale, formatDateLocale } from '@/calc/money.js';

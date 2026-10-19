@@ -1,60 +1,17 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Surface } from '@/components/ui/surface';
 import type { DashboardPrepRow } from '@/ui/domain/dashboard';
 import { hrefFor } from '@/ui/router/routes';
-
-interface PrepCostListProps {
-  rows: readonly DashboardPrepRow[];
-}
-
-function comparisonCost(row: DashboardPrepRow): string {
-  if (row.costUnknown) return 'cost unknown';
-  if (row.noPriceOnDate) return 'no price on this date';
-  return row.comparison ?? 'cost unknown';
-}
-
-export function PrepCostList({ rows }: PrepCostListProps) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Preps</CardTitle>
-        <CardDescription>
-          Recipe-based ingredient cost per kg, l or pc.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {rows.length === 0 ? (
-          <p>No preps yet.</p>
-        ) : (
-          <div className="divide-y">
-            {rows.map((row) => (
-              <div
-                key={row.id}
-                className="grid gap-2 py-3 sm:grid-cols-3"
-              >
-                <a
-                  href={hrefFor({ name: 'recipe', id: row.id })}
-                  className="font-medium underline-offset-4 hover:underline"
-                >
-                  {row.name}
-                </a>
-                <span>
-                  Current cost (excl. VAT): {row.current ?? 'cost unknown'}
-                </span>
-                <span>
-                  Cost on comparison date (excl. VAT):{' '}
-                  {comparisonCost(row)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+import { useFormatters, useLocale } from '@/ui/i18n';
+export function PrepCostList({ rows }: { rows: readonly DashboardPrepRow[] }) {
+  const { t } = useLocale(); const f = useFormatters();
+  return <Surface aria-labelledby="preps-title">
+    <h2 id="preps-title" className="text-xl font-semibold">{t('dashboard.preps')}</h2>
+    <p className="mb-4 text-sm text-muted-foreground">{t('dashboard.prepHint')}</p>
+    {rows.length === 0 ? <p>{t('dashboard.noPreps')}</p> : <div className="divide-y divide-line">{rows.map((row) =>
+      <div key={row.id} className="grid gap-3 py-4 sm:grid-cols-3">
+        <a href={hrefFor({ name: 'recipe', id: row.id })} className="font-semibold underline-offset-4 hover:underline">{row.name}</a>
+        <div><span className="text-xs text-muted-foreground">{t('common.before')}</span><p className="tabular-nums">{row.noPriceOnDate ? t('dashboard.noPrice') : f.prepCost(row.comparisonBatchMicro, row.outputMilli, row.outputUnit) ?? t('common.costUnknown')}</p></div>
+        <div><span className="text-xs text-muted-foreground">{t('common.after')}</span><p className="font-semibold tabular-nums">{f.prepCost(row.currentBatchMicro, row.outputMilli, row.outputUnit) ?? t('common.costUnknown')}</p></div>
+      </div>)}</div>}
+  </Surface>;
 }

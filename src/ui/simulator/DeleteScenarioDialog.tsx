@@ -1,3 +1,4 @@
+import { useLocale } from '@/ui/i18n';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,22 +15,23 @@ interface DeleteScenarioDialogProps {
 
 /** Confirm before deleting a saved scenario. Recipes and prices are never touched. */
 export function DeleteScenarioDialog({ name, onClose, onCloseAutoFocus, onConfirm }: DeleteScenarioDialogProps) {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
-          <DialogTitle>Delete {name}?</DialogTitle>
+          <DialogTitle>{t('simulator.deleteTitle', { name })}</DialogTitle>
           <DialogDescription>
-            Only this saved scenario is removed. Your recipes and ingredient prices are not changed.
+            {t('simulator.deleteHint')}
           </DialogDescription>
         </DialogHeader>
         {error !== null ? (
           <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>
         ) : null}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-          <Button type="button" variant="destructive" onClick={() => setError(onConfirm())}>Delete scenario</Button>
+          <DialogClose asChild><Button type="button" variant="outline">{t('simulator.cancel')}</Button></DialogClose>
+          <Button type="button" variant="destructive" onClick={() => setError(onConfirm())}>{t('simulator.deleteConfirm')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

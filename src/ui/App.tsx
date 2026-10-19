@@ -1,3 +1,4 @@
+import { useLocale, type TranslationKey } from '@/ui/i18n';
 import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useEffect } from 'react';
 import { useDataState } from '@/ui/data/DataProvider';
 import { Shell } from '@/ui/layout/Shell';
@@ -15,17 +16,17 @@ import { useRoute } from '@/ui/router/useRoute';
 // The guide is large (text and its Russian twin), so it is downloaded only when somebody opens it.
 const HelpPage = lazy(() => import('@/ui/pages/HelpPage').then((module) => ({ default: module.HelpPage })));
 
-const TITLES: Record<Route['name'], string> = {
-  dashboard: 'Dashboard',
-  ingredients: 'Ingredients',
-  data: 'Data',
-  recipes: 'Recipes',
-  'recipe-new': 'New recipe',
-  recipe: 'Recipe',
-  simulator: 'Simulator',
-  help: 'Help',
-  'not-found': 'Not found',
-};
+const TITLES = {
+  dashboard: 'nav.dashboard',
+  ingredients: 'nav.ingredients',
+  data: 'nav.data',
+  recipes: 'nav.recipes',
+  'recipe-new': 'page.newRecipe',
+  recipe: 'page.recipe',
+  simulator: 'nav.simulator',
+  help: 'nav.help',
+  'not-found': 'page.notFound',
+} as const satisfies Record<Route['name'], TranslationKey>;
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -58,24 +59,21 @@ export class ErrorBoundary extends Component<
   render() {
     if (this.state.failed) {
       return (
-        <main className="mx-auto max-w-3xl space-y-4 p-6">
-          <h1 className="text-2xl font-semibold">Something went wrong</h1>
-          <p className="text-sm text-muted-foreground">
-            Reload the app to try again. Your saved data was not changed.
-          </p>
-          <button
-            type="button"
-            onClick={this.reload}
-            className="rounded-md bg-primary px-4 py-2 text-primary-foreground"
-          >
-            Reload
-          </button>
-        </main>
+        <ErrorFallback reload={this.reload} />
       );
     }
 
     return this.props.children;
   }
+}
+
+function ErrorFallback({ reload }: { reload(): void }) {
+  const { t } = useLocale();
+  return <main className="mx-auto max-w-3xl space-y-4 p-6">
+    <h1 className="text-2xl font-semibold">{t('error.title')}</h1>
+    <p className="text-sm text-muted-foreground">{t('error.reloadHint')}</p>
+    <button type="button" onClick={reload} className="min-h-12 rounded-md bg-primary px-4 py-2 text-primary-foreground">{t('error.reload')}</button>
+  </main>;
 }
 
 function Page({ route }: { route: Route }) {
@@ -93,10 +91,11 @@ function Page({ route }: { route: Route }) {
 }
 
 function LoadError({ message }: { message: string }) {
+  const { t } = useLocale();
   return (
     <section aria-labelledby="page-title" className="space-y-3">
       <h1 id="page-title" className="text-2xl font-semibold">
-        Your data could not be opened
+        {t('error.dataTitle')}
       </h1>
       <p
         role="alert"
@@ -108,19 +107,20 @@ function LoadError({ message }: { message: string }) {
         {message}
       </p>
       <p className="text-sm text-muted-foreground">
-        Nothing was changed or deleted. Your saved data is still in the browser.
+        {t('error.dataKept')}
       </p>
     </section>
   );
 }
 
 export function App() {
+  const { t } = useLocale();
   const route = useRoute();
   const { loadError } = useDataState();
 
   useEffect(() => {
-    document.title = `${TITLES[route.name]} · MenuPilot`;
-  }, [route]);
+    document.title = `${t(TITLES[route.name])} · MenuPilot`;
+  }, [route, t]);
 
   return (
     <ErrorBoundary>
@@ -129,7 +129,7 @@ export function App() {
         <Shell route={route}>
           {route.name === 'help' ? (
             // The guide needs no saved data, so it stays readable when the data cannot be opened.
-            <Suspense fallback={<p role="status" className="text-lg">Loading the guide…</p>}>
+            <Suspense fallback={<p role="status" className="text-lg">{t('help.loading')}</p>}>
               <HelpPage section={route.section} />
             </Suspense>
           ) : loadError === null ? (

@@ -2,7 +2,6 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HELP_CONTENT } from '@/ui/help/content';
-import { HELP_LINK_LABEL } from '@/ui/help/HelpLink';
 import { HELP_LANGUAGE_KEY, languageFromBrowser, readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
 import { HELP_SECTION_IDS } from '@/ui/help/types';
 import { demoCopy, go, memoryStorage, NOW, renderApp, STORAGE_KEY, storageWith } from './helpers';
@@ -279,7 +278,7 @@ describe('unsaved simulator drafts and the guide', () => {
       renderApp();
       await go('#/simulator/dish_classic_burger');
       await userEvent.click(await screen.findByRole('button', { name: /Add scenario/ }));
-      const menuPrice = await screen.findByLabelText('Menu price (incl. VAT, €)');
+      const menuPrice = await screen.findByLabelText('Menu price (incl. VAT)');
       await userEvent.type(menuPrice, '13.83');
       expect(screen.getByRole('region', { name: 'Scenario A' })).toBeTruthy();
 
@@ -289,7 +288,7 @@ describe('unsaved simulator drafts and the guide', () => {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
 
       const scenario = await screen.findByRole('region', { name: 'Scenario A' });
-      expect((within(scenario).getByLabelText('Menu price (incl. VAT, €)') as HTMLInputElement).value).toBe('13.83');
+      expect((within(scenario).getByLabelText('Menu price (incl. VAT)') as HTMLInputElement).value).toBe('13.83');
       expect(within(scenario).getByText('Not saved yet.')).toBeTruthy();
     } finally {
       vi.useRealTimers();
@@ -305,7 +304,7 @@ describe('"Help for this page" links', () => {
     expect(screen.getByRole('link', { name: 'Help for this page' }).getAttribute('href')).toBe(expected);
   }
 
-  it('Dashboard', () => linkOn('#/', '#/help/dashboard', 'Dashboard'));
+  it('Dashboard', () => linkOn('#/', '#/help/dashboard', 'What has changed on your menu?'));
   it('Ingredients', () => linkOn('#/ingredients', '#/help/ingredients', 'Ingredients'));
   it('Recipes list', () => linkOn('#/recipes', '#/help/dishes', 'Recipes'));
   it('a dish', () => linkOn('#/recipe/dish_classic_burger', '#/help/dishes', 'Classic Burger'));
@@ -317,9 +316,14 @@ describe('"Help for this page" links', () => {
   it('Simulator: a prep', () => linkOn('#/simulator/prep_burger_sauce', '#/help/simulator', /is a prep/));
   it('Data', () => linkOn('#/data', '#/help/data', 'Data'));
 
-  it('the link texts are the ones in the guide text', () => {
-    expect(HELP_LINK_LABEL.en).toBe(HELP_CONTENT.en.ui.contextLink);
-    expect(HELP_LINK_LABEL.ru).toBe(HELP_CONTENT.ru.ui.contextLink);
+  it('uses readable foreground accent colors for links and shows the Dutch guide note as a note', async () => {
+    renderApp();
+    await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    await go('#/help');
+    await screen.findByRole('article');
+    expect((await screen.findByRole('note')).textContent).toContain('De app is in het Nederlands');
+    expect(document.querySelectorAll('a[class~="text-accent"]')).toHaveLength(0);
+    expect(document.querySelectorAll('a[class~="text-accent-foreground"]')).not.toHaveLength(0);
   });
 
   it('every target section exists in the guide', () => {
@@ -328,12 +332,12 @@ describe('"Help for this page" links', () => {
     }
   });
 
-  it('is shown in the language of the guide', async () => {
+  it('follows the interface language when the guide is in Russian', async () => {
     window.localStorage.setItem(HELP_LANGUAGE_KEY, 'ru');
     renderApp();
     await go('#/ingredients');
     await screen.findByRole('heading', { level: 1, name: 'Ingredients' });
-    expect(screen.getByRole('link', { name: HELP_LINK_LABEL.ru }).getAttribute('href')).toBe('#/help/ingredients');
+    expect(screen.getByRole('link', { name: 'Help for this page' }).getAttribute('href')).toBe('#/help/ingredients');
   });
 
   it('opens the right section when clicked', async () => {

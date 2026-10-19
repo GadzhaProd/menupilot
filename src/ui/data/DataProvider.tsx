@@ -1,3 +1,6 @@
+import { LocaleProvider, useLocale } from '@/ui/i18n';
+import { ThemeProvider } from '@/ui/theme/ThemeProvider';
+import { demoForLocale, isBundledDemo } from './demo';
 import {
   createContext, useCallback, useContext, useMemo, useReducer, useState, type ReactNode,
 } from 'react';
@@ -74,6 +77,13 @@ function openStore({ storage, demo, now, createId }: Omit<DataProviderProps, 'ch
 }
 
 export function DataProvider(props: DataProviderProps) {
+  return <LocaleProvider storage={props.storage}><ThemeProvider storage={props.storage}><LocalizedDataProvider {...props} /></ThemeProvider></LocaleProvider>;
+}
+function LocalizedDataProvider(props: DataProviderProps) {
+  const { locale } = useLocale();
+  return <DocumentProvider {...props} demo={isBundledDemo(props.demo) ? demoForLocale(locale) : props.demo} />;
+}
+function DocumentProvider(props: DataProviderProps) {
   const { children } = props;
   // Lazy initialiser: StrictMode may call it twice, but React keeps one consistent result.
   const [loaded] = useState(() => openStore(props));

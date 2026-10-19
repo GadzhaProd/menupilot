@@ -1,5 +1,5 @@
 import { formatEURFromCents, roundDiv } from './money.js';
-import { normalizeUnit, unitPriceSuffix } from './units.js';
+import { normalizeUnit } from './units.js';
 import { recipeBatchCostMicro } from './prep.js';
 import {
   ingredientLineCostMicroInternal,
@@ -8,7 +8,7 @@ import {
 } from './internal.js';
 import { BASIS_POINTS, MICRO_EUROS_PER_CENT } from './constants.js';
 
-export { batchCostMicro, prepLineCostMicro, prepUnitCostDisplay } from './prep.js';
+export { batchCostMicro, prepLineCostMicro, prepUnitCostDisplay, prepUnitCostCents } from './prep.js';
 
 /**
  * Select the latest valid price at or before a strict ISO timestamp cutoff.
@@ -128,18 +128,26 @@ export function recipeCost(recipe, data, { asOf } = {}) {
 }
 
 /**
- * Display a package price normalized to per kg, l, or pc without changing stored values.
+ * Package price per kg, l, or pc in exact display cents, without changing stored values.
  * @param {number} packPriceCents Package price excluding VAT in cents.
  * @param {number} packSizeMilli Package size in thousandths of its base unit.
  * @param {string} unit Base or input unit: g/kg, ml/l, or pc.
- * @returns {string}
+ * @returns {{cents: bigint, per: 'kg'|'l'|'pc'}}
  */
-export function packUnitPriceDisplay(packPriceCents, packSizeMilli, unit) {
+export function packUnitPriceCents(packPriceCents, packSizeMilli, unit) {
   const priceCents = safeInteger(packPriceCents, 'packPriceCents', 0);
   const sizeMilli = safeInteger(packSizeMilli, 'packSizeMilli', 1);
   const baseUnit = normalizeUnit(unit);
   const displayFactorMilli = baseUnit === 'pc' ? 1_000n : 1_000_000n;
-  const suffix = unitPriceSuffix(baseUnit);
   const unitPriceCents = roundDiv(priceCents * displayFactorMilli, sizeMilli);
-  return `${formatEURFromCents(unitPriceCents)}${suffix}`;
+  return { cents: unitPriceCents, per: baseUnit === 'g' ? 'kg' : baseUnit === 'ml' ? 'l' : 'pc' };
+}
+
+/** Legacy EN display; numeric calculation and rounding stay in packUnitPriceCents.
+ * @param {number} packPriceCents @param {number} packSizeMilli @param {string} unit
+ * @returns {string}
+ */
+export function packUnitPriceDisplay(packPriceCents, packSizeMilli, unit) {
+  const { cents, per } = packUnitPriceCents(packPriceCents, packSizeMilli, unit);
+  return `${formatEURFromCents(cents)}/${per}`;
 }

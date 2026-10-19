@@ -1,0 +1,494 @@
+{
+  "version": 1,
+  "settings": {
+    "defaultVatRateBp": 900
+  },
+  "ingredients": [
+    {
+      "id": "ing_beef",
+      "name": "Rundergehakt 80/20",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 1400,
+          "packSizeMilli": 1000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-10-04T12:00:00.000Z",
+          "packPriceCents": 1700,
+          "packSizeMilli": 1000000
+        }
+      ]
+    },
+    {
+      "id": "ing_bun",
+      "name": "Briocheburgerbroodje",
+      "unit": "pc",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 640,
+          "packSizeMilli": 8000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-09-30T12:00:00.000Z",
+          "packPriceCents": 1056,
+          "packSizeMilli": 12000
+        }
+      ]
+    },
+    {
+      "id": "ing_cheddar",
+      "name": "Belegen cheddar",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 1300,
+          "packSizeMilli": 1000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-09-27T12:00:00.000Z",
+          "packPriceCents": 1320,
+          "packSizeMilli": 1000000
+        }
+      ]
+    },
+    {
+      "id": "ing_bacon",
+      "name": "Gerookt spek",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 904,
+          "packSizeMilli": 1000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-09-27T12:00:00.000Z",
+          "packPriceCents": 932,
+          "packSizeMilli": 1000000
+        }
+      ]
+    },
+    {
+      "id": "ing_mayo",
+      "name": "Mayonaise",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 400,
+          "packSizeMilli": 1000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-10-02T12:00:00.000Z",
+          "packPriceCents": 440,
+          "packSizeMilli": 1000000
+        }
+      ]
+    },
+    {
+      "id": "ing_tomatoes",
+      "name": "Tomaten in blik (2,5 kg)",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 300,
+          "packSizeMilli": 2500000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-10-02T12:00:00.000Z",
+          "packPriceCents": 350,
+          "packSizeMilli": 2500000
+        }
+      ]
+    },
+    {
+      "id": "ing_onion",
+      "name": "Uien (zak van 5 kg)",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 600,
+          "packSizeMilli": 5000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-10-02T12:00:00.000Z",
+          "packPriceCents": 700,
+          "packSizeMilli": 5000000
+        }
+      ]
+    },
+    {
+      "id": "ing_mustard",
+      "name": "Dijonmosterd",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 500,
+          "packSizeMilli": 1000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-09-08T12:00:00.000Z",
+          "packPriceCents": 500,
+          "packSizeMilli": 1000000
+        }
+      ]
+    },
+    {
+      "id": "ing_potatoes",
+      "name": "Aardappelen (zak van 10 kg)",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 800,
+          "packSizeMilli": 10000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-08-29T12:00:00.000Z",
+          "packPriceCents": 850,
+          "packSizeMilli": 10000000
+        },
+        {
+          "seq": 3,
+          "recordedAt": "2026-10-06T12:00:00.000Z",
+          "packPriceCents": 900,
+          "packSizeMilli": 10000000
+        }
+      ]
+    },
+    {
+      "id": "ing_oil",
+      "name": "Frituurolie (10 l)",
+      "unit": "ml",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 1600,
+          "packSizeMilli": 10000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-09-03T12:00:00.000Z",
+          "packPriceCents": 1800,
+          "packSizeMilli": 10000000
+        }
+      ]
+    },
+    {
+      "id": "ing_chicken",
+      "name": "Kipfilet",
+      "unit": "g",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 800,
+          "packSizeMilli": 1000000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-09-08T12:00:00.000Z",
+          "packPriceCents": 840,
+          "packSizeMilli": 1000000
+        },
+        {
+          "seq": 3,
+          "recordedAt": "2026-10-08T12:00:00.000Z",
+          "packPriceCents": 880,
+          "packSizeMilli": 1000000
+        }
+      ]
+    },
+    {
+      "id": "ing_wine",
+      "name": "Huiswijn rood (fles van 750 ml)",
+      "unit": "ml",
+      "prices": [
+        {
+          "seq": 1,
+          "recordedAt": "2026-08-04T12:00:00.000Z",
+          "packPriceCents": 600,
+          "packSizeMilli": 750000
+        },
+        {
+          "seq": 2,
+          "recordedAt": "2026-09-28T12:00:00.000Z",
+          "packPriceCents": 660,
+          "packSizeMilli": 750000
+        }
+      ]
+    }
+  ],
+  "recipes": [
+    {
+      "id": "prep_tomato_base",
+      "name": "Tomatenbasis",
+      "kind": "prep",
+      "outputMilli": 2000000,
+      "outputUnit": "g",
+      "lines": [
+        {
+          "id": "l1",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_tomatoes"
+          },
+          "netQtyMilli": 1500000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l2",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_onion"
+          },
+          "netQtyMilli": 450000,
+          "yieldBp": 9000
+        }
+      ]
+    },
+    {
+      "id": "prep_burger_sauce",
+      "name": "Burgersaus",
+      "kind": "prep",
+      "outputMilli": 1000000,
+      "outputUnit": "g",
+      "lines": [
+        {
+          "id": "l1",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_mayo"
+          },
+          "netQtyMilli": 650000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l2",
+          "ref": {
+            "kind": "prep",
+            "id": "prep_tomato_base"
+          },
+          "netQtyMilli": 300000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l3",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_mustard"
+          },
+          "netQtyMilli": 50000,
+          "yieldBp": 10000
+        }
+      ]
+    },
+    {
+      "id": "dish_classic_burger",
+      "name": "Klassieke burger",
+      "kind": "dish",
+      "menuPriceInclVatCents": 1308,
+      "vatRateBp": 900,
+      "portions": 1,
+      "monthlyVolume": 300,
+      "lines": [
+        {
+          "id": "l1",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_beef"
+          },
+          "netQtyMilli": 180000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l2",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_bun"
+          },
+          "netQtyMilli": 1000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l3",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_cheddar"
+          },
+          "netQtyMilli": 30000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l4",
+          "ref": {
+            "kind": "prep",
+            "id": "prep_burger_sauce"
+          },
+          "netQtyMilli": 40000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l5",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_bacon"
+          },
+          "netQtyMilli": 40000,
+          "yieldBp": 10000
+        }
+      ]
+    },
+    {
+      "id": "dish_chicken_burger",
+      "name": "Krokante kipburger",
+      "kind": "dish",
+      "menuPriceInclVatCents": 1250,
+      "vatRateBp": 900,
+      "portions": 1,
+      "monthlyVolume": 220,
+      "lines": [
+        {
+          "id": "l1",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_chicken"
+          },
+          "netQtyMilli": 140000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l2",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_bun"
+          },
+          "netQtyMilli": 1000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l3",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_mayo"
+          },
+          "netQtyMilli": 25000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l4",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_cheddar"
+          },
+          "netQtyMilli": 20000,
+          "yieldBp": 10000
+        }
+      ]
+    },
+    {
+      "id": "dish_fries",
+      "name": "Friet met burgersaus",
+      "kind": "dish",
+      "menuPriceInclVatCents": 450,
+      "vatRateBp": 900,
+      "portions": 1,
+      "monthlyVolume": 500,
+      "lines": [
+        {
+          "id": "l1",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_potatoes"
+          },
+          "netQtyMilli": 300000,
+          "yieldBp": 8000
+        },
+        {
+          "id": "l2",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_oil"
+          },
+          "netQtyMilli": 40000,
+          "yieldBp": 10000
+        },
+        {
+          "id": "l3",
+          "ref": {
+            "kind": "prep",
+            "id": "prep_burger_sauce"
+          },
+          "netQtyMilli": 30000,
+          "yieldBp": 10000
+        }
+      ]
+    },
+    {
+      "id": "dish_tomato_soup",
+      "name": "Tomatensoep",
+      "kind": "dish",
+      "menuPriceInclVatCents": 650,
+      "vatRateBp": 900,
+      "portions": 2,
+      "lines": [
+        {
+          "id": "l1",
+          "ref": {
+            "kind": "prep",
+            "id": "prep_tomato_base"
+          },
+          "netQtyMilli": 800000,
+          "yieldBp": 10000
+        }
+      ]
+    },
+    {
+      "id": "dish_red_wine",
+      "name": "Huiswijn rood (glas)",
+      "kind": "dish",
+      "menuPriceInclVatCents": 650,
+      "vatRateBp": 2100,
+      "portions": 1,
+      "monthlyVolume": 260,
+      "lines": [
+        {
+          "id": "l1",
+          "ref": {
+            "kind": "ingredient",
+            "id": "ing_wine"
+          },
+          "netQtyMilli": 150000,
+          "yieldBp": 10000
+        }
+      ]
+    }
+  ],
+  "scenarios": []
+}

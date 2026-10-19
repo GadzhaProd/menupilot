@@ -1,37 +1,13 @@
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import type { DashboardData } from '@/ui/domain/dashboard';
-import { formatCents, formatPercentTenths } from './format';
-
-interface SummaryCardsProps {
-  data: DashboardData;
-}
-
-export function SummaryCards({ data }: SummaryCardsProps) {
-  const cards = [
-    ['Dishes that got more expensive', String(data.gotMoreExpensive)],
-    ['Monthly impact at your volume', formatCents(data.totalMonthlyImpactCents)],
-    [
-      'Average food cost % (simple average of dishes, now)',
-      formatPercentTenths(data.averageFoodCostTenthsPct),
-    ],
-    ['Dishes without volume', String(data.excludedWithoutVolume)],
-  ];
-
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {cards.map(([title, value]) => (
-        <Card key={title} className="gap-3 py-4">
-          <CardHeader className="px-4 pb-0">
-            <CardDescription>{title}</CardDescription>
-            <CardTitle className="text-2xl">{value}</CardTitle>
-          </CardHeader>
-        </Card>
-      ))}
-    </div>
-  );
+import { useFormatters, useLocale } from '@/ui/i18n';
+export function SummaryCards({ data }: { data: DashboardData }) {
+  const { t } = useLocale(); const f = useFormatters();
+  return <section aria-labelledby="summary-title" className="border-t border-line pt-6">
+    <h2 id="summary-title" className="mb-4 text-xl font-semibold">{t('dashboard.summary')}</h2>
+    <dl className="grid gap-6 sm:grid-cols-3">{[
+      [t('dashboard.expensive'), f.integer(data.gotMoreExpensive)],
+      [t('dashboard.average'), f.percent(data.averageFoodCostTenthsPct)],
+      [t('dashboard.noVolume'), f.integer(data.excludedWithoutVolume)],
+    ].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-2 font-heading text-2xl font-semibold tabular-nums">{value}</dd></div>)}</dl>
+  </section>;
 }

@@ -5,8 +5,9 @@
  * Licence text: third_party/21st/badge-delta/LICENSE
  *
  * Changes: Remix icons replaced by lucide-react (no new dependency); Tremor-only classes
- * replaced by plain Tailwind; only the "solid" look is kept; `tone` added because for a
- * cost an arrow up is bad news while for contribution it is good news.
+ * replaced by semantic Tailwind tokens; removed solid fills and alternate looks.
+ * Arrows and signed values retain meaning without colour; `tone` selects positive,
+ * negative or muted text by metric meaning (cost up is bad, contribution up is good).
  */
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -14,13 +15,13 @@ import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const badgeDeltaVariants = cva(
-  "inline-flex items-center gap-x-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap",
+  "inline-flex items-center gap-x-0.5 rounded-md px-1.5 py-0.5 text-xs tabular-nums font-semibold whitespace-nowrap",
   {
     variants: {
       tone: {
-        good: "bg-emerald-100 text-emerald-800",
-        bad: "bg-red-100 text-red-800",
-        neutral: "bg-secondary text-secondary-foreground",
+        good: "text-positive",
+        bad: "text-negative",
+        neutral: "text-muted-foreground",
       },
     },
     defaultVariants: { tone: "neutral" },

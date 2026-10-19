@@ -1,3 +1,4 @@
+import type { TranslationKey } from '@/ui/i18n/en';
 /**
  * What the owner types into one scenario, and how it becomes `ScenarioOverrides`.
  * An empty field means "leave as in Baseline". Money and quantities are read from text by
@@ -30,9 +31,10 @@ export interface FieldsDraft {
 /** Field keys used for error messages. */
 export const priceKey = (ingredientId: string) => `price:${ingredientId}`;
 export const qtyKey = (lineId: string) => `qty:${lineId}`;
-export type FieldErrors = Record<string, string>;
+export type FormErrorKey = Extract<TranslationKey, `simulator.error.${string}`>;
+export type FieldErrors = Record<string, FormErrorKey>;
 
-export const VOLUME_MESSAGE = 'Enter a whole number of 0 or more, for example 300.';
+export const VOLUME_MESSAGE = 'simulator.error.volume' as const;
 const MAX_NAME = 60;
 
 /** Fields of a scenario that changes nothing yet. */
@@ -88,45 +90,45 @@ export function parseFields(fields: FieldsDraft, baseline: Baseline): ParsedFiel
   if (fields.menuPrice.trim() !== '') {
     const parsed = parseMoneyField(fields.menuPrice, '');
     if (parsed.ok) overrides.menuPriceInclVatCents = parsed.value;
-    else errors.menuPrice = `${parsed.error} Example: 13.83`;
+    else errors.menuPrice = 'simulator.error.money';
   }
   if (fields.volume.trim() !== '') {
     const parsed = parseWholeNumber(fields.volume, 0, VOLUME_MESSAGE);
     if (parsed.ok) overrides.monthlyVolume = parsed.value;
-    else errors.volume = parsed.error;
+    else errors.volume = 'simulator.error.volume';
   }
   for (const info of ingredientInfos(baseline)) {
     const text = fields.prices[info.id] ?? '';
     if (text.trim() === '') continue;
     const parsed = parseMoneyField(text, '');
     if (parsed.ok) overrides.ingredientPriceCents[info.id] = parsed.value;
-    else errors[priceKey(info.id)] = `${parsed.error} Example: 11.20`;
+    else errors[priceKey(info.id)] = 'simulator.error.pack';
   }
   for (const line of dishLines(baseline)) {
     const draft = fields.qty[line.id];
     if (line.refKind !== 'ingredient' || !draft || draft.text.trim() === '') continue;
     const parsed = parseQuantityField(draft.text, draft.unit, '');
-    if (!parsed.ok) errors[qtyKey(line.id)] = parsed.error;
-    else if (parsed.value.milli < 1) errors[qtyKey(line.id)] = 'The quantity must be more than 0.';
+    if (!parsed.ok) errors[qtyKey(line.id)] = 'simulator.error.quantity';
+    else if (parsed.value.milli < 1) errors[qtyKey(line.id)] = 'simulator.error.zeroQuantity';
     else overrides.lineQtyMilli[line.id] = parsed.value.milli;
   }
   return { overrides, errors };
 }
 
 /** Parse the shared sales estimate; empty is allowed only when the dish has none saved. */
-export function parseSharedVolume(text: string, dishHasVolume: boolean): { ok: true; value: number | undefined } | { ok: false; error: string } {
+export function parseSharedVolume(text: string, dishHasVolume: boolean): { ok: true; value: number | undefined } | { ok: false; error: FormErrorKey } {
   if (text.trim() === '') {
     return dishHasVolume
-      ? { ok: false, error: 'Enter your estimate (0 if you do not want a monthly figure).' }
+      ? { ok: false, error: 'simulator.error.estimate' }
       : { ok: true, value: undefined };
   }
   const parsed = parseWholeNumber(text, 0, VOLUME_MESSAGE);
-  return parsed.ok ? { ok: true, value: parsed.value } : { ok: false, error: parsed.error };
+  return parsed.ok ? { ok: true, value: parsed.value } : { ok: false, error: 'simulator.error.volume' };
 }
 
-export function validateName(name: string): string | null {
-  if (name.trim() === '') return 'Give the scenario a name.';
-  if (name.length > MAX_NAME) return `Use at most ${MAX_NAME} characters.`;
+export function validateName(name: string): FormErrorKey | null {
+  if (name.trim() === '') return 'simulator.error.name';
+  if (name.length > MAX_NAME) return 'simulator.error.nameLong';
   return null;
 }
 export const NAME_MAX_LENGTH = MAX_NAME;
