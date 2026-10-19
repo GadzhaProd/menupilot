@@ -4,9 +4,11 @@
 
 ```tsx
 import { useLocale, useFormatters } from '@/ui/i18n';
-const { locale, setLocale, t, plural } = useLocale();
+const { locale, setLocale, t, tRich, plural } = useLocale();
 const f = useFormatters();
 t('common.save');
+tRich('common.deleteNamed', { name: recipe.name }, { b: children => <strong>{children}</strong> });
+// EN: Delete <strong>Soup</strong>?  NL: <strong>Soep</strong> verwijderen?
 t('count.dishes.other', { count: 5 }); // required parameters are checked by TypeScript
 plural('count.dishes', count); // one/other, whole messages; safe non-negative integer
 f.money(result.monthlyContributionCents); // number | bigint cents
@@ -18,7 +20,7 @@ f.packPrice(packCents, packSizeMilli, unit); // exact cost per kg/l/pc, formatte
 f.prepCost(batchMicro, outputMilli, outputUnit); // bigint | null batch; unknown stays explicit
 ```
 
-Add semantic keys in `en.ts` (`as const`) and identical keys/parameters in `nl.ts` (`satisfies Record<TranslationKey, string>`). `test/ui/i18n.test.ts` verifies parity, parameter names and nonempty messages. `createTranslator(locale)` is the equivalent pure API for form adapters; do not use hooks outside components. Do not translate user names or domain error.message via regex/DOM. Form errors should use typed keys at the UI validation boundary; domain errors can map by stable error code. Existing screens retain EN copy until their assigned stage. No global mutable locale is used by the formatters.
+Add semantic keys in `en.ts` (`as const`) and identical keys/parameters in `nl.ts` (`satisfies Record<TranslationKey, string>`). `test/ui/i18n.test.ts` verifies parity, parameter names, paired one/other keys, rich tag names and nonempty messages. `tRich(key, params, components)` accepts typed parameters and named component callbacks; only paired tags without attributes belong in dictionaries. User parameters remain escaped React text. The pure equivalent is `createRichTranslator(locale)`. `createTranslator(locale)` is the equivalent pure API for form adapters; do not use hooks outside components. Do not translate user names or domain error.message via regex/DOM. Form errors should use typed keys at the UI validation boundary; domain errors can map by stable error code. Existing screens retain EN copy until their assigned stage. No global mutable locale is used by the formatters.
 
 ## Terminology
 
@@ -45,7 +47,7 @@ New compositions:
 
 CSS uses semantic variables and Tailwind tokens (`bg-surface`, `bg-panel`, `text-positive`, `text-negative`, `text-accent-foreground`, `border-input` for controls, `border-line` for separators). Do not add fixed light-only colour classes. Global keyboard focus is 3px + 3px offset. Money uses Archivo and tabular lining numerals. Print overrides to light without storage writes; header, dialogs and `.no-print` are hidden. Inputs, selects and buttons remain printable unless their screen marks them `.no-print` or `print:hidden`. Page orientation belongs to the screen. Screen-specific print column/editor rules remain with parts 2–3.
 
-Legacy no-locale formatters are unchanged for existing screens/core. New `*Locale` functions are exported through `@/ui/domain/calc`. They preserve arbitrarily large BigInt values, cache Intl instances for the two supported languages and deliberately put the minus before €: EN `-€273.38`, NL `-€ 273,38` (NBSP). English numeric formatting uses en-GB explicitly: the runtime's en-NL integer grouping otherwise mixes dot grouping with decimal dots. No BigInt → Number conversion.
+Migration for parts 2–3: replace old `formatEURFrom*` calls and literal `n/a` in `src/ui` with `useFormatters()` (or `t('common.notApplicable')` for a label). `test/ui/legacy-formatters.test.ts` prints the remaining file/line inventory as warnings only until the screens are merged. Legacy no-locale formatters remain available for compatibility with core. New `*Locale` functions are exported through `@/ui/domain/calc`. They preserve arbitrarily large BigInt values, cache Intl instances for the two supported languages and deliberately put the minus before €: EN `-€273.38`, NL `-€ 273,38` (NBSP). English numeric formatting uses en-GB explicitly: the runtime's en-NL integer grouping otherwise mixes dot grouping with decimal dots. No BigInt → Number conversion. `normalizeLocale()` in calc is the single runtime normalizer: case-insensitive nl* → NL; unsupported languages → EN. Invalid dates display `n/a` / `n.v.t.` without throwing. The synchronous inline bootstrap must run before modules load; its mirrored preference keys and parsing rules are guarded against the runtime by `test/ui/bootstrap.test.ts`.
 
 
 ## Unit prices (foundation follow-up)

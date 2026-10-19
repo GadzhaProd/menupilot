@@ -9,12 +9,15 @@ type Args<K extends TranslationKey> = [Placeholders<(typeof en)[K]>] extends [ne
 export type Translate = <K extends TranslationKey>(key: K, ...args: Args<K>) => string;
 export function createTranslator(locale: Locale): Translate {
   return <K extends TranslationKey>(key: K, ...args: Args<K>): string => {
-    const params = args[0] as Record<string, string | number | bigint> | undefined;
-    return dictionaries[locale][key].replace(/\{(\w+)\}/g, (_, name: string) => {
-      if (params?.[name] === undefined) throw new Error(`Missing translation parameter: ${key}.${name}`);
-      return String(params[name]);
-    });
+    return interpolateMessage(dictionaries[locale][key], args[0], key);
   };
+}
+/** Interpolate only text segments: rich-message tags are parsed before this step. */
+export function interpolateMessage(message: string, params: Record<string, string | number | bigint> | undefined, key: string): string {
+  return message.replace(/\{(\w+)\}/g, (_, name: string) => {
+    if (params?.[name] === undefined) throw new Error(`Missing translation parameter: ${key}.${name}`);
+    return String(params[name]);
+  });
 }
 export type PluralKey = { [K in TranslationKey]: K extends `${infer Base}.one` ? `${Base}.other` extends TranslationKey ? Base : never : never }[TranslationKey];
 const rules = { en: new Intl.PluralRules('en'), nl: new Intl.PluralRules('nl') };

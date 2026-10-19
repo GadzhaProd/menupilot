@@ -6,6 +6,7 @@
  */
 
 declare module '@/calc/money.js' {
+  export function normalizeLocale(locale?: string): 'en' | 'nl';
   export function formatEURFromCentsLocale(cents: number | bigint, locale?: string): string;
   export function formatEURFromMicroLocale(microEuros: bigint, locale?: string): string;
   export function formatPercentTenthsLocale(tenths: bigint | null, locale?: string): string;

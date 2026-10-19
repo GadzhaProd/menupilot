@@ -92,10 +92,19 @@ export function formatEURFromMicro(microEuros) {
   return formatEURFromCents(roundDiv(microEuros, MICRO_EUROS_PER_CENT));
 }
 
+/** Case-insensitive UI locale; regional Dutch tags use NL, unsupported languages use EN.
+ * @param {string} [locale] @returns {'en'|'nl'}
+ */
+export function normalizeLocale(locale = 'en') {
+  return locale.toLowerCase().startsWith('nl') ? 'nl' : 'en';
+}
+
+const unavailable = (locale) => normalizeLocale(locale) === 'nl' ? 'n.v.t.' : 'n/a';
+
 // The UI supports two locales. Normalising regional tags bounds the cache to two entries.
 const FORMAT_CACHE = new Map();
 function localeFormats(locale) {
-  const language = locale.toLowerCase().startsWith('nl') ? 'nl' : 'en';
+  const language = normalizeLocale(locale);
   if (!FORMAT_CACHE.has(language)) {
     const tag = language === 'nl' ? 'nl-NL' : 'en-GB';
     const currency = new Intl.NumberFormat(tag, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -150,7 +159,7 @@ export function formatEURFromCentsLocale(cents, locale = 'en') {
  * @returns {string}
  */
 export function formatPercentTenthsLocale(tenths, locale = 'en') {
-  if (tenths === null) return locale.startsWith('nl') ? 'n.v.t.' : 'n/a';
+  if (tenths === null) return unavailable(locale);
   const negative = tenths < 0n;
   const absolute = negative ? -tenths : tenths;
   const formats = localeFormats(locale);
@@ -162,14 +171,15 @@ export function formatPercentTenthsLocale(tenths, locale = 'en') {
 
 /** @param {bigint|null} tenths @param {string} [locale] @returns {string} */
 export function formatPointsLocale(tenths, locale = 'en') {
-  if (tenths === null) return locale.startsWith('nl') ? 'n.v.t.' : 'n/a';
+  if (tenths === null) return unavailable(locale);
   const sign = tenths > 0n ? '+' : '';
   return `${sign}${formatPercentTenthsLocale(tenths, locale).replace('%', '')} pp`;
 }
 
 /** @param {string} iso @param {string} [locale] @returns {string} */
 export function formatDateLocale(iso, locale = 'en') {
-  return localeFormats(locale).date.format(new Date(iso));
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? unavailable(locale) : localeFormats(locale).date.format(date);
 }
 
 /** Round micro-euros at the existing display boundary, then localise the exact cents.

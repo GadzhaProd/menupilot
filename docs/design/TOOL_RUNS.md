@@ -431,3 +431,58 @@ dist/assets/index-CCOZ-ytb.js 462.87 kB │ gzip: 139.46 kB
 Full output: [/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-final.log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-final.log). Existing Node warning about `--localstorage-file` remains; tests do not use browser localStorage. `git diff --check` clean. After the check, only a CSS max-width correction1604→1540 and removal of npm's incidental root license metadata from lockfile were applied; final build/check evidence is updated below before delivery.
 
 Delivery rerun after the final CSS/lockfile adjustments: `npm run check` **exit0**, core130/130, UI259/259 in19files, typecheck pass; Vite2359 modules, main462.87kB /139.46kB gzip, built253ms. [Full delivery output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/cplus-check-delivery.log). Browser session closed (`state:closed`, exit0); preview server stopped with Ctrl+C (exit130). No server left running by this task. No push, merge or publication.
+
+## Foundation review follow-up — 2026-10-19
+
+Coordinator authorised Sonnet items 2–12; item 13 needs no change. Read the final review via `bb thread log thr_zcgt59yc95`. No new component selection or copied 21st code: no additional 21st license lookup needed. BadgeDelta's MIT source header now describes its actual semantic text colours, removed solid fills and metric-dependent tone.
+
+Before UI edits ran:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context
+```
+
+Result: exit 0, PRODUCT.md / DESIGN.md resolved, `MANUAL_DETECTOR_REQUIRED`. Same approved C+ context and craft-floor as the foundation implementation.
+
+After UI edits ran once:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect --json src/components/numeric-field.tsx src/ui/layout/Shell.tsx src/ui/i18n/LocaleSelect.tsx src/components/ui/badge-delta.tsx src/index.css
+```
+
+Result: exit 0, three `design-system-font-size` findings, all `severity: advisory`:
+
+```text
+src/index.css:111  font-size: 17px is off the DESIGN.md type ramp
+src/index.css:113  font-size: 22px is off the DESIGN.md type ramp
+src/index.css:121  font-size: 31px is off the DESIGN.md type ramp
+```
+
+[Exact detector JSON](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-impeccable-detect.json). These are the previously reviewed sizes: 17px and 31px occur in DESIGN.md prose; 22px is the compact mobile brand size. This follow-up does not change those sizes. No other detector findings. The browser screenshot confirms readable, unclipped mobile navigation.
+
+TDD evidence: MoneyField tests first failed 5/6 (missing automatic VAT labels), then passed in both languages and VAT modes. Shell tests first failed 4/8 (Escape outside nav, EN label, StrictMode initial focus), then passed; motion is stopped on subsequent navigation/unmount. Locale tests first failed for missing normalization API and invalid date RangeError; all pass after fixing. Rich message tests first failed 3/3 before the API existed; now test typed required parameters/components, translation order, and literal user markup.
+
+`test/ui/bootstrap.test.ts` executes the real inline index.html script in jsdom with injected memory storage/matchMedia; 160 preference/browser/system combinations match runtime parsers, plus blocked storage. Inline constants deliberately remain synchronous copies (no asynchronous module fetch before first paint); parity tests assert the actual read keys. Plural tests check both pair directions, parameters and rich tag parity. A warning-only legacy formatter scan is in `test/ui/legacy-formatters.test.ts`; screen migration remains assigned to parts 2–3. [Supplementary rg inventory](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-legacy-formatters.txt).
+
+Real browser: `bb browser-automation open --backend local --headless --machine host_mqe28unaid --json`; production `npm run preview -- --host 127.0.0.1 --port 4173`, `/menupilot/`.
+
+- EN desktop light, NL mobile dark (375×900): both locale buttons measure exactly 48×48; no horizontal overflow at 375. Escape from the language control closes Menu and focuses its trigger.
+- Both font preloads resolve under `/menupilot/fonts/`; performance entries confirm each was fetched once.
+- Print emulation from dark mode: background token `#f5f6f3`, header `display:none`, Dashboard date input and period button `display:block`, no global `@page` rules. Reset confirmation and its Radix overlay both become `display:none` during print; no reset was confirmed.
+- [NL mobile dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-nl-dark-375.jpg), [EN desktop light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-en-light-desktop.jpg), [Print](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-print-desktop.jpg). Screenshots inspected visually. Existing Dashboard English copy is intentionally awaiting part 2.
+
+Full `npm run check` (typecheck, core, UI, build), exit 0:
+
+```text
+ℹ tests 137
+ℹ pass 137
+ℹ fail 0
+Test Files 23 passed (23)
+Tests 279 passed (279)
+✓ 2360 modules transformed.
+✓ built in 489ms
+```
+
+[Check log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-final-check.log). Existing Node `--localstorage-file` warning remains. No dependencies changed. No push/merge.
+
+Delivery check after strengthening the plural-parameter parity assertion: `npm run check` exit 0, core137/137, UI279/279 (23 files), typecheck passed, Vite2360 modules /545ms. [Delivery log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-delivery-check.log). Browser session closed (`state:closed`); preview stopped with Ctrl+C (exit130). No server left running by this follow-up.

@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { render, screen, renderHook } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import { LocaleProvider, useFormatters, LOCALE_KEY } from '@/ui/i18n';
 import { memoryStorage } from './helpers';
@@ -19,3 +19,9 @@ for (const locale of ['en', 'nl'] as const) {
     expect(f.prepCost(0n, 1000, 'pc')).toBe(locale === 'en' ? '€0.00/pc' : '€\u00a00,00/st.');
   });
 }
+
+it.each(['en', 'nl'] as const)('an invalid date cannot crash a %s component render', (locale) => {
+  function DateLabel() { return <span>{useFormatters().date('invalid')}</span>; }
+  render(<LocaleProvider storage={memoryStorage({ [LOCALE_KEY]: locale })}><DateLabel /></LocaleProvider>);
+  expect(screen.getByText(locale === 'nl' ? 'n.v.t.' : 'n/a')).toBeTruthy();
+});

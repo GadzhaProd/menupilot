@@ -12,6 +12,21 @@ describe('typed EN/NL messages', () => {
       expect(parameters(dictionaries.nl[key])).toEqual(parameters(dictionaries.en[key]));
     }
   });
+  it('has complete one/other pairs and matching rich component names in both dictionaries', () => {
+    const tags = (text: string) => [...text.matchAll(/<(\w+)>/g)].map(match => match[1]).sort();
+    for (const dictionary of Object.values(dictionaries)) {
+      for (const key of Object.keys(dictionary) as TranslationKey[]) {
+        const pair = key.match(/^(.*)\.(one|other)$/);
+        if (pair) {
+          const counterpart = `${pair[1]}.${pair[2] === 'one' ? 'other' : 'one'}`;
+          expect(Object.hasOwn(dictionary, counterpart)).toBe(true);
+          const params = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort();
+          expect(params(dictionary[key])).toEqual(params(dictionary[counterpart as TranslationKey]));
+        }
+        expect(tags(dictionary[key])).toEqual(tags(dictionaries.en[key]));
+      }
+    }
+  });
   it('interpolates user data literally and pluralises whole messages', () => {
     const t = createTranslator('nl');
     expect(t('count.dishes.other', { count: 3 })).toBe('3 gerechten');

@@ -77,4 +77,4 @@ export function dishRows(data: Pick<MenuDocument, 'ingredients' | 'recipes'>, as
     .map((dish) => dishRow(dish, data, asOf));
 }
 
-export { formatEURFromCentsLocale, formatEURFromMicroLocale, formatPercentTenthsLocale, formatPointsLocale, formatDateLocale } from '@/calc/money.js';
+export { normalizeLocale, formatEURFromCentsLocale, formatEURFromMicroLocale, formatPercentTenthsLocale, formatPointsLocale, formatDateLocale } from '@/calc/money.js';
