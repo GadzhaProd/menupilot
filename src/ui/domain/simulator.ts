@@ -119,7 +119,12 @@ export function dishLines(baseline: Baseline): LineInfo[] {
 }
 
 /** What `rebaseOverrides` dropped, so the form can clear exactly those fields. */
+export interface RebaseNote {
+  key: 'simulator.rebase.priceMissing' | 'simulator.rebase.priceUnused' | 'simulator.rebase.lineMissing' | 'simulator.rebase.lineReplaced' | 'simulator.rebase.unitChanged';
+  params: { name: string; other: string; from: string; to: string };
+}
 export interface Rebased {
+  notes: RebaseNote[];
   overrides: ScenarioOverrides;
   /** Dropped changes in words. */
   dropped: string[];
@@ -139,6 +144,8 @@ export function rebaseOverrides(
   overrides: ScenarioOverrides,
 ): Rebased {
   const dropped: string[] = [];
+  const notes: RebaseNote[] = [];
+  const note = (key: RebaseNote['key'], name: string, other = '', from = '', to = '') => notes.push({ key, params: { name, other, from, to } });
   const droppedPriceIds: string[] = [];
   const droppedLineIds: string[] = [];
   const ingredientPriceCents: Record<string, number> = {};
@@ -150,6 +157,7 @@ export function rebaseOverrides(
       ingredientPriceCents[id] = cents;
     } else {
       droppedPriceIds.push(id);
+      note(now ? 'simulator.rebase.priceMissing' : 'simulator.rebase.priceUnused', name);
       dropped.push(`the price change for ${name} (${now ? 'it has no price now' : 'it is no longer used by this dish'})`);
     }
   }
@@ -162,18 +170,21 @@ export function rebaseOverrides(
     const name = before?.name ?? 'a line';
     if (!now) {
       droppedLineIds.push(id);
+      note('simulator.rebase.lineMissing', name);
       dropped.push(`the quantity change for ${name} (that line is no longer in the dish)`);
     } else if (now.refKind !== 'ingredient' || (before && (before.refKind !== now.refKind || before.refId !== now.refId))) {
       droppedLineIds.push(id);
+      note('simulator.rebase.lineReplaced', name, now.name);
       dropped.push(`the quantity change for ${name} (that line now holds ${now.name})`);
     } else if (before && before.unit !== now.unit) {
       droppedLineIds.push(id);
+      note('simulator.rebase.unitChanged', name, '', before.unit, now.unit);
       dropped.push(`the quantity change for ${name} (its unit changed from ${before.unit} to ${now.unit})`);
     } else {
       lineQtyMilli[id] = milli;
     }
   }
-  return { overrides: { ...overrides, ingredientPriceCents, lineQtyMilli }, dropped, droppedPriceIds, droppedLineIds };
+  return { overrides: { ...overrides, ingredientPriceCents, lineQtyMilli }, dropped, notes, droppedPriceIds, droppedLineIds };
 }
 
 export interface BestChoice {

@@ -10,7 +10,7 @@ describe('Shell', () => {
     expect(screen.getByRole('main')).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Skip to content' })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'What has changed on your menu?' })).toBeTruthy();
   });
 
   it('moves focus to the page content after navigating, and updates the title', async () => {

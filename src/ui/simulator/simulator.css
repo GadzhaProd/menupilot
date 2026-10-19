@@ -1,0 +1,20 @@
+/* C+ screen composition. Hidden editors remain mounted so disclosure/focus drafts survive selection. */
+.sim-editor { min-width: 0; }
+.sim-editor [data-slot="card"] { border: 0; background: transparent; box-shadow: none; padding: 0; }
+.sim-editor [data-slot="card-header"], .sim-editor [data-slot="card-content"], .sim-editor [data-slot="card-footer"] { padding-inline: 0; }
+.sim-comparison th, .sim-comparison td { overflow-wrap: anywhere; }
+.sim-comparison [data-slot="badge"] { white-space: normal; }
+@media (max-width: 767px) {
+  .sim-inactive-column { display: none; }
+  .sim-comparison th, .sim-comparison td { padding: 12px 6px; font-size: 15px; }
+  .sim-comparison th:first-child { width: 40%; padding-left: 0; }
+  .sim-comparison .text-xs { font-size: 13px; }
+}
+@media print {
+  .sim-inactive-column { display: table-cell; }
+  .sim-workbench { display: block; }
+  .sim-editor, .sim-selector { display: none; }
+  .sim-comparison thead, .dashboard-table thead { display: table-header-group; }
+  .sim-comparison tr, .dashboard-table tr { break-inside: avoid; }
+  .sim-comparison, .dashboard-table { font-size: 11px; }
+}

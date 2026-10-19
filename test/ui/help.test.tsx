@@ -279,7 +279,7 @@ describe('unsaved simulator drafts and the guide', () => {
       renderApp();
       await go('#/simulator/dish_classic_burger');
       await userEvent.click(await screen.findByRole('button', { name: /Add scenario/ }));
-      const menuPrice = await screen.findByLabelText('Menu price (incl. VAT, €)');
+      const menuPrice = await screen.findByLabelText('Menu price (incl. VAT)');
       await userEvent.type(menuPrice, '13.83');
       expect(screen.getByRole('region', { name: 'Scenario A' })).toBeTruthy();
 
@@ -289,7 +289,7 @@ describe('unsaved simulator drafts and the guide', () => {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
 
       const scenario = await screen.findByRole('region', { name: 'Scenario A' });
-      expect((within(scenario).getByLabelText('Menu price (incl. VAT, €)') as HTMLInputElement).value).toBe('13.83');
+      expect((within(scenario).getByLabelText('Menu price (incl. VAT)') as HTMLInputElement).value).toBe('13.83');
       expect(within(scenario).getByText('Not saved yet.')).toBeTruthy();
     } finally {
       vi.useRealTimers();
@@ -305,7 +305,7 @@ describe('"Help for this page" links', () => {
     expect(screen.getByRole('link', { name: 'Help for this page' }).getAttribute('href')).toBe(expected);
   }
 
-  it('Dashboard', () => linkOn('#/', '#/help/dashboard', 'Dashboard'));
+  it('Dashboard', () => linkOn('#/', '#/help/dashboard', 'What has changed on your menu?'));
   it('Ingredients', () => linkOn('#/ingredients', '#/help/ingredients', 'Ingredients'));
   it('Recipes list', () => linkOn('#/recipes', '#/help/dishes', 'Recipes'));
   it('a dish', () => linkOn('#/recipe/dish_classic_burger', '#/help/dishes', 'Classic Burger'));

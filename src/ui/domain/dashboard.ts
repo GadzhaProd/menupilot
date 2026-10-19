@@ -42,6 +42,10 @@ export interface DashboardPrepRow {
   id: string;
   name: string;
   current: string | null;
+  currentBatchMicro: bigint | null;
+  comparisonBatchMicro: bigint | null;
+  outputMilli: number;
+  outputUnit: Prep['outputUnit'];
   comparison: string | null;
   noPriceOnDate: boolean;
   costUnknown: boolean;
@@ -184,6 +188,10 @@ function makePrepRow(prep: Prep, catalog: Catalog, asOf: string): DashboardPrepR
   return {
     id: prep.id,
     name: prep.name,
+    currentBatchMicro: currentBatchCost,
+    comparisonBatchMicro: historicalBatchCost,
+    outputMilli: prep.outputMilli,
+    outputUnit: prep.outputUnit,
     current: prepUnitCostDisplay(currentBatchCost, prep.outputMilli, prep.outputUnit),
     comparison: noPriceOnDate
       ? null
@@ -231,4 +239,16 @@ export function dashboardData(data: Catalog, asOf: string): DashboardData {
         : [row.currentFoodCostTenthsPct]),
     ),
   };
+}
+
+/** Rank comparable, positive per-portion cost changes; document order breaks ties. No new arithmetic. */
+export function largestCostIncrease(rows: readonly DashboardDishRow[]) {
+  let dish: DashboardDishRow | null = null;
+  let tied = false;
+  for (const row of rows) {
+    if (row.status !== 'ready' || row.costDeltaCents === null || row.costDeltaCents <= 0n) continue;
+    if (dish === null || row.costDeltaCents > dish.costDeltaCents!) { dish = row; tied = false; }
+    else if (row.costDeltaCents === dish.costDeltaCents) tied = true;
+  }
+  return dish === null ? null : { dish, tied };
 }

@@ -512,3 +512,76 @@ Production browser verification using bb browser-automation, local headless host
 - [375 EN light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-375-en-light.jpg), [desktop NL dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-desktop-nl-dark.jpg); both visually inspected. Mobile screenshot is scrolled to main by the existing navigation focus behaviour.
 
 Browser session closed; preview stopped (Ctrl+C, exit130). `git diff --check` clean; no push/merge.
+
+## Part 2
+
+### Scope and integration
+
+C+ Dashboard (`#/`), dish picker (`#/simulator`), and selected-scenario workbench (`#/simulator/:id`). Read AGENTS.md, DESIGN.md, planning/architecture and design implementation plans, C+ dashboard/simulator HTML and JPG references, i18n README, the real Impeccable skill and craft-floor. Kept calc/store unchanged; domain adapters expose existing BigInt results and structured translation notes. Own dictionaries are part2.en.ts/part2.nl.ts with two-line import/spread additions to the foundation dictionaries.
+
+Merged foundation through `a8f49e6`: packPrice/prepCost, required MoneyField vat, EN/NL controls, and the Shell animation fix. Git printed a packed-refs.lock permission warning during fast-forward; HEAD was verified as a8f49e6. No foundation implementation edits. Coordinator explicitly authorized only Dashboard heading expectations in help/router/shell tests and the changed price-field accessible label in help.test.tsx (two occurrences in the same test); behavior assertions are preserved.
+
+### Actual Impeccable calls and bounded review
+
+Before implementation, ran from the repository root:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context --target src/ui/pages/DashboardPage.tsx
+```
+
+Exit 0; PRODUCT.md / DESIGN.md resolved and manual detector required. Applied reference/audit.md and reference/polish.md as review playbooks; these are not invented CLI commands. After implementation, ran the detector on the two pages and component directories, then once more after the bounded polish pass:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect --json src/ui/pages/DashboardPage.tsx src/ui/pages/SimulatorPage.tsx src/ui/dashboard src/ui/simulator
+```
+
+Exit 0. Initial: 12 advisory font-size findings. Final: 10, all `design-system-font-size`, no other finding kinds. [Final detector JSON](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-detect-final.json). Removed the two 26px headings in favor of text-xl. Retained C+ headline/figure sizes 31/42/46/60px (specified in the design prose/mockups but not the detector's type-ramp list), 13px mobile table hints, and 11px print table text. These are documented intentional exceptions, not a claim of zero detector findings.
+
+Audit (0–4 per dimension, scoped technical review, 16/20; no formal WCAG certification):
+- Accessibility 3: semantic headings/tables, radio scenario selection, labelled fields, error association and first-error focus; Tab/Escape in deletion dialog and focus return verified. Delta direction has text/sign/icon as well as color. Native screen-reader and full contrast-ratio audit were not run.
+- Performance 3: no new dependencies/assets, memoized calculations, at most three mounted editors to preserve drafts; no screen-specific animation. Production main bundle 489.79 kB / gzip 145.79 kB. No profiler claim.
+- Theming 4: semantic theme tokens, both themes and languages inspected, currency signs/separators follow locale; print switches from dark to light.
+- Responsive 3: desktop table, mobile cards and baseline/selected comparison columns; 375/1024/1440 have no document overflow on exercised data. Radio labels/controls and inputs have 48px targets. Extreme-length arbitrary user data was not exhaustively browser-tested.
+- Implementation integrity 3: C+ hierarchy, no invented financial calculations or translated user data; typed translation keys for validation/rebase; detector exceptions above. Existing EN HelpLink is outside scope and still Russian in this branch, assigned to Part 3.
+
+Polish findings and resolution: moved primary menu/volume inputs ahead of derived results; collapsed shared estimate so the scenario controls align with comparison; made mobile radio selector use the whole row; replaced ad-hoc price/quantity inputs with shared fields and explicit VAT; removed dead legacy formatters/disclaimer text and global print page orientation. Preserved simultaneous scenario calculations, independent invalid drafts, save/delete/rebase semantics and unknown-vs-zero behavior.
+
+### Actual 21st calls
+
+```sh
+sh scripts/21st.sh search 'comparison table' --limit 3 --json
+sh scripts/21st.sh search 'segmented control' --limit 2 --json
+sh scripts/21st.sh license @mohammadshehadeh/components/comparison-02
+sh scripts/21st.sh license @halaska-studio/components/segmented-control
+```
+
+Comparison result 26827: Mohammad Shehadeh, Hirael, MIT. Segmented result 34763: halaska-studio, @delego, MIT. License responses rechecked and stored: [comparison](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-21st-comparison-license.txt), [segmented](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-21st-segmented-license.txt). No component source was fetched/copied/adapted: implemented C+ with existing shadcn primitives and native radio/table elements. No third-party notice or dependency added.
+
+### Verification and browser evidence
+
+`VITEST_MAX_WORKERS=2 npm run check` passed (the worker limit avoids contention with parallel threads without changing checks). [Final full log](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-check-final.log):
+
+```text
+tsc --noEmit: exit 0
+ℹ tests 137
+ℹ pass 137
+ℹ fail 0
+Test Files 25 passed (25)
+Tests 283 passed (283)
+✓ 2086 modules transformed.
+✓ built in 557ms
+```
+
+New tests cover largest positive comparable cost increase/ties/unknown/no-volume, NL dashboard, independent scenario drafts including invalid input across locale/theme switches, and unknown costs with a zero estimate. Existing calculator/store and scenario behaviors still pass. Initial integration failures from the renamed EN/NL controls and MoneyField label were corrected; under unrestricted parallel load an earlier run hit existing help-loading timeouts, hence bounded workers. Node still reports its pre-existing invalid --localstorage-file warning.
+
+Real browser: `bb browser-automation open --backend local --headless --machine host_mqe28unaid --json`; production preview `npm run preview -- --host 127.0.0.1 --port 4175`, served under `/menupilot/`. Main session 9b3798ca-c371-465f-89bc-e5c6857f0647. Initial resize/navigation exposed a foundation P1: Motion stop() called commitStyles on a hidden nav link. Reported to coordinator; temporary reduced-motion matrix was followed by a full final matrix after merging a8f49e6 with `prefers-reduced-motion: no-preference` (confirmed false). Final 24 route/state captures: EN/NL × light/dark × 1440/375 × dashboard/picker/workbench. No render crash or horizontal overflow; fonts loaded. [Matrix output](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-matrix-final.log). Files follow `part2-{dashboard|picker|simulator}-{en|nl}-{light|dark}-{1440|375}.jpg` in thread storage. Representative final screenshots were visually inspected in both themes/languages and sizes.
+
+- [Dashboard EN light desktop](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-dashboard-en-light-1440.jpg), [NL dark mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-dashboard-nl-dark-375.jpg).
+- [Simulator NL dark desktop](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-simulator-nl-dark-1440.jpg), [EN light mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-simulator-en-light-375.jpg).
+- [Dish picker NL light mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-picker-nl-light-375.jpg), [1024px](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-tablet-1024.jpg), [print from dark](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-print.jpg).
+
+Browser interaction checks: create three scenarios, change and save independent price/volume values, select A/B/C, retain drafts across theme/language; invalid menu price focuses its input on save ([capture](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-invalid-field.jpg)); saved deletion opens with Cancel focus, Tab reaches delete, Escape closes and returns focus to Delete. Changing Beef mince price through the ingredient UI produces [Baseline changed](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-stale.jpg), hides stale deltas, excludes stale scenarios from ranking; Update baseline preserves applicable overrides and requires Save. No estimate shows [Not enough data](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-no-estimate.jpg); entering zero is valid ([zero volume NL](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-zero-volume.jpg)). These mutations affect only the isolated headless demo profile. Unknown ingredient cost is additionally covered in the UI regression suite, not claimed as a separate manual browser fixture.
+
+Print emulation verified all Baseline/A/B/C columns visible, editor hidden, light background rgb(245,246,243), and full table. No native Safari/Firefox, physical touch device, screen reader, or PDF pagination checks claimed. EN HelpLink integration remains assigned to Part 3.
+
+Session closed with state:closed; preview stopped with Ctrl+C (exit 130). No preview server remains running from Part 2. Final git diff --check passed. No push or integration merge performed by this thread.
