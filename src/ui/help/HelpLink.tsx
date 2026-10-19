@@ -2,14 +2,7 @@ import { useLocale } from '@/ui/i18n';
 import { CircleHelpIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { hrefFor } from '@/ui/router/routes';
-import type { HelpLang } from './types';
 import type { HelpSectionId } from './types';
-
-/** Kept for the guide-language selector; screen link labels follow the interface locale. */
-export const HELP_LINK_LABEL: Record<HelpLang, string> = {
-  en: 'Help for this page',
-  ru: 'Справка по этой странице (Help)',
-};
 
 /** Small link on every screen that opens the guide at the matching section. */
 export function HelpLink({ section, className }: { section: HelpSectionId; className?: string }) {

@@ -2,7 +2,6 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HELP_CONTENT } from '@/ui/help/content';
-import { HELP_LINK_LABEL } from '@/ui/help/HelpLink';
 import { HELP_LANGUAGE_KEY, languageFromBrowser, readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
 import { HELP_SECTION_IDS } from '@/ui/help/types';
 import { demoCopy, go, memoryStorage, NOW, renderApp, STORAGE_KEY, storageWith } from './helpers';
@@ -317,9 +316,14 @@ describe('"Help for this page" links', () => {
   it('Simulator: a prep', () => linkOn('#/simulator/prep_burger_sauce', '#/help/simulator', /is a prep/));
   it('Data', () => linkOn('#/data', '#/help/data', 'Data'));
 
-  it('the link texts are the ones in the guide text', () => {
-    expect(HELP_LINK_LABEL.en).toBe(HELP_CONTENT.en.ui.contextLink);
-    expect(HELP_LINK_LABEL.ru).toBe(HELP_CONTENT.ru.ui.contextLink);
+  it('uses readable foreground accent colors for links and shows the Dutch guide note as a note', async () => {
+    renderApp();
+    await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    await go('#/help');
+    await screen.findByRole('article');
+    expect((await screen.findByRole('note')).textContent).toContain('De app is in het Nederlands');
+    expect(document.querySelectorAll('a[class~="text-accent"]')).toHaveLength(0);
+    expect(document.querySelectorAll('a[class~="text-accent-foreground"]')).not.toHaveLength(0);
   });
 
   it('every target section exists in the guide', () => {

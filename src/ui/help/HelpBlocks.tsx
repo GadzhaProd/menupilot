@@ -5,7 +5,7 @@ import { useSectionLink } from './HelpNav';
 import { HELP_IMAGES, helpImageUrl } from './images';
 import type { HelpBlock, HelpDocument, HelpImage, HelpSectionId, HelpStep, Rich } from './types';
 
-const LINK = 'rounded-sm font-medium text-accent underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+const LINK = 'rounded-sm font-medium text-accent-foreground underline underline-offset-4 outline-none hover:bg-panel focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 function SectionLink({ section, children }: { section: HelpSectionId; children: ReactNode }) {
   const link = useSectionLink(section);
