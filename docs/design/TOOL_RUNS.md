@@ -226,3 +226,60 @@ MIT-0 was not silently mapped to MIT; no-license and MIT-0 have inspire-only dec
 Финальная проверка документов:11HTML,276локальных ссылок,0битых ссылок/повторных id; ровно один h1 на страницу. A HTML побайтно сверены с99e1e39 после единственной разрешённой замены пробела (3файла); root DESIGN.md совпадает с99e1e39. Новый пакет около1.77MB, лимит3MB соблюдён. git diff --check без ошибок; src/test/package не менялись. [Машинный результат](alternatives/validation.json).
 
 Завершение: bb browser-automation close →state closed, exit0. Локальный HTTP server остановлен Ctrl+C →`Keyboard interrupt received, exiting.`, exit0. Внешняя публикация/push/merge не выполнялись.
+
+---
+
+# C+ — выбранное направление, 19 October 2026
+
+## Реальные Impeccable и контекст
+
+Использована именно4.3.1 из `/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable`. Сначала прочитан SKILL.md; реально выполнено из корня:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context > docs/design/alternatives/C-plus/context.txt
+```
+
+Exit0. На этот раз **весь stdout сохранён**: [context.txt](alternatives/C-plus/context.txt). RESOLVED_CONTEXT: productPath PRODUCT.md,designPath DESIGN.md,platform web,hasVisualImplementation true; MANUAL_DETECTOR_REQUIRED. Context ещё прочитал A, потому что это было до авторизованной замены корневого DESIGN. Сигнал UPDATE_AVAILABLE4.7.0 записан, обновление не выполнялось: владелец указал4.3.1.
+
+Прочитаны реальные reference/adapt.md,craft-floor.md,audit.md,polish.md. Adapt применён к выбранному C, а не новый случайный раунд. Новые init/concept-seed/bolder не запускались: выбор владельца уже получен. Audit/polish — playbooks с проверкой в этом потоке, не вымышленные shell verbs; subagents не запускались по ограничению дочернего потока. Сам skill код приложения не редактировал; git checkout/rollback не понадобился.
+
+Реально выполнено `.../scripts/impeccable detect --json docs/design/alternatives/C-plus` после сборки: **exit2,7warning** (4cramped-padding,2side-tab,1border-accent-on-rounded),0advisory. [JSON](alternatives/C-plus/detect.json), [разбор и audit16/20](alternatives/C-plus/REVIEW.md). Не заявлен чистый scan.
+
+## Реальные21st MCP
+
+- `mcp__codex_apps__21st_search({query:"theme switcher system light dark",type:"component",limit:3})` →1612,23700,3552.
+- `mcp__codex_apps__21st_search({query:"tabs segmented control reduced motion",type:"component",limit:2})` →35020,34763.
+- `mcp__codex_apps__21st_get_component({id:1612|23700|35020})` — три отдельных успешных вызова, каждый вернул component+quota; source imports реально просмотрены.
+
+Лицензии, каждая команда exit0:
+
+```text
+sh scripts/21st.sh license @haydenbleasel/components/theme-switcher
+- Author: [Hayden Bleasel](https://21st.dev/@haydenbleasel)
+- Library: [Kibo UI](https://21st.dev/@haydenbleasel/library/kibo-ui)
+- License: mit
+
+sh scripts/21st.sh license @felipemenezes098/components/dropdown-14
+- Author: [felipemenezes098](https://21st.dev/@felipemenezes098)
+- Library: @flx
+- License: AGPL-3.0
+
+sh scripts/21st.sh license @kuratlielia/components/segmented-control
+- Author: [kuratlielia](https://21st.dev/@kuratlielia)
+- Library: kuratlielia
+- License: MIT
+```
+
+5кандидатов,3подробно изучены,3license calls. [Metadata](alternatives/C-plus/21st-research.json), [решения](alternatives/C-plus/COMPONENT_PLAN.md): use0/adapt0/inspire1/build own2. AGPL компонент — только идея, код не скопирован/не переписан. Native select/radios предпочтены новым зависимостям. Motion14.4.0 берётся из предыдущей фактической metadata-проверки, новая registry-проверка не заявляется; пакет не установлен.
+
+## Браузер, токены, тесты
+
+Реальный `bb browser-automation open --backend local --headless --machine host_mqe28unaid --json`, первая session `cd0aa9a6-1018-4bb6-8393-2a540e98ecd0`. `run` проверил8комбинаций, await document.fonts.ready, ширины, theme controls, keyboard, media. Пока записывались документы, сессия истекла; следующий run вернул точную ошибку `session_unavailable: Session stopped or expired; open a new session`. Открыта новая `9ea43bef-0a9d-4df4-a5e0-5555f03f67ad`; финальные8JPEG и print capture сделаны в ней, временные изображения первой сессии не выданы как сохранённые артефакты.
+
+Первый immediate read после emulateMediaFeatures дал старое light; после ожидания двух requestAnimationFrame подтвердилось корректное systemdark. Отдельно проверены fresh absent,invalid stored value,manual override after OS change,persistence,storage-write exception with visible NL warning,ArrowRight/Left scenario selection/focus,print light with preserved preference,reduce transition0s. [Логи](alternatives/C-plus/browser-complete.txt), [асинхронный event/focus](alternatives/C-plus/cpVerifyFinal.txt). Начальная синтаксическая ошибка JS-оркестрации была до первого shell command и повторена корректно; никаких действий от неё не произошло.
+
+Финальные размеры:1440×1280 и375×1100,scrollWidth=width,0clipped cells. Дополнительно обе темы ×1024/1280 ×Dashboard/Simulator — тоже0clipped cells. UI labels полностьюNL; языкHTML nl. Расчёт WCAG sRGB по tokens.json:24пары на тему,48pass; [light](evidence/token-contrast-cplus-light.json),[dark](evidence/token-contrast-cplus-dark.json),[таблица](alternatives/C-plus/CONTRAST.md). Это не утверждение о WCAG-сертификации ещё не реализованного приложения.
+
+`npm run check` повторно запущен в `/tmp/menupilot-cplus-check-vo_9ds45` на копии tracked source, с node_modules основного checkout после проверки совпадения package-lock и exact direct versions. Exit0: tsc; core125pass/0fail; UI248pass/16files; Vite8.3.4,2064modules,458ms. [Полный вывод](alternatives/C-plus/npm-check.txt). Warning Node25 --localstorage-file сохранён. Временная копия удалена; dependencies/package/lockfile/src/test в worktree не менялись.
+
+Финальная проверка документов C+:14HTML,353локальныеHTML-ссылки,125локальныхMarkdown-ссылок,0битых ссылок/повторныхid;8основныхJPEG. Изменённый пакет около1.03MB(<3MB). Исходные A/B/C HTML/CSS/JPEG побайтно неизменны относительноb37e34f, архив A DESIGN отличается только разрешением относительных ссылок по новому расположению. [validation.json](alternatives/C-plus/validation.json). git diff --check прошёл. Финальная браузерная session закрыта (state closed,exit0), HTTP server остановлен Ctrl+C (Keyboard interrupt received, exiting.,exit0). Push/merge/publish не выполнялись.

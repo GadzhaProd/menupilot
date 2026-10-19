@@ -1,253 +1,131 @@
 ---
-name: MenuPilot — Сначала разница
-description: Ровные сравнения, ясные последствия, спокойное управление
+name: MenuPilot C+ — Кухонная линия
+description: Выбрано владельцем; две темы и ровные сравнения
 colors:
-  background: "#EDF1F3"
-  surface: "#FFFFFF"
-  ink: "#18313D"
-  muted: "#51636E"
-  line: "#C9D3D9"
-  input-border: "#7D8F9B"
-  primary: "#185ABD"
-  primary-hover: "#114998"
-  primary-active: "#103B79"
-  selected: "#E8F0FF"
-  positive: "#176246"
-  positive-bg: "#EAF5EE"
-  negative: "#9B3E16"
-  negative-bg: "#FFF0E5"
-  error: "#A61B32"
-  error-bg: "#FFF0F2"
-  table-heading: "#F5F7F8"
-  selection: "#C2D8FF"
+  light-bg: "#F5F6F3"
+  light-surface: "#FFFFFF"
+  light-panel: "#E9EDE7"
+  light-text: "#252C27"
+  light-muted: "#515D54"
+  light-line: "#BEC6BC"
+  light-border: "#6E7D70"
+  light-accent: "#795400"
+  light-accentSoft: "#F4EBD4"
+  light-positive: "#17633F"
+  light-negative: "#9A352A"
+  light-focus: "#795400"
+  light-button: "#283D30"
+  light-onButton: "#FFFFFF"
+  dark-bg: "#272A29"
+  dark-surface: "#2D322F"
+  dark-panel: "#343C36"
+  dark-text: "#F2F1E8"
+  dark-muted: "#C1C9BE"
+  dark-line: "#657166"
+  dark-border: "#929E92"
+  dark-accent: "#F2C75C"
+  dark-accentSoft: "#49432F"
+  dark-positive: "#8AD8AE"
+  dark-negative: "#FFB4A6"
+  dark-focus: "#F2C75C"
+  dark-button: "#E6EDDF"
+  dark-onButton: "#233025"
 typography:
   heading:
-    fontFamily: "Source Sans 3, system-ui, sans-serif"
-    fontSize: "2rem"
+    fontFamily: "Archivo, sans-serif"
+    fontSize: "2.25rem"
     fontWeight: 600
     lineHeight: 1.15
   body:
-    fontFamily: "Source Sans 3, system-ui, sans-serif"
+    fontFamily: "Source Sans 3, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 400
-    lineHeight: 1.5
-  data:
-    fontFamily: "Source Sans 3, system-ui, sans-serif"
-    fontSize: "1rem"
-    fontWeight: 600
     lineHeight: 1.4
   caption:
-    fontFamily: "Source Sans 3, system-ui, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: "Source Sans 3, sans-serif"
+    fontSize: "0.9375rem"
     fontWeight: 400
-    lineHeight: 1.4
-  subheading:
-    fontSize: "1.5rem"
-    fontWeight: 600
-    lineHeight: 1.25
-  section-label:
-    fontSize: "1.25rem"
-    fontWeight: 600
-    lineHeight: 1.3
-  mobile-heading:
-    fontSize: "1.75rem"
+    lineHeight: 1.35
+  money:
+    fontFamily: "Archivo, sans-serif"
+    fontSize: "3rem"
     fontWeight: 600
     lineHeight: 1.2
-  impact:
-    fontSize: "2.5rem"
-    fontWeight: 600
-    lineHeight: 1.1
-  mobile-impact:
-    fontSize: "2.25rem"
-    fontWeight: 600
-    lineHeight: 1.1
 rounded:
-  badge: "4px"
-  control: "6px"
-  panel: "12px"
+  control: "4px"
+  editor: "8px"
 spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "16px"
-  lg: "24px"
-  xl: "32px"
-  section: "48px"
-components:
-  button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.control}"
-    height: "48px"
-    padding: "10px 18px"
-  button-primary-hover:
-    backgroundColor: "{colors.primary-hover}"
-  button-primary-active:
-    backgroundColor: "{colors.primary-active}"
-  input:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
-    height: "48px"
-    padding: "10px 12px"
+  small: "8px"
+  medium: "16px"
+  large: "24px"
+  desktop-inset: "32px"
 ---
 
-## Overview
+# C+ — «Кухонная линия»
 
-**Предложение арт-директора для реализации; приложение ещё не изменено.**
-Продуктовая правда — в PRODUCT.md. Концепты и режим каждой поверхности — в
-docs/design/SCREEN_CONCEPTS.md. Это новый визуальный мир, а не описание нынешнего CSS.
+Выбрано владельцем 19 октября 2026. Это финальный макет перед реализацией, не выполненный редизайн приложения. A сохранён без изменений в [архиве](docs/design/alternatives/A-difference/DESIGN.md); исходные A/B/C-мокапы не переписаны.
 
-Идея «Сначала разница» берёт дисциплину у измерительной панели: подпись, значение,
-точка отсчёта, изменение. Владелец сначала понимает последствие, затем открывает
-блюдо и проверяет варианты. Характер создают совпадающие числовые колонки,
-прямые разделители, синий маркер выбранного действия и общий холодный светлый фон.
-Никаких нарисованных весов, делений без смысла или псевдоиндустриальных деталей.
+## Идея
 
-Отличие от шаблонного SaaS — композиция вокруг сравнения реальных цен и сценариев,
-а не ряд одинаковых KPI-карточек и график. Dashboard связывает месячное изменение
-с конкретными блюдами; Simulator сводит редактирование и результат в одну рабочую область.
+Рабочая поверхность с верхним меню и ровными колонками. Вверху Dashboard — общий маandeffect и блюдо с самым большим абсолютным удорожанием одной порции; рядом видно «было → стало». В Simulator крупная дельта выбранного сценария и поля рядом с общей таблицей. Выразительность — в форме и размере цифр, а не в ярких плашках.
 
-## Colors
+Пользователи любого возраста, включая людей без технического опыта. Простота — требование к устройству интерфейса, не возрастная эстетика. Dashboard/Simulator/редакторы — **Operate**; Help — **Read**.
 
-Стратегия Impeccable: **Restrained**. Цвет поверхности прохладный, не кремовый.
-Один акцент для действий/выбора, отдельные семантические цвета для результата.
-HEX — нормативные токены этого предложения (формат Impeccable допускает CSS colors);
-не поддерживать вторую несинхронную палитру OKLCH. При переносе в Tailwind `@theme inline`
-сопоставить background/foreground/card/popover/primary/secondary/muted/accent/
-destructive/border/input/ring с этими ролями. Сохранять различие `line` и `input-border`:
-табличный разделитель не обязан выглядеть как интерактивное поле.
+## Светлая и тёмная темы
 
-| Состояние | Роль | Видимый текст обязателен |
-|---|---|---|
-| Выбрано | primary на selected, подчёркивание или рамка | A/B/C, выбранный период, текущая страница |
-| Лучше по contribution / ниже cost | positive на positive-bg | знак суммы и понятная подпись |
-| Хуже по contribution / выше cost | negative на negative-bg | «Cost increased» / отрицательная разница |
-| Ошибка ввода или записи | error на error-bg | причина и способ исправления |
-| Unknown / нет оценки | muted на surface | «cost unknown» / «—» + причина |
-| Stale baseline | negative + текст | «Baseline changed», действие Update baseline |
+Единые semantic roles, два явно заданных набора значений; никакого CSS invert, смешения тёмных строк со светлыми полями или автоматического lightening. Светлая использует белые рабочие поверхности на светлом нейтральном фоне, зелёно-графитный текст и тёмный охристый акцент; тёмная — графит, мягкий светлый текст и янтарный акцент. Не переносить жёлтые области B.
 
-Рост цены ингредиента не зелёный только потому, что знак «+». Не окрашивать всё
-значение и всю строку одновременно. Нулевое изменение нейтрально; нулевой объём
-не означает отсутствующую оценку. Ошибка не исчезает сама.
+| Токен | Light | Dark | Назначение |
+|---|---|---|---|
+| bg | #F5F6F3 | #272A29 | фон приложения |
+| surface | #FFFFFF | #2D322F | рабочая поверхность |
+| panel | #E9EDE7 | #343C36 | выбранная строка/колонка |
+| text | #252C27 | #F2F1E8 | текст и числа |
+| muted | #515D54 | #C1C9BE | пояснения |
+| line | #BEC6BC | #657166 | неинтерактивные разделители |
+| border | #6E7D70 | #929E92 | граница control |
+| accent | #795400 | #F2C75C | выбор, ссылки-акценты |
+| accentSoft | #F4EBD4 | #49432F | фон выбранной маленькой кнопки |
+| positive | #17633F | #8AD8AE | рост contribution / снижение cost |
+| negative | #9A352A | #FFB4A6 | снижение contribution / рост cost |
+| focus | #795400 | #F2C75C | видимый фокус 3px + offset |
+| button | #283D30 | #E6EDDF | основное действие |
+| onButton | #FFFFFF | #233025 | текст основного действия |
 
-Светлая тема нужна для работы днём у стойки и рядом с накладной, в переменном
-освещении. Тёмную тему **не добавлять в этот этап**: в текущем продукте нет полноценного
-переключателя и проверенной пары тем. Dark CSS-variant сам по себе не считается темой.
-Будущий dark mode требует отдельного задания и проверки всех состояний.
+Default preference **system**: effective theme = matchMedia(prefers-color-scheme). Header select: System/Light/Dark (NL Systeem/Licht/Donker), accessible label. Production key `menupilot.ui.theme.v1`, values `system|light|dark`; absent/invalid = system. Только этот ключ; не включать UI preference в документ меню, JSON backup или baseline. Проверять storage errors, сохранять рабочий выбор в памяти, не очищать данные. При system реагировать на change; ручной выбор не перезаписывать при смене OS; storage event синхронизирует вкладки. До первого paint применить validated preference; в CSP учесть маленький bootstrap. Mock использует отдельный `menupilot.design.cplus.theme.v1`, не ключ приложения.
 
-## Typography
+Печать всегда light через `@media print`, даже если screen preference dark. Не менять сохранённый выбор; после печати восстановление происходит CSS автоматически. Убрать меню/controls/редактор, напечатать заголовок, дату сравнения/базы, выбранный итог и все колонки матрицы/все блюда. Повторять thead, не резать строки; A4 landscape для широкой таблицы. Не зависеть от включения фоновой печати: знак, подпись и double rule остаются понятны.
 
-Одна семья: **Source Sans 3**, автор Paul D. Hunt / Adobe; OFL 1.1.
-[Официальный источник](https://github.com/adobe-fonts/source-sans),
-[лицензия](https://github.com/adobe-fonts/source-sans/blob/release/LICENSE.md).
-В мокапах локальные regular/semibold WOFF2 с полным LICENSE в `mockups/fonts/`.
-Исполнитель переносит атрибуцию вместе со шрифтом; npm-пакет шрифта не нужен.
-Public Sans рассмотрен и отклонён: официальный репозиторий называет его Latin-only,
-что даёт лишнюю смену шрифта внутри русского Help.
+Контраст проверен по WCAG2 sRGB: [light JSON](docs/design/evidence/token-contrast-cplus-light.json), [dark JSON](docs/design/evidence/token-contrast-cplus-dark.json), 24 пары на тему. Text/muted/accent/positive/negative ≥4.5:1 на bg/surface/panel, accent на accentSoft ≥4.5, onButton ≥4.5; focus и control border ≥3.0. `line` — только декоративный разделитель, не единственный признак границы control. Полная таблица минимумов — [CONTRAST](docs/design/alternatives/C-plus/CONTRAST.md). Это palette verification плюс браузерные spot checks, не сертификат всего будущего приложения.
 
-- Основной текст 18/27; таблицы и поля 16/24; вспомогательный текст минимум 14/20.
-- H1 32/37, H2 24/30, H3 20/26. На телефоне H1 28/34; размеры фиксированы в rem.
-- Главная сумма 40/44, на телефоне 36/40; значение не вытесняет свою подпись.
-- Help: основной текст 20/32, 60–68ch, полноценные абзацы. Не уменьшать ради плотности.
-- Все деньги, проценты, количества, даты: `font-variant-numeric: tabular-nums lining-nums`.
-  Числа вправо; подписи влево. Минус и плюс видимы. Две цифры после запятой у EUR,
-  одна у процентов; использовать существующие форматтеры. Не переводить BigInt в Number.
-- В полях сохранять введённую строку; пустота, `0`, ошибочный ввод — разные состояния.
-  `inputMode="decimal"`, `type="text"`; для объёма `inputMode="numeric"`.
-- Шрифт fallback — system-ui; `font-display: swap`. Проверить EN/NL и кириллицу,
-  знаки €, −, %, табличные цифры. Переводы не обрезать и не прятать в tooltip.
+## Шрифты и числа
 
-## Layout
+Archivo600 — заголовки и главные суммы; Source Sans3 regular/semibold — строки и подписи. Уже имеющиеся self-hosted OFL assets: [Archivo](docs/design/alternatives/fonts/PROVENANCE.md), [Source Sans3](docs/design/mockups/fonts/PROVENANCE.md); не дублировать бинарники. Body18px desktop/17px mobile, подписи 15px, таблица 17/16px; для плотной mobile comparison captions13px, labels15px при сохранении контраста. Heading36/31px, общий итог 60/46px, новая стоимость 48/42px; максимум<6rem.
 
-Desktop ≥ 1200: левое текстовое меню 200 px, основной контент до 1280 px,
-отступы 32 px. Внутри рабочей области 12 колонок / gap 24. Навигация не становится
-иконками: Dashboard, Ingredients, Recipes, Simulator; Data и Help отдельной нижней группой.
-Названия маршрутов сохранены. Brand — слово MenuPilot, без нового выдуманного логотипа.
+Все money roles: `font-variant-numeric:tabular-nums lining-nums`, выравнивание вправо, без разбивки числа на декоративные разряды. Значения выводят существующие exact formatters: BigInt не превращать в Number, числа не парсить через parseFloat. Locale en-NL/nl-NL меняет только представление. Отрицательная contribution — `−` + negative; положительная — `+` +positive; увеличение cost — negative, даже со знаком `+`. Zero нейтрален, unknown — текст, не 0.
 
-768–1199: верхняя текстовая навигация, рабочие панели в одну колонку при нехватке
-ширины. 375–767: бренд + кнопка Menu, раскрытие **inline**, полный список ссылок,
-`aria-expanded` и понятное закрытие. Отступы 16 px, контент 343 px при viewport 375.
-Не использовать нижнюю панель, которая конкурирует с клавиатурой и формой сохранения.
+## Композиция и компоненты
 
-Dashboard: обзор одной горизонтальной полосой; сумма и объяснение занимают 7/12,
-остальные сводные показатели — 5/12 в коротком списке. На телефоне сводка компактно
-выстраивается сверху вниз; первая строка блюда должна быть достижима без пролистывания
-четырёх больших карточек. Даты рядом с таблицей, не отдельная огромная панель.
+Desktop main≤1540px, поля 32px;1024px поля 24px,375px поля 20px. Навигация сверху, на 1024 переносится отдельной строкой, на 375 — подписанный Menu disclosure. Targets48px, явный focus; иконки только существующий lucide20px с подписью, без декоративных плиток.
 
-Simulator desktop: выбранный сценарий слева 360 px, сравнение справа `minmax(0,1fr)`;
-оба начинаются на одной высоте. Мобильный вариант сохраняет Baseline рядом с активным
-сценарием; A/B/C — доступные переключатели. Строка показателя сначала подпись на всю
-ширину, затем два числа. Полная A/B/C-таблица доступна отдельным раскрытием с собственным
-горизонтальным скроллом и закреплённой подписью. Никакого горизонтального скролла body.
+Dashboard: общая сводка и один выделенный пример на общей линии. **Largest increase = max positive costDeltaCents per portion excluding VAT**, только known comparable values; не процент и не общий monthly impact. При tie первый в существующем порядке документа; показать текст «одинаковое максимальное удорожание» при нескольких, не выдавать единственного победителя. Если положительных сравнимых дельт нет — нейтральное объяснение, не подставлять 0. Missing volume не исключает блюдо из cost-rank; его monthly impact остаётся—. Не сортировать основную таблицу автоматически. Увеличение одной порции не является рекомендацией менять рецепт.
 
-В редакторе рецепта состав 8/12, итог 4/12; итог sticky только при достаточной высоте
-экрана. На телефоне итог перед составом и повторное текстовое резюме перед Save.
-Ни sticky-элемент, ни диалог не закрывает сфокусированное поле.
+Таблица из A: 19sep /now/change/contribution/monthly. Menu price incl/excl и food-cost points сохранены вторыми строками, не удалены. На 375 блюда становятся связанными строками с All figures. Prep показывает только стоимость на выходную единицу и не получает contribution.
 
-## Elevation & Depth
+Simulator: desktop editor280px (238px при 1024) +table; выбранный сценарий содержит и draft и итог. Не пересоздавать draft при смене A/B/C или breakpoint. Таблица сохраняет все 8 существующих метрик, deltas и highest/tie/exclusion; дополнительная итоговая строка monthly delta. На 375 показывать Baseline и active side-by-side, остальные доступны тем же radio/tab control; все колонки печатаются. Compact chosen summary остаётся рядом с mobile edit workflow: при реализации можно повторить derived summary у полей, не заводя второй draft или расчёт.
 
-Рабочие области разделяются поверхностью и одной линией, без теней. Тень только у
-модального диалога: `0 18px 48px rgb(24 49 61 / 18%)`; backdrop `rgb(24 49 61 / 35%)`.
-Не вкладывать декоративные карточки друг в друга. Dropdown/dialog через Radix portal,
-не внутри обрезающего overflow. Sticky: навигация z10, заголовки таблиц z20, overlay z50.
+Inputs48px, явные labels incl/excl VAT или локальные эквиваленты. Сохранять supplier hint. Диалоги остаются Radix с focus trap/return, Escape, scroll body, nearby errors; успех inline status, критические ошибки постоянный alert. Бейджи без пульсации. Решения [21st C+](docs/design/alternatives/C-plus/COMPONENT_PLAN.md): новые theme/control строить самостоятельно на разрешённых primitives; чужой код пока не принят.
 
-## Shapes
+## Язык без смешения
 
-6 px у кнопок и полей; 12 px у самостоятельной панели/диалога. Таблицы прямые,
-скругление только у внешней поверхности. Значение изменения — короткая прямоугольная
-метка с мягкими углами, не разноцветные «конфеты». Цель нажатия минимум 48×48 px;
-иконка 20 px внутри этой цели. Поля 48 px, строки таблиц от 64 px с переносом текста.
+Вся строка UI, aria-label, ошибки, empty/status и подписи форм проходят typed `t(key, params)` из EN/NL dictionaries. Не подменять textContent/innerHTML после render, не искать английские слова в DOM; данные блюд и supplier names — пользовательские данные, не ключи. HTML-мокап полностью NL; UI terms переведены последовательно и сопоставлены в [I18N](docs/design/alternatives/C-plus/I18N.md). В EN сохранять точные обязательные термины. В NL contribution переводится как «bijdrage», никогда «winst». Help сохраняет RU и получает полную NL-версию со стабильными anchor IDs.
 
-## Components
+## Движение
 
-Подробная оценка реальных 21st-компонентов — docs/design/COMPONENT_PLAN.md.
+Точный опциональный кандидат `motion@14.4.0`, не установлен в дизайн-задаче. Тема переключается **сразу**: плавная инверсия всех цветов может дать нечитаемые промежуточные пары; допускается 160ms движения индикатора самого theme control. Выбор сценария —160–180ms перемещения selected marker, данные появляются сразу. После валидного пересчёта — одно 180ms подчёркивание результата, без rolling counter, промежуточных денежных сумм, bounce и задержки ввода. При reduced motion всё мгновенно, остаются текст и selected state; live region сообщает итог после валидного изменения с коротким debounce, не каждую цифру ввода. В mock темы и денежные результаты мгновенны; лишь background/border radio transition160ms при no-preference.
 
-**Кнопки.** Primary только для действия данной области (Save, Add ingredient).
-Secondary с рамкой, тихое действие текстом с видимым hover. Destructive отдельно
-от сохранения, с полным названием. Default/hover/active по токенам; focus — 3 px primary
-с 3 px белым зазором. Disabled: muted на background, сохраняющий читаемую подпись;
-loading: текст «Saving…», предотвращение повторного submit, без скачка ширины.
+## Состояния и ограничения
 
-**Поля.** Постоянная label, единица отдельно, hint под полем. Error рамка + текст,
-`aria-invalid`, `aria-describedby`; фокус на первом неверном поле после submit.
-Supplier hint не сокращать. Строковый draft остаётся локальным. Failed save оставляет
-черновик и реальный документ неизменными, результат не маскируется словом Saved.
+Unknown cost, отсутствующий объём, нулевой объём, stale baseline, invalid input, loading и empty имеют собственный текст. При failed save сохранить draft и displayed document. Stale исключается из сравнений; обозначать причину, не показывать устаревшую delta как актуальную. Нет новых валют, графиков, AI, POS, forecast или рекомендаций по безопасности еды.
 
-**Сравнение.** Baseline всегда обозначен «real data today», сценарий — своей буквой
-и именем. Selected и highest monthly — разные состояния: синий = редактирую, зелёный
-текст = максимум среди сравнимых по существующему calc. Не писать «recommended».
-Старая база не получает свежую дельту, unknown не получает €0.00. Все строки текущей
-ComparisonTable сохраняются, даже если менее важные визуально тише.
-
-**Уведомления.** Обычный успех inline `role=status`, спокойное появление; критические
-ошибки постоянные `role=alert`. Не добавлять систему auto-dismiss toasts и новую
-библиотеку ради сохранения одного сценария. Ошибки полей — возле полей.
-
-**Диалоги.** Только существующие задачи, требующие фокуса (цена/история/подтверждение).
-Title, описание, Close, Cancel, основное действие. Сохранять Radix focus trap, Escape,
-возврат фокуса. На 375: поля в колонку, max-height по `100dvh`, прокрутка внутри;
-footer не перекрывает клавиатуру. История не превращается в редактируемую таблицу.
-
-**Движение.** CSS 160 ms для hover, 180 ms для смены выбранной области; ease-out.
-Числа меняются сразу, без счётчика, перелёта цифр, bounce или layout shift. Один
-смысловой приём: короткое осветление изменённого результата после валидного ввода,
-не на каждое промежуточное нажатие. При `prefers-reduced-motion: reduce` всё мгновенно.
-Нет вступительных анимаций. Разрешённый владельцем motion пока не нужен, не ставить
-произвольную/непроверенную версию; если появится реальная потребность — отдельное
-решение о точной версии и lockfile до изменения зависимостей.
-
-**Иконки.** Существующий lucide-react, 20 px, stroke 1.75–2, aria-hidden рядом с текстом.
-Иконки помогают распознать History, Save, Help; не занимают цветные декоративные плитки.
-
-## Do's and Don'ts
-
-- Сначала показывать смысл изменения, затем действия и детали. Метрики не удалять.
-- Не сокращать обязательные финансовые термины; подпись может переноситься.
-- Не превращать contribution в прибыль, оценку владельца — в прогноз, максимум — в совет.
-- Не ставить меню выбора валюты, AI, новый график, автосохранение или поиск без отдельного scope.
-- Не оформлять как лендинг: без hero-слогана, иллюстраций еды, градиента, стекла,
-  serif-заголовков, гигантских KPI и одного card на каждый факт.
-- Не использовать декоративные толстые цветные полосы сбоку, неон, тёмную тему по умолчанию,
-  icon-only sidebar, toast как единственное место ошибки, серый placeholder вместо label.
-- Проверить 375 px, 200% zoom, длинные названия и суммы, пустоту, unknown, zero, ошибки
-  и stale baseline до того, как объявлять дизайн реализованным.
+Анти-референсы: жёлтые большие плашки B; новая sidebar; одинаковые KPI-карточки; paper texture/рваные чеки; неон; icon-only controls; цвет без знака; анимированные деньги. Ключевые макеты [C+](docs/design/alternatives/C-plus/index.html). Реализация следует [плану](docs/design/IMPLEMENTATION_PLAN.md), а не копирует read-only mock handlers в store.

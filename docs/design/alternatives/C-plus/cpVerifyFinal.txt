@@ -1,0 +1,9 @@
+system settled light { matches: false, theme: 'light' }
+
+system settled dark { matches: true, theme: 'dark' }
+
+keyboard scenario { selected: 'C', focus: 'C', outline: 'rgb(242, 199, 92) solid 3px' }
+
+theme focus rgb(242, 199, 92) solid 3px
+
+print final { bg: 'rgb(255, 255, 255)', editor: 'none', bodyWidth: 1024, allColumns: true }

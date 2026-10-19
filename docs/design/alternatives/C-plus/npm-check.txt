@@ -1,0 +1,193 @@
+
+> menupilot@0.1.0 check
+> npm run typecheck && npm test && npm run build
+
+
+> menupilot@0.1.0 typecheck
+> tsc --noEmit
+
+
+> menupilot@0.1.0 test
+> npm run test:core && npm run test:ui
+
+
+> menupilot@0.1.0 test:core
+> node --test test/calc/*.test.js test/store/*.test.js
+
+✔ converts menu price excl. VAT and calculates the approved contribution example (1.278458ms)
+✔ calculates a menu price without 21% VAT in micro-euros (0.088458ms)
+✔ rounds monthly contribution to cents once and accepts a zero volume (0.06575ms)
+✔ distinguishes zero-price n/a percentages from unknown recipe cost (0.077459ms)
+✔ treats null and undefined monthly volume as not supplied (0.105417ms)
+✔ rounds food-cost and contribution-margin tenths away from zero at half boundaries (0.085125ms)
+✔ manually recalculates three dishes from ingredient pack prices (0.7825ms)
+✔ applies yield to the individual ingredient line only (0.12125ms)
+✔ divides a recipe batch cost by its safe integer portion count (0.101125ms)
+✔ selects the price at or before a date, breaking timestamp ties by sequence (0.155542ms)
+✔ compares strict ISO timestamps by timezone offset and sub-millisecond fraction (0.976333ms)
+✔ uses the selected historical price when costing a dish as of a date (0.439125ms)
+✔ prices a package per kg, l, or pc without changing pack values (0.111709ms)
+✔ keeps large ingredient arithmetic exact with BigInt (0.080625ms)
+✔ rejects invalid quantities, yields, portions, and unsafe stored integers (0.192375ms)
+✔ uses the referenced ingredient base unit and ignores a removed line unit field (0.088917ms)
+✔ keeps empty recipes and missing prices unknown instead of treating them as zero (0.741875ms)
+✔ treats a recorded zero ingredient price as known zero cost (0.084458ms)
+✔ one unknown line makes the whole dish cost unknown (0.070125ms)
+✔ requires asOf and recordedAt to be strict ISO timestamps with a timezone (0.4795ms)
+✔ does not mutate frozen recipe or ingredient data (0.160375ms)
+✔ cost change subtracts displayed cents, as scenario comparison does (0.497542ms)
+✔ food cost change subtracts displayed tenths (0.073792ms)
+✔ monthly impact is current contribution minus comparison contribution (0.062708ms)
+✔ menu impact totals known values and rounds simple average half away from zero (0.095334ms)
+✔ parses supported euro amounts into safe integer cents (0.992542ms)
+✔ rejects invalid, negative, ambiguous, and over-precise money input (1.493042ms)
+✔ rejects parsed cent values outside the safe integer API range (0.136083ms)
+✔ rounds half away from zero for positive and negative values (1.625292ms)
+✔ rejects division by zero and non-BigInt operands (0.214625ms)
+✔ formats cents and rounds micro-euros to cents only when displayed (0.13075ms)
+✔ formats large BigInt values without precision loss (0.061959ms)
+✔ matches the approved €1.80/kg sauce and €0.27 for 150 g example (4.059458ms)
+✔ calculates nested prep recipes through three levels without dividing by prep portions (0.24175ms)
+✔ uses ingredient price history at the requested date through nested prep (0.140125ms)
+✔ ingredient price changes flow through a prep into a dish (0.095584ms)
+✔ propagates unknown ingredient cost through prep layers to the dish (0.502625ms)
+✔ rejects self-reference and prep cycles with a readable path (0.348875ms)
+✔ allows five prep levels and rejects a sixth (0.204958ms)
+✔ uses the referenced ingredient base unit and ignores a removed prep-line unit field (0.077459ms)
+✔ applies a prep ingredient line yield below one hundred percent (0.155042ms)
+✔ scales prep use by its 2.5 kg batch yield, not by a portion count (0.134625ms)
+✔ allows a diamond-shaped prep tree to use the same prep in two branches (0.75675ms)
+✔ an empty prep referenced by a dish propagates unknown cost (0.078167ms)
+✔ rejects missing references and invalid prep output sizes (0.150083ms)
+✔ displays prep cost per kg, l, or pc with one cent rounding (0.067291ms)
+✔ rounds an ingredient line at the half-micro-euro boundary (0.053084ms)
+✔ does not mutate deep-frozen recipe, prep, ingredient, or document inputs (0.138708ms)
+✔ snapshots only a dish and its reachable preps and ingredients with price history (2.121167ms)
+✔ simulates the specification example and applies ingredient overrides at the selected pack size (0.727417ms)
+✔ simulates menu price and quantity changes with manually checked B and C outcomes (0.197292ms)
+✔ ingredient price override retains the package size selected at baseline date (0.122417ms)
+✔ ingredient price overrides flow through two prep levels (0.273292ms)
+✔ snapshots a diamond graph with shared nested prep only once (0.793791ms)
+✔ rejects quantity overrides for prep lines and unknown line ids (0.246292ms)
+✔ rejects invalid price and quantity overrides without changing inputs (0.273541ms)
+✔ preserves zero and missing volumes, and compares different scenario volumes independently (0.176875ms)
+✔ returns negative contribution and handles unknown cost and zero menu price in comparison (0.151167ms)
+✔ comparison subtracts displayed cents, including negative half-cent boundaries (0.106875ms)
+✔ detects baseline changes in current prices and prep quantities but ignores key order (1.120417ms)
+✔ rejects prep cycles while building a baseline snapshot (0.1375ms)
+✔ does not mutate deep-frozen inputs across snapshot, simulation, comparison, and staleness checks (0.298166ms)
+✔ normalizes kg and l to their base units and scales all values to milli-units (0.909334ms)
+✔ parses comma decimals exactly without floating-point arithmetic (0.087792ms)
+✔ normalizes input units and checks compatible unit families (0.262375ms)
+✔ rejects inherited object property names as unsupported units (0.13875ms)
+✔ enforces input precision by entered unit and rejects thousands separators (0.781542ms)
+✔ rejects invalid, negative, zero, and over-precise quantities (0.17125ms)
+✔ enforces safe integer milli-unit boundaries (0.079959ms)
+✔ demo.json is a valid document (2.131375ms)
+✔ demo shape: 8-12 ingredients, 5-7 dishes, nested preps, one 21% drink (0.374458ms)
+✔ Classic Burger reproduces the spec example: EUR 4.20 -> 4.85, -0.65 per portion, -195.00 per month (1.868375ms)
+✔ shifted demo gives the same numbers relative to a later "now" (0.872333ms)
+✔ shiftDemoDates does not change its input and keeps pack sizes and seq (0.380625ms)
+✔ the demo document and a small document are valid (2.996708ms)
+✔ rejects wrong version, non-objects and missing collections (0.56175ms)
+✔ errors name the path of the broken field (0.294125ms)
+✔ money and quantities must be safe integers (0.448166ms)
+✔ ranges: VAT 0..10000, yield 1..10000, portions >= 1, volume integer >= 0 (0.536333ms)
+✔ names and ids must be non-empty text; ids are unique (0.3275ms)
+✔ timestamps must be strict ISO instants with a time zone (0.247958ms)
+✔ ingredient units are base units only (0.169625ms)
+✔ dish and prep fields are exclusive (0.542875ms)
+✔ recipe lines have no own unit and only known fields (0.164792ms)
+✔ price history: seq strictly increasing, recordedAt not decreasing (0.321625ms)
+✔ line references must exist and match their kind (0.26375ms)
+✔ a dish cannot be used as a prep line (0.342542ms)
+✔ self reference and cycles are rejected (0.215208ms)
+✔ prep nesting up to 5 levels is valid, 6 is rejected - same as the calc module (0.688916ms)
+✔ scenario: shared contract is accepted and checked (1.242166ms)
+✔ scenario ids must be unique and entity validators are reusable (0.238375ms)
+✔ very deep graphs give validation errors, not a stack overflow (39.597625ms)
+✔ size limits: huge imports are rejected before any graph work (8.473958ms)
+✔ baseline contains exactly the dish and what it reaches (0.471584ms)
+✔ recordedAt in the future is rejected only when a clock is supplied (5 min tolerance) (1.536416ms)
+✔ storage key is menupilot:v1 (0.553917ms)
+✔ first run loads the demo, shifted to now, without writing storage (3.7045ms)
+✔ data survives a restart (new store on the same storage) (5.647709ms)
+✔ broken JSON: error, storage untouched, nothing can overwrite it (0.97175ms)
+✔ unsupported version and invalid stored data: error, storage untouched (0.95225ms)
+✔ resetToDemo is the explicit way out of a broken state (1.429292ms)
+✔ resetToEmpty replaces everything with a valid empty document and writes it (0.501167ms)
+✔ resetToEmpty is also a way out of a broken state (0.381083ms)
+✔ resetToEmpty is atomic: a write failure leaves memory and storage as they were (0.542541ms)
+✔ write failure (quota): clear error, memory and storage stay as before (0.818541ms)
+✔ addPrice only appends: seq = max + 1, recordedAt = now(), old records unchanged (0.49875ms)
+✔ price at a date is chosen by recordedAt; pack size is a snapshot per price (0.378125ms)
+✔ addPrice keeps history ordered even if the clock moved backwards; rejects bad input (0.501333ms)
+✔ cannot delete a used ingredient or prep; unused ones are deleted (0.486ms)
+✔ cannot change the output unit of a prep used by any recipe (0.5835ms)
+✔ deleting a dish with scenarios is refused unless deleteScenarios is set (0.495625ms)
+✔ a dish without scenarios is deleted normally; other scenarios survive (0.318417ms)
+✔ demo is a required option and must be valid (fail fast) (0.165417ms)
+✔ import and save reject price records from the future; tolerance is 5 minutes (0.450291ms)
+✔ import larger than the size limit is refused (0.219167ms)
+✔ a stored document with a slightly-future price still loads and can be edited (0.318708ms)
+✔ saveRecipe rejects cycles, self reference, depth 6, dish-as-prep and kind mismatch (1.164917ms)
+✔ saveRecipe inserts or replaces; ids are generated when missing (0.315834ms)
+✔ ingredient create/update rules (0.501291ms)
+✔ scenarios: save, replace, delete; they are validated like the rest (0.514166ms)
+✔ import: invalid files leave current data untouched (0.35625ms)
+✔ import: write failure is atomic too; export then import round-trips (1.484667ms)
+✔ previous documents and inputs are never mutated (deep-freeze) (1.432208ms)
+✔ save() validates before writing (0.41225ms)
+✔ demo cost example still holds after a reset at an arbitrary time (0.985667ms)
+ℹ tests 125
+ℹ suites 0
+ℹ pass 125
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 172.404167
+
+> menupilot@0.1.0 test:ui
+> vitest run
+
+
+ RUN  v4.1.12 /private/tmp/menupilot-cplus-check-vo_9ds45
+
+(node:79263) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79262) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79260) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79266) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79268) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79265) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79264) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:79267) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  16 passed (16)
+      Tests  248 passed (248)
+   Start at  20:57:11
+   Duration  6.92s (transform 3.16s, setup 1.32s, import 6.28s, tests 21.22s, environment 8.83s)
+
+
+> menupilot@0.1.0 build
+> vite build
+
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 2064 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.53 kB │ gzip:   0.32 kB
+dist/assets/index-DyK2DFG5.css     39.81 kB │ gzip:   7.69 kB
+dist/assets/HelpPage-ce-mXuPb.js  145.38 kB │ gzip:  39.21 kB
+dist/assets/index-Dt6Fuxr7.js     441.20 kB │ gzip: 133.67 kB
+
+✓ built in 458ms

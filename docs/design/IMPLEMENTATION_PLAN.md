@@ -1,161 +1,73 @@
-# План реализации для координатора и исполнителя
+# Реализация C+ — план для координатора
 
-Этот пакет меняет только дизайн-документы. Прежде чем править приложение, координатор
-фиксирует выбранное направление; не считать файлы доказательством уже реализованной
-функции или разрешением расширять MVP. Stage 0–7 уже отмечены завершёнными в
-docs/planning/04_IMPLEMENTATION_PLAN.md; данный пакет — запрошенное владельцем
-дизайн-направление для отдельного последующего UI-прохода.
+Владелец выбрал C+ «Кухонная линия» с полноценными light/dark, верхним меню и явным EN/NL. Корневой DESIGN.md теперь канонический. Этот документ разрешает планировать изменения, но текущий коммит содержит только документы/мокапы; src/calc и src/store не изменены. A остаётся запасным, B отклонён.
 
-## 1. Зафиксировать контрольные данные и границы
+## 1. Зафиксировать поведение до изменения оболочки
 
-Прочитать PRODUCT.md, DESIGN.md, SCREEN_CONCEPTS.md, COMPONENT_PLAN.md, AGENTS.md,
-03_ARCHITECTURE.md. Зафиксировать текущие screenshots и `npm run check`. Сохранить
-контрольный сценарий: €12.00 net, cost €4.20 → €4.85, contribution €7.80 → €7.15,
-300 порций, −€195.00/month. Не переносить фиктивные строки HTML в demo.json.
+Прочитать PRODUCT, DESIGN, planning02/03/04, AGENTS и [C+макеты](alternatives/C-plus/index.html). Снять production desktop/375 и выполнить npm run check. Зафиксировать source-order dishes, route IDs, Help anchors, errors/drafts/baseline lifecycle. Контроль: historical4.20→4.85; contribution7.80→7.15;300portions⇒−195.00; menu−273.38. Simulator baseline today cost4.85, B price14.17incl/13.00excl ⇒+300/month; C volume200⇒−715/month.
 
-Формулы, document schema, store methods, route IDs, help section IDs и поведение
-импорта/сценариев остаются прежними. NL — отдельное уточнение scope; резервировать
-длину строк, не изобретать непроверенные переводы финансовых терминов.
+Все денежные вычисления остаются в calc; BigInt нельзя переводить в Number. Сохраняются данные, функции, формулы, сравнения, unknown/zero различия, append-only history, ограничения prep и atomic saves/import. Фиктивные HTML-цифры не переносить в demo.json.
 
-## 2. Токены и шрифты
+## 2. Темы и локальные UI preferences
 
-**Файлы будущего изменения:** `src/index.css`, при необходимости локальные font assets
-и соответствующая атрибуция. Сопоставить semantic tokens из DESIGN с текущими shadcn
-variables. Source Sans 3 self-hosted, regular + semibold, OFL/license сохраняется.
-Табличные цифры централизованно в money/number role, не отдельные случайные классы.
+Будущие файлы: `src/index.css`, `src/ui/theme/ThemeProvider.tsx`, `src/ui/theme/preferences.ts`, `src/ui/theme/ThemeSelect.tsx`, минимальный bootstrap в `index.html` или существующей точке входа. Из DESIGN перенести semantic роли в shadcn variables: background/foreground,card,popover,muted,border,input,ring,primary,destructive +cost/contribution semantic colours. Ни literal theme colours по компонентам, ни filter invert.
 
-Проверить контраст текста, placeholder, borders, focus, hover, selected, disabled,
-warning/error на реальном фоне. Размеры контролов 48 px; не заменять все 14 px на 18 px
-механически. Тёмную тему не добавлять. Никаких новых npm-зависимостей на этом шаге.
+`ThemePreference = 'system'|'light'|'dark'`; default system. Key **menupilot.ui.theme.v1**, отдельно от document/baseline/localStorage ключей приложения. Parse allowlist; invalid/absent→system. try/catch при read/write; при ошибке сохранить in-memory выбор и показать локализованное спокойное уведомление. Не использовать localStorage.clear и не привязывать тему к импорту/reset данных. Подписка matchMedia change только меняет effective theme, когда preference=system; event storage синхронизирует вкладки, cleanup on unmount. Ручной выбор переживает OS changes. Не записывать system как resolved light/dark.
 
-## 3. Примитивы и оболочка
+До paint применить validated choice и color-scheme, чтобы не было светлой вспышки. Bootstrap использует тот же формат/ключ и минимальную проверку, не импортирует store; при CSP дать hash/nonce или отдельный early script. Header native select с видимым Theme и опциями System/Light/Dark; на 375 доступное имя остаётся полным. Input native UI/scrollbar/selection тоже следуют теме.
 
-**Файлы:** `src/components/ui/button.tsx`, `input.tsx`, `select.tsx`, `label.tsx`,
-`dialog.tsx`, `table.tsx`, `card.tsx`, `badge-delta.tsx`, `alert.tsx`,
-`src/components/form-field.tsx`, `src/ui/layout/Shell.tsx`.
+Печать: @media print принудительно light, независимо от data-theme. Не менять storage; после выхода возвращается screen theme. Скрыть nav/editor/theme controls, выводить дату/название/selected result и полную таблицу; все сценарии A/B/C, все блюда и нужные VAT-labels. Повтор thead, avoid row breaks, A4landscape. Не рассчитывать на printing backgrounds: знаки и границы должны работать ч/б.
 
-Сначала проверить Button/Input/Dialog на одном существующем потоке. Для Origin Input
-исполнить лицензионный шаг из COMPONENT_PLAN до копирования композиции. Новых Radix
-или icon packages не нужно. Привести card к редким крупным рабочим областям; не
-переписывать компонентную библиотеку целиком. Shell: 200 px текстовая навигация desktop,
-верхняя на tablet, inline раскрытие Menu на 375. Сохранить skip link, aria-current,
-route focus; Help продолжает сам управлять фокусом своих секций.
+Проверки: default system при обеих OS темах, live OS update, manual override, reload, cross-tab, invalid value, storage denied; dark→print light→dark. Контраст текст/числа/акцент/±/focus обеих тем, включая placeholders и popovers. [48 исходных пар](alternatives/C-plus/CONTRAST.md); runtime states проверить отдельно.
 
-**Проверка:** Tab/Shift+Tab, Enter/Space, Escape, возврат фокуса; открытый диалог
-при 375 px и экранной клавиатуре; error text и focus не закрыты footer.
+## 3. Явный i18n EN/NL до переноса экранов
 
-## 4. Dashboard
+Будущие `src/ui/i18n/en.ts`, `nl.ts`, `index.ts`, `LocaleProvider.tsx`, типизированный `t(key,params)` и hook. Без новой зависимости: небольшие typed dictionaries достаточно текущему MVP. EN — тип ключей, NL — `satisfies Record<TranslationKey,string>`; compile-time и тест полного покрытия. Никакого поиска английской строки в DOM, MutationObserver, replace(textContent), innerHTML, post-render translation. Все UI strings из render через t, включая aria,validation,status,empty,confirm,table headings и Help nav.
 
-**Файлы:** `src/ui/pages/DashboardPage.tsx`, `src/ui/dashboard/SummaryCards.tsx`,
-`ComparisonPicker.tsx`, `DishImpactTable.tsx`, `DishImpactCards.tsx`, `PrepCostList.tsx`.
+Key **menupilot.ui.locale.v1**, en/nl allowlist, default EN для сохранения поведения; `html.lang` синхронно меняется с LocaleProvider. UI preference не попадает в JSON export/import. Не переводить пользовательские dish/supplier names. Даты черезlocale-aware formatter, all money через существующие exact integer formatters с параметром locale; если нужен новый display adapter, покрыть точку/запятую/отрицательные/большие значения без Number(BigInt). Не менять parsing или хранимые единицы ради локализации.
 
-Превратить SummaryCards в полосу, сгруппировать before/now, сохранить каждую метрику
-и все VAT-labels. Mobile показывает короткий набор и All figures; это раскрытие
-дополнительных данных, не новая формула. Не менять порядок блюд и не добавлять сортировку.
-Каждая мобильная и desktop-проекция получает один и тот же типизированный результат
-из domain; не складывать monthly total в компоненте. Все цены форматировать как сейчас.
+[Канонический терминологический словарь](alternatives/C-plus/I18N.md). В EN сохранить «Contribution (before other costs)», «Recipe-based ingredient cost», supplier hint incl/exclVAT. В NL bijdrage≠winst. Строки собирать цельными ключами с параметрами, не переводить слова по отдельности. Ошибки domain/store перевести по stable typed codes через UI adapter; если сейчас есть только message, отдельно добавить код результата с тестами, не regex перевод текста ошибки и не менять document schema. Generic localized fallback для неизвестной ошибки, без скрытого английского fallback известных ключей.
 
-**Приёмка:** пустое меню, все unknown, mixed known/unknown, no-volume, volume=0;
-итог не включает отсутствующий объём; prep не получает contribution. Desktop и 375
-показывают одинаковые значения; body не скроллится горизонтально.
+Help: сохранить EN/RU и anchors; добавить полный NL content set с теми же typed block/section IDs, а не переводить готовый DOM. Язык оболочки и язык статьи должны быть явными; RU остаётся дополнительным выбором. До выпуска — языковое ревью NL финансовых формулировок, при этом не отложить инфраструктуру i18n до конца.
 
-## 5. Simulator — наиболее рискованный UI-шаг
+## 4. Шрифты, primitives, оболочка
 
-**Файлы:** `src/ui/pages/SimulatorPage.tsx`, `src/ui/simulator/Workbench.tsx`,
-`ScenarioCard.tsx`, `BaselineCards.tsx`, `ComparisonTable.tsx`, `DishPicker.tsx`,
-`DeleteScenarioDialog.tsx`; при необходимости view-only selection state.
+Archivo600 и SourceSans3 self-hosted OFL из пакета; полные лицензии и provenance сохранить. Не загружать Google Fonts runtime. Общий MoneyValue/CurrencyText получает formatted string, tabular-nums, sign и semantic tone по смыслу метрики; negative contribution и increasedcost используют negative, zero нейтрален. Существующие calc/formatters — источник значения.
 
-Выделить активный редактор A/B/C, сохранив drafts всех сценариев. Не менять
-`session.tsx`, `scenarioForm.ts`, `scenarios.ts` ради косметики; если перестановка
-требует изменения жизненного цикла, сначала тест на сохранность drafts и переключения.
-Сначала desktop edit/compare, затем mobile baseline/active. Read-only values — общие
-компоненты/derived props; два независимых input state запрещены. Правки ingredient-price
-проходят в nested preps по существующему calc; quantity overrides только top-level.
+Файлы: `src/components/ui/{button,input,select,label,table,dialog,alert,badge-delta}.tsx`, `src/components/form-field.tsx`, `src/ui/layout/Shell.tsx`, theme/i18n additions. Верхняя nav: full1440, отдельная строка 1024, disclosure375. Все route/state/deep links сохраняются. Targets48px, outline3px, captions15px; не заменять полезные подписи иконками. Двухтемные dialogs retain focus trap, Escape/return, scroll body, errors у полей.
 
-Сохранить все восемь строк ComparisonTable, highest/tie/exclusion logic, save/remove/
-update baseline и различие shared/own volume. Не брать marketing comparison code,
-не помещать `recommended` на сценарий. Stale дельты не выводить как актуальные.
+[21st решения C+](alternatives/C-plus/COMPONENT_PLAN.md): build own ThemeSelect/ScenarioChoice на существующем стеке. Ни один новый кандидат не копируется; AGPL theme dropdown исключён. Без `latest` и новых dependency packages. Motion14.4.0 опционален: если нужен, exact pin+lockfile и bundle/runtime check; правила лицензий AGENTS остаются обязательными при любом будущем copy/adapt.
 
-**Приёмка:** A/B/C → переходы не теряют ввод; real document не меняется до/после
-simulation; failed save сохраняет экран и draft; изменение общей оценки не стирает
-override=0; пустой input наследует baseline/общий объём по текущим правилам.
+## 5. Dashboard
 
-## 6. Recipe editor и Ingredients
+Файлы: `src/ui/pages/DashboardPage.tsx`, `dashboard/{SummaryCards,ComparisonPicker,DishImpactTable,DishImpactCards,PrepCostList,format}.tsx/ts`, тонкий `src/ui/domain/dashboard.ts` при необходимости derived selection.
 
-**Файлы:** `src/ui/recipe/RecipeEditor.tsx`, `LineRow.tsx`, `CostSummary.tsx`,
-`DeleteRecipeDialog.tsx`, `src/ui/pages/IngredientsPage.tsx`,
-`src/ui/ingredients/IngredientDialogs.tsx`, `PriceFields.tsx`.
+Верх: existing menu monthly total + **max positive absolute costDeltaCents per portion exclVAT**, только known comparable values. Это новая явно запрошенная владельцем selection projection, не новая финансовая формула. Сравнивать BigInt напрямую; tie — первый в текущем порядке и явный tied label; основной список не сортировать. Missing volume допускает cost-highlight, monthly будет—. Нет положительных дельт/все unknown→объяснение вместо ложного «наибольшего» нуля. Любой click открывает существующий simulator route для выбранного ID.
 
-Только композиция: детали/состав/итог, компактные согласованные строки, New price и
-History видимы, Rename/Delete в подписанном раскрытии. Не ставить новую библиотеку
-dropdown: при необходимости простой inline details либо уже одобренный primitive
-после согласования точной версии. Не добавлять новый поиск.
+Таблица: 19sep/now/change/contribution/monthly; menu incl/excl и food-cost points в отдельных подстроках. Не удалять действующие значения/действия ради плотности; row recipe-link и Simulate различить в production. Screenshot mock ведёт к simulator для быстрой демонстрации и не определяет routing production. Mobile — связанные строки и раскрытие полных данных, без горизонтального body scroll. Preps без contribution.
 
-Сохранить supplier hint, display-only pack conversion, base units, append-only history,
-dish/prep различия, запрет удаления используемой сущности, depth/cycle errors и atomic
-failed saves. Форма цены остаётся Radix dialog, а не inline-форма из демонстрационного HTML.
+Приёмка: control figures, tie, no positive delta, unknown, missing/zero volume, comparison date before firstprice, длинные EN/NL имена/суммы,1024/1280 cell overflow. Total из domain/store, не sum в JSX.
 
-**Приёмка:** g/kg, ml/l, pc; запятая и точка в money strings; empty vs zero;
-невозможная единица; неизвестная цена через prep; сохранение невалидной формы.
+## 6. Simulator
 
-## 7. Help и Data
+Файлы: `src/ui/pages/SimulatorPage.tsx`, `simulator/{Workbench,ScenarioCard,BaselineCards,ComparisonTable,DishPicker,DeleteScenarioDialog}.tsx`, format labels. Большая chosen monthly delta над рабочей областью. Editor слева 238–280px, compare справа,1024+. На 375 baseline и active рядом, editor ниже; рядом с mobile editor повторить derived chosen result, чтобы видеть эффект ввода без прыжка наверх. Это одна source projection, не второй draft/calculation.
 
-**Файлы:** `src/ui/pages/HelpPage.tsx`, `src/ui/help/HelpBlocks.tsx`, `HelpNav.tsx`,
-`HelpLink.tsx`, `images.ts`, существующие help images; `src/ui/pages/DataPage.tsx`
-и `src/ui/data/ReplaceDataDialog.tsx` только если наследуемые стили требуют поправки.
+Сохранять 8 реальных строк ROWS, все delta hints, margin%, highest/tie/exclusion и disclaimer. Не менять `session.tsx`/reducers/store effects ради расположения. A/B/C draft сохраняются при переключении и responsive reflow, active editor знает собственную базу. All calculations derived useMemo, никогда не serialized. Stale overrides не получает актуальную delta. Shared/own volume, zero override, nestedprep price propagation и top-level quantity semantics прежние.
 
-Сохранить весь текст EN/RU, не копировать сокращённую статью мокапа. Полезные большие
-цели и размер текста текущего Help не уменьшать. Оглавление/язык/печать/deep links
-проверить после смены Shell. Снять новые help screenshots только после завершения
-всех production-экранов. Data сохраняет export/import/reset и защитные подтверждения.
+Radios/tabs: полный текст, aria/keyboards, visible focus, активная колонка связана с правильным draft. Не переносить mock's readonly inputs и HTML panel-toggle в React lifecycle. Сохранить Save/replace/delete/updatebaseline с подтверждениями. failedsave оставляет document и draft; no auto real-data mutation.
 
-## 8. Проверка и финальный Impeccable-проход
+Приёмка: переключение A/B/C не теряет ввод; валидный/невалидный moneydraft; baseline stale; prices unknown; volume absent/0/override; same/tie scenarios; удаление/отмена; клавиатура и viewport reflow; суммы совпадают с calc tests.
 
-- `npm run check`: typecheck + core tests + UI tests + production build. При изменении
-  поведения сначала регрессионный тест. В расчётах изменений не ожидается; если они
-  понадобились, остановить UI-этап и согласовать причину, затем TDD в test/calc.
-- Через **bb browser-automation** проверить production preview на `/menupilot/`,
-  все hash routes, desktop 1440 и 375, 200% zoom, длинные EN/NL имена/подписи,
-  ошибки полей, dialog keyboard/focus, reduced motion и отсутствие body overflow.
-- Последовательность проверки владельцем: новая цена → Dashboard → Simulate → A/B/C
-  → сохранение → переход обратно → реальные цены не изменены → export/import copy
-  в отдельном тестовом профиле → Help EN/RU и печать.
-- Impeccable **audit**: a11y, contrast, focus, responsive, numeric labels, semantic
-  states. **polish**: равные колонки, переносы, единый размер controls, текст при ошибках,
-  соответствие DESIGN. Реально запустить `context` в новом сеансе, читать соответствующие
-  reference/audit.md и polish.md; не называть ручной взгляд автоматическим audit.
-- Один `impeccable detect --json <changed-ui-targets>` в конце, сохранить вывод;
-  findings разобрать, не объявлять exit 2 успешным чистым проходом. По возможности
-  независимый reviewer координатора, так как данный дочерний поток не мог делегировать.
-- После реализации обновить DESIGN по фактическому интерфейсу; `.impeccable/design.json`
-  и surface briefs возможны только в рамках разрешённых координатором путей.
-- Один ограниченный круг desktop/mobile screenshots → пакет правок → подтверждающий
-  круг. Не прятать оставшиеся ограничения в заявлении «всё готово».
+## 7. Остальные экраны и движение
 
-## Разбиение на коммиты
+RecipeEditor/LineRow/CostSummary и Ingredients/PriceFields/IngredientDialogs наследуют токены, t и размеры; не менять формы/prep validation/history. DataPage/ReplaceDataDialog сохраняют backup/import/reset safeguards и не сбрасывают theme/locale. HelpPage/HelpBlocks/HelpNav — Read-mode,65–75ch,контраст обеих тем, EN/NL и сохранённый RU; новые help screenshots только после стабилизации реальных экранов.
 
-1. Токены/шрифт/базовые controls и Shell.
-2. Dashboard.
-3. Simulator.
-4. Recipe + Ingredients (можно разделить по экранам).
-5. Help/Data и финальная проверка.
+Движение: theme colors сразу (никаких промежуточных низкоконтрастных пар); selected marker160–180ms; после валидного расчёта одно 180ms underline/outline emphasis. Денежные цифры сразу конечные, без ticker/rolling, без задержки field validation. Reduced motion мгновенный state без потери обратной связи. Не добавлять motion ради fade каждого блока; CSS достаточно простому prototype.
 
-Один функциональный блок в коммите; только после успешных проверок. Без push/merge
-и публикации без отдельного разрешения владельца. Не обновлять зависимости заодно.
+## 8. Финальная приёмка
 
-## Риски и открытые решения
+Выполнить реальные Impeccable context по новой сессии, audit по 5 измерениям, затем polish по подтверждённым проблемам. Если context требует detect — один `detect --json <changed targets>`, findings разобрать, не приравнивать exit0 к визуальному качеству. Не заменять работу выдуманными CLI `audit/polish`: это playbooks. Зафиксировать browser evidence до/после, не бесконечный цикл косметики.
 
-| Риск | Как контролировать |
-|---|---|
-| Потеря draft при переключении A/B/C | регрессионный UI-тест до перестановки state/монтажа |
-| Две разные mobile/desktop суммы | единый domain result, общий formatter, tests обеих проекций |
-| NL длиннее EN | flex/min-width, переносы, pseudolocalization; перевод отдельным scope |
-| Новый шрифт меняет переносы | self-hosted WOFF2 + fallback; проверка fonts.ready и 200% |
-| Лицензия или deps 21st не совпадают с registry | проверять source imports и LICENSE, не ставить latest |
-| Sidebar сужает таблицу на небольшом ноутбуке | до 1200 перейти на top navigation; внутренний table scroll |
-| Акцент mistaken for recommendation | active синий, highest текстовый зелёный; никогда recommended |
-| Статичные mockups принимают за готовую программу | явная подпись static, отключённые save, ограничения в отчёте |
+`npm run check` (typecheck+core+UI+build); production preview under /menupilot/. Реальный bb-browser desktop1440,1280,1024,375,200%zoom; light/dark/system/print/reduced-motion, keyboard dialogs/fields/errors, unknown/empty/loading/stale/long NL. Проверить Safari16.4+,Chrome111+,Firefox128+ и настоящий мобильный touch/клавиатуру. Мокап проверен Chromium и не заменяет эти production проверки. Размер/console/network/font fallback/accessibility inspect отдельно.
 
-Открыто: утверждение направления владельцем/координатором, входит ли NL в будущий
-этап. Motion не требуется для предложенных эффектов; если понадобятся сложные
-переходы, точную версию проверить и согласовать до добавления в lockfile.
+Координатор принимает этапы небольшими коммитами: themes+i18n foundations →primitives+Shell →Dashboard →Simulator →Recipe/Ingredients →Help/Data →audit/polish. Не менять расчёты и модель данных без отдельного обоснованного задания; никакого push/deploy из дизайн-потока.

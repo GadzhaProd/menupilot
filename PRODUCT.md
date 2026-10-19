@@ -31,12 +31,12 @@ The owner enters supplier pack prices from invoices, maintains recipes, checks D
 - Scenarios never change real data. Their baseline snapshots include reachable preps; stale scenarios remain visibly stale until the existing explicit update action.
 - Prep nesting, cycle/depth guards, immutability on failed saves/imports and all arithmetic remain as defined in docs/planning/03_ARCHITECTURE.md and AGENTS.md.
 - No AI, POS, OCR, inventory, auth, billing, multi-location, new currencies, demand forecasting or food-safety/allergen advice.
-- Existing stack: React 19, strict TypeScript UI, Tailwind v4, shadcn/Radix; JS/JSDoc core. Calculations stay in src/calc, document state in store. No new dependencies installed by this design task. Motion is permitted by the owner, but a pinned version and compatibility check would be needed before adoption.
-- Current repository interface is EN; Help is EN/RU. The owner’s audience includes EN/NL. This design reserves space for NL; whether implementation includes Dutch translation remains an open scope decision, not a claim that NL already exists.
+- Existing stack: React 19, strict TypeScript UI, Tailwind v4, shadcn/Radix; JS/JSDoc core. Calculations stay in src/calc, document state in store. No new dependencies installed by this design task. Motion is permitted by the owner; the design candidate is exact version 14.4.0, with runtime checks required before implementation.
+- Current repository interface is EN; Help is EN/RU. The owner now explicitly requests EN/NL UI through typed t() keys. Preserve the existing RU Help option and stable Help anchors; add complete NL content during implementation. The C+ mockups are fully NL; no DOM text replacement is permitted for localisation.
 
 ## Brand Commitments
 
-Name: MenuPilot. A contemporary, recognisable working tool rather than a generic SaaS template. Clear numbers, large targets and readable language outrank decoration. Report to the owner in Russian; code and identifiers remain English.
+Name: MenuPilot. Selected direction: C+ “Kitchen line”, with full light/dark themes, system preference by default, a persistent manual choice and always-light printing. A remains an archived backup; B was rejected. A contemporary, recognisable working tool rather than a generic SaaS template. Clear numbers, large targets and readable language outrank decoration. Report to the owner in Russian; code and identifiers remain English.
 
 ## Evidence on Hand
 

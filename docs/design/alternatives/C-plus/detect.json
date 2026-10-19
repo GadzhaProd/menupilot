@@ -1,0 +1,72 @@
+[
+  {
+    "antipattern": "cramped-padding",
+    "name": "Cramped padding",
+    "description": "Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background) — children land flush against the boundary line. Add at least 8px (ideally 12–16px) of padding inside bordered, outlined, or colored containers.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_b74qeeshii-1/RestaurantAI/docs/design/alternatives/C-plus/dashboard.html",
+    "line": 0,
+    "snippet": "<details> \"mobile-menu\": children flush against border-top on top (no inset)"
+  },
+  {
+    "antipattern": "cramped-padding",
+    "name": "Cramped padding",
+    "description": "Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background) — children land flush against the boundary line. Add at least 8px (ideally 12–16px) of padding inside bordered, outlined, or colored containers.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_b74qeeshii-1/RestaurantAI/docs/design/alternatives/C-plus/simulator.html",
+    "line": 0,
+    "snippet": "<details> \"mobile-menu\": children flush against border-top on top (no inset)"
+  },
+  {
+    "antipattern": "cramped-padding",
+    "name": "Cramped padding",
+    "description": "Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background) — children land flush against the boundary line. Add at least 8px (ideally 12–16px) of padding inside bordered, outlined, or colored containers.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_b74qeeshii-1/RestaurantAI/docs/design/alternatives/C-plus/simulator.html",
+    "line": 0,
+    "snippet": "<details> \"details\": children flush against border-top on top (no inset)"
+  },
+  {
+    "antipattern": "cramped-padding",
+    "name": "Cramped padding",
+    "description": "Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background) — children land flush against the boundary line. Add at least 8px (ideally 12–16px) of padding inside bordered, outlined, or colored containers.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_b74qeeshii-1/RestaurantAI/docs/design/alternatives/C-plus/simulator.html",
+    "line": 0,
+    "snippet": "<details> \"details\": children flush against border-top on top (no inset)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_b74qeeshii-1/RestaurantAI/docs/design/alternatives/C-plus/style.css",
+    "line": 4,
+    "snippet": "border-right:2px solid var(--muted)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_b74qeeshii-1/RestaurantAI/docs/design/alternatives/C-plus/style.css",
+    "line": 7,
+    "snippet": "border-right:2px solid var(--text)"
+  },
+  {
+    "antipattern": "border-accent-on-rounded",
+    "name": "Border accent on rounded element",
+    "description": "Thick accent border on a rounded card — the border clashes with the rounded corners. Remove the border or the border-radius.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/gadzha/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_b74qeeshii-1/RestaurantAI/docs/design/alternatives/C-plus/style.css",
+    "line": 4,
+    "snippet": "border-bottom:3px solid"
+  }
+]

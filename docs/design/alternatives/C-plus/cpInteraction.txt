@@ -1,0 +1,31 @@
+intermediate dashboard 1024 { scroll: 1024, overflowCells: [], table: 976 }
+
+intermediate simulator 1024 { scroll: 1024, overflowCells: [], editor: 238, table: 718 }
+
+intermediate dashboard 1280 { scroll: 1280, overflowCells: [], table: 1216 }
+
+intermediate simulator 1280 { scroll: 1280, overflowCells: [], editor: 280, table: 908 }
+
+system-light light
+
+system-dark light
+
+persist { theme: 'light', choice: 'light', stored: 'light' }
+
+scenario-C {
+  summary: 'Scenario CVerschil per maand met de uitgangssituatie−€715,00Bij 200 porties per maand · jouw schatting, geen voorspelling',
+  panels: [ 'C', 'C' ]
+}
+
+print {
+  savedChoice: 'dark',
+  bg: 'rgb(255, 255, 255)',
+  text: 'rgb(37, 44, 39)',
+  accent: '#795400',
+  header: 'none',
+  cols: [ 'table-cell', 'table-cell', 'table-cell', 'table-cell', 'table-cell' ]
+}
+
+reduce 0s
+
+keyboardAPI function

@@ -1,0 +1,76 @@
+{
+  "searchCalls": 2,
+  "uniqueCandidates": 5,
+  "getComponentCalls": 3,
+  "licenseCalls": 3,
+  "results": [
+    {
+      "id": 1612,
+      "name": "Theme Switcher",
+      "author": "haydenbleasel",
+      "url": "https://21st.dev/@haydenbleasel/components/theme-switcher",
+      "inspected": true,
+      "imports": [
+        "@/lib/utils",
+        "@radix-ui/react-use-controllable-state",
+        "lucide-react",
+        "motion/react",
+        "react",
+        "@/components/ui/theme-switcher",
+        "react"
+      ],
+      "npmDependencies": {},
+      "licenseOutput": "- Author: [Hayden Bleasel](https://21st.dev/@haydenbleasel)\n- Library: [Kibo UI](https://21st.dev/@haydenbleasel/library/kibo-ui)\n- License: mit\n"
+    },
+    {
+      "id": 23700,
+      "name": "Theme Switcher Dropdown",
+      "author": "felipemenezes098",
+      "url": "https://21st.dev/@felipemenezes098/components/dropdown-14",
+      "inspected": true,
+      "imports": [
+        "react",
+        "@/components/ui/dropdown-14-utils/button",
+        "@/components/ui/dropdown-14-utils/dropdown-menu",
+        "lucide-react",
+        "@/components/ui/dropdown-14"
+      ],
+      "npmDependencies": {
+        "@radix-ui/react-slot": "latest",
+        "class-variance-authority": "latest",
+        "lucide-react": "latest",
+        "@radix-ui/react-dropdown-menu": "latest"
+      },
+      "licenseOutput": "- Author: [felipemenezes098](https://21st.dev/@felipemenezes098)\n- Library: @flx\n- License: AGPL-3.0\n"
+    },
+    {
+      "id": 3552,
+      "name": "Theme Switcher",
+      "author": "shugar",
+      "url": "https://21st.dev/@shugar/components/theme-switcher-1"
+    },
+    {
+      "id": 35020,
+      "name": "Segmented Control",
+      "author": "kuratlielia",
+      "url": "https://21st.dev/@kuratlielia/components/segmented-control",
+      "inspected": true,
+      "imports": [
+        "react",
+        "motion/react",
+        "./segmented-control-utils/motion-tokens",
+        "./segmented-control-utils/segmented-control.module.css",
+        "@/components/ui/segmented-control",
+        "react"
+      ],
+      "npmDependencies": {},
+      "licenseOutput": "- Author: [kuratlielia](https://21st.dev/@kuratlielia)\n- Library: kuratlielia\n- License: MIT\n"
+    },
+    {
+      "id": 34763,
+      "name": "Segmented Control",
+      "author": "halaska-studio",
+      "url": "https://21st.dev/@halaska-studio/components/segmented-control"
+    }
+  ]
+}

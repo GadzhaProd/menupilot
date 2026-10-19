@@ -1,0 +1,7 @@
+dark dashboard 1440 { scroll: 1440, theme: 'dark', overflowCells: [] }
+
+dark simulator 1440 { scroll: 1440, theme: 'dark', overflowCells: [] }
+
+dark dashboard 375 { scroll: 375, theme: 'dark', overflowCells: [] }
+
+dark simulator 375 { scroll: 375, theme: 'dark', overflowCells: [] }
