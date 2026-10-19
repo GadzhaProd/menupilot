@@ -486,3 +486,29 @@ Tests 279 passed (279)
 [Check log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-final-check.log). Existing Node `--localstorage-file` warning remains. No dependencies changed. No push/merge.
 
 Delivery check after strengthening the plural-parameter parity assertion: `npm run check` exit 0, core137/137, UI279/279 (23 files), typecheck passed, Vite2360 modules /545ms. [Delivery log](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/review-delivery-check.log). Browser session closed (`state:closed`); preview stopped with Ctrl+C (exit130). No server left running by this follow-up.
+
+## Critical Shell resize fix — 2026-10-19
+
+Reproduced in a regression test with Motion's cleanup mocked to throw the browser's `InvalidStateError: Failed to execute 'commitStyles': Target element is not rendered` for a hidden/detached target. The old Shell entered ErrorBoundary after hiding its nav and navigating. [Failing test output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-red.log). Inspected installed `motion-dom/dist/es/animation/NativeAnimation.mjs`: `stop()` calls `commitStyles()`; its connected-element check does not exclude `display:none` ancestors.
+
+Removed the JS nav animation, target ref and cleanup; selection now uses a CSS 160ms underline-offset transition, disabled by the existing reduced-motion rule. `rg` over src confirms no remaining runtime motion/animate/commitStyles/stop calls. The approved pinned dependency is retained for subsequent screen work. README updated. Regression test covers hidden nav, Dashboard→Simulator, resize back, language/theme switch, StrictMode initial focus and unmount.
+
+Ran Impeccable context before editing and one detector pass afterward:
+
+```sh
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable context
+/Users/gadzha/.codex/plugins/cache/openai-curated-remote/impeccable/4.3.1/skills/impeccable/scripts/impeccable detect --json src/ui/layout/Shell.tsx src/index.css
+```
+
+Both exit0. Detector returns only the same three existing advisory type-ramp findings (17px at line111, 22px at113, 31px at121); no new findings. These sizes are unchanged and their interpretation is documented above. [Exact output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-detect.json). No new components or 21st code used.
+
+`npm run check` exit0: **137 core /137 pass, 279 UI /279 pass (23 files), typecheck passed, build2079 modules /274ms**. [Full output](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-check.log).
+
+Production browser verification using bb browser-automation, local headless host_mqe28unaid, `/menupilot/`:
+
+- 1440→375, EN, light, `#/`→`#/simulator`: `errors:[]`, heading Simulator, lang en, theme light, nav display none.
+- 375→1440, dark, NL, `#/`→`#/simulator`: `errors:[]`, heading Simulator, lang nl, theme dark, nav display block, active Simulator.
+- Reduced-motion emulation: `matches:true`, computed transition duration `0s` (normal `0.16s`).
+- [375 EN light](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-375-en-light.jpg), [desktop NL dark](/Users/gadzha/.bb/thread-storage/thr_6uihmdg9pz/shell-resize-desktop-nl-dark.jpg); both visually inspected. Mobile screenshot is scrolled to main by the existing navigation focus behaviour.
+
+Browser session closed; preview stopped (Ctrl+C, exit130). `git diff --check` clean; no push/merge.

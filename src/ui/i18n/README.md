@@ -29,7 +29,7 @@ NL: prep = **basisrecept**; Baseline = **Huidige situatie** (chosen over mock â€
 ## Preferences and demo
 
 - Locale key `menupilot.ui.locale.v1`: en/nl; absent/invalid uses browser nl* â†’ nl, otherwise en (task overrides the older implementation-plan EN default).
-- Theme key `menupilot.ui.theme.v1`: system/light/dark; absent/invalid = system. `useTheme()` from `@/ui/theme/ThemeProvider` returns `preference`, effective `theme`, `setPreference`, `storageError`. Theme colours update immediately; only nav selection has a 160 ms accent motion via `motion/mini`, disabled for reduced motion or unavailable Web Animations API.
+- Theme key `menupilot.ui.theme.v1`: system/light/dark; absent/invalid = system. `useTheme()` from `@/ui/theme/ThemeProvider` returns `preference`, effective `theme`, `setPreference`, `storageError`. Theme colours update immediately; nav selection uses a 160 ms CSS underline-offset transition, disabled by the global reduced-motion rule. No JavaScript animation cleanup runs when navigation is hidden or unmounted. The approved motion dependency remains available for later screen work; foundation has no runtime motion calls.
 - `DataProvider` selects `demoForLocale(locale)` on first load when given the bundled EN demo. Custom fixture documents are respected. Saved user documents always win. Locale changes never replace loaded data.
 - Explicit reset: `execute(store => store.resetToDemo(demoForLocale(locale)))`. Validation/write failure leaves both current document and storage unchanged. No preference goes into backups/scenarios.
 

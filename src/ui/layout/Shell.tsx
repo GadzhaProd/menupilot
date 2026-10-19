@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { MenuIcon } from 'lucide-react';
-import { animate } from 'motion/mini';
 import { Button } from '@/components/ui/button';
 import { useCommands, useDataState } from '@/ui/data/DataProvider';
 import { hrefFor, type Route } from '@/ui/router/routes';
@@ -25,7 +24,6 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
   const { storageError: themeError } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
-  const currentLink = useRef<HTMLAnchorElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const previousRoute = useRef(route);
 
@@ -35,13 +33,6 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
     setMenuOpen(false);
     // Help owns focus/scroll for its stable section anchors.
     if (route.name !== 'help') mainRef.current?.focus();
-    // One small selection emphasis; theme colours and all numbers change immediately.
-    const canAnimate = currentLink.current && typeof currentLink.current.animate === 'function'
-      && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const animation = canAnimate
-      ? animate(currentLink.current!, { textUnderlineOffset: ['8px', '5px'] }, { duration: 0.16, ease: [0.16, 1, 0.3, 1] })
-      : undefined;
-    return () => animation?.stop();
   }, [route]);
 
   return (
@@ -60,7 +51,7 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
               {NAV.map((item) => {
                 const current = (item.active as readonly string[]).includes(route.name);
                 return <li key={item.key} className={item.utility ? 'shell-utility' : undefined}>
-                  <a ref={current ? currentLink : undefined} href={hrefFor(item.route)} aria-current={current ? 'page' : undefined}>{t(item.key)}</a>
+                  <a href={hrefFor(item.route)} aria-current={current ? 'page' : undefined}>{t(item.key)}</a>
                 </li>;
               })}
             </ul>
