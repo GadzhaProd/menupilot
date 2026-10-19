@@ -2,25 +2,28 @@ import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { PlusIcon } from 'lucide-react';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { MoneyField, QuantityField } from '@/components/numeric-field';
 import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import { lineCost, recipeCosts, withRecipe } from '@/ui/domain/recipeCosts';
 import type { Prep, Recipe } from '@/ui/domain/types';
-import { ALL_UNITS, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
+import { ALL_UNITS, localizedUnit, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
 import {
   buildRecipe, draftFromRecipe, blankDraft, emptyLine, parseLine, recipesUsing, vatOptions,
-  type LineDraft, type RecipeDraft,
+  type LineDraft, type RecipeDraft, type RecipeValidationCopy,
 } from '@/ui/forms/recipeForm';
-import { friendlySaveError } from '@/ui/forms/saveError';
 import { HelpLink } from '@/ui/help/HelpLink';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
+import { friendlySaveError } from '@/ui/forms/saveError';
 import { hrefFor } from '@/ui/router/routes';
 import { CostSummary } from './CostSummary';
 import { DeleteRecipeDialog } from './DeleteRecipeDialog';
 import { LineRow } from './LineRow';
+import { useLocale } from '@/ui/i18n';
+import { Surface } from '@/components/ui/surface';
+import { InlineStatus } from '@/components/ui/inline-status';
 
 /** Stands in for the id of a recipe that is not saved yet, so its cost can still be calculated. */
 const UNSAVED_ID = 'unsaved';
@@ -32,6 +35,7 @@ interface RecipeEditorProps {
 }
 
 export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
+  const { t, locale } = useLocale();
   const document = useDocument();
   const { execute } = useCommands();
   const [initial] = useState(() => (recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp)));
@@ -49,7 +53,12 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   // Everything below is derived from the draft while rendering: nothing calculated is stored.
-  const built = useMemo(() => buildRecipe(draft, id, document), [draft, id, document]);
+  const validationCopy = useMemo<RecipeValidationCopy>(() => ({
+    nameEmpty: t('recipe.error.name'), nameLong: t('recipe.error.nameLong'), chooseRef: t('recipe.error.ref'), selfRef: t('recipe.error.self'),
+    wrongUnit: (unit, units) => t('recipe.error.unit', { unit: localizedUnit(unit, locale), units: units.map((entry) => localizedUnit(entry, locale)).join(locale === 'nl' ? ' of ' : ' or ') }), quantity: t('recipe.error.quantity'), yield: t('recipe.error.yield'), price: t('recipe.error.menuPrice'),
+    portions: t('recipe.error.portions'), vat: t('recipe.error.vat'), volume: t('recipe.error.volume'), output: t('recipe.error.output'),
+  }), [t]);
+  const built = useMemo(() => buildRecipe(draft, id, document, validationCopy), [draft, id, document, validationCopy]);
   const lineViews = useMemo(() => draft.lines.map((line) => {
     const parsed = parseLine(line, draft.kind === 'prep' ? id : null, document);
     return { parsed, cost: parsed.ok ? lineCost(parsed.line, document) : null };
@@ -117,7 +126,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     const result = execute((store) => store.saveRecipe(toSave), { report: false });
     if (!result.ok) {
       // The draft stays exactly as typed; the saved data is unchanged.
-      setSaveError(friendlySaveError(result.error, result.details));
+      setSaveError(locale === 'en' ? friendlySaveError(result.error, result.details) : t('error.generic'));
       return;
     }
     setSaveError(null);
@@ -142,60 +151,58 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     setSaved(false);
   }
 
-  const heading = recipe?.name ?? (kind === 'dish' ? 'New dish' : 'New prep');
+  const heading = recipe?.name ?? t(kind === 'dish' ? 'recipe.newDish' : 'recipe.newPrep');
 
   return (
     <section aria-labelledby="page-title" className="space-y-6">
       <div className="space-y-1">
-        <a href={hrefFor({ name: 'recipes' })} className="text-sm text-muted-foreground underline-offset-4 hover:underline">← All recipes</a>
-        <h1 id="page-title" className="text-2xl font-semibold">{heading}</h1>
-        <p className="text-sm text-muted-foreground">
-          {kind === 'dish'
-            ? 'A dish on your menu. Costs are calculated from the lines below at the latest ingredient prices.'
-            : 'A prep: a batch you make once and use in dishes. It has no menu price.'}
-        </p>
+        <a href={hrefFor({ name: 'recipes' })} className="inline-flex min-h-12 items-center text-accent underline-offset-4 hover:underline">{t('recipe.all')}</a>
+        <h1 id="page-title" className="text-4xl font-semibold">{heading}</h1>
+        <p className="max-w-prose text-muted-foreground">{kind === 'dish' ? t('recipe.dishIntro') : t('recipe.prepIntro')}</p>
         <HelpLink section={kind === 'dish' ? 'dishes' : 'preps'} />
       </div>
 
       <form ref={formRef} noValidate onSubmit={submit} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{kind === 'dish' ? 'Dish' : 'Prep'}</CardTitle>
-            <CardDescription>Prices are excl. VAT unless marked incl. VAT.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <FormField label="Name" error={errors.name} className="sm:col-span-2">
+        <Surface aria-labelledby="recipe-details-title" className="space-y-4">
+          <header className="space-y-1"><h2 id="recipe-details-title" className="text-xl font-semibold">{kind === 'dish' ? t('recipe.dish') : t('recipe.prep')}</h2><p className="text-muted-foreground">{t('recipe.vatNote')}</p></header>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label={t('recipe.name')} error={errors.name} className="sm:col-span-2">
               {(control) => (
                 <Input
                   {...control}
                   autoComplete="off"
                   value={draft.name}
                   onChange={(event) => edit({ name: event.target.value })}
-                  placeholder={kind === 'dish' ? 'Pasta Bolognese' : 'Tomato sauce'}
+                  placeholder={kind === 'dish' ? t('recipe.dishPlaceholder') : t('recipe.prepPlaceholder')}
                 />
               )}
             </FormField>
 
             {kind === 'dish' ? (
               <>
-                <FormField label="Menu price (€, incl. VAT)" error={errors.menuPrice} hint="What the guest pays.">
-                  {(control) => (
-                    <Input {...control} inputMode="decimal" autoComplete="off" value={draft.menuPrice} onChange={(event) => edit({ menuPrice: event.target.value })} placeholder="16.50" />
-                  )}
-                </FormField>
-                <FormField label="VAT rate" error={errors.vatRateBp} hint="9% for food, 21% for alcohol.">
+                <MoneyField
+                  vat="incl"
+                  label={t('recipe.menuPriceInput')}
+                  error={errors.menuPrice}
+                  hint={t('recipe.guestPrice')}
+                  autoComplete="off"
+                  value={draft.menuPrice}
+                  onValueChange={(menuPrice) => edit({ menuPrice })}
+                  placeholder={t('recipe.priceExample')}
+                />
+                <FormField label={t('recipe.vatRate')} error={errors.vatRateBp} hint={t('recipe.vatHint')}>
                   {(control) => (
                     <Select {...control} value={draft.vatRateBp} onChange={(event) => edit({ vatRateBp: event.target.value })}>
                       {vatOptions(draft.vatRateBp).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </Select>
                   )}
                 </FormField>
-                <FormField label="Portions per batch" error={errors.portions} hint="How many portions the lines below make.">
+                <FormField label={t('recipe.portions')} error={errors.portions} hint={t('recipe.portionsHint')}>
                   {(control) => (
                     <Input {...control} inputMode="numeric" autoComplete="off" value={draft.portions} onChange={(event) => edit({ portions: event.target.value })} />
                   )}
                 </FormField>
-                <FormField label="Monthly volume (optional)" error={errors.monthlyVolume} hint="Portions sold per month: your estimate, not a forecast.">
+                <FormField label={t('recipe.monthlyVolume')} error={errors.monthlyVolume} hint={t('recipe.monthlyVolumeHint')}>
                   {(control) => (
                     <Input {...control} inputMode="numeric" autoComplete="off" value={draft.monthlyVolume} onChange={(event) => edit({ monthlyVolume: event.target.value })} placeholder="300" />
                   )}
@@ -203,39 +210,33 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
               </>
             ) : (
               <div className="grid grid-cols-[minmax(0,1fr)_6rem] items-start gap-2 sm:col-span-2">
-                <FormField
-                  label="One batch makes"
+                <QuantityField
+                  label={t('recipe.oneBatch')}
+                  unit={localizedUnit(draft.outputUnit, locale)}
                   error={errors.outputQty}
-                  hint={usedBy.length > 0 ? 'Dishes use this prep, so the unit kind (weight, volume, pieces) cannot change.' : 'How much the lines below produce in total.'}
-                >
-                  {(control) => (
-                    <Input {...control} inputMode="decimal" autoComplete="off" value={draft.outputQty} onChange={(event) => edit({ outputQty: event.target.value })} placeholder="1" />
-                  )}
-                </FormField>
-                <FormField label="Batch unit">
+                  hint={usedBy.length > 0 ? t('recipe.lockedUnitHint') : t('recipe.batchHint')}
+                  autoComplete="off"
+                  value={draft.outputQty}
+                  onValueChange={(outputQty) => edit({ outputQty })}
+                  placeholder="1"
+                />
+                <FormField label={t('recipe.batchUnit')}>
                   {(control) => (
                     <Select {...control} value={draft.outputUnit} onChange={(event) => edit({ outputUnit: event.target.value as EnteredUnit })}>
-                      {outputUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                      {outputUnits.map((unit) => <option key={unit} value={unit}>{localizedUnit(unit, locale)}</option>)}
                     </Select>
                   )}
                 </FormField>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </Surface>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{kind === 'dish' ? 'Ingredients' : 'Ingredients and preps'}</CardTitle>
-            <CardDescription>
-              Net quantity is what ends up in the {kind === 'dish' ? 'batch' : 'prep'}. Yield % is the usable part of what you buy, so 80 means a fifth is lost in trimming or cooking.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <Surface aria-labelledby="recipe-lines-title" className="space-y-4">
+          <header className="space-y-1"><h2 id="recipe-lines-title" className="text-xl font-semibold">{kind === 'dish' ? t('recipe.ingredients') : t('recipe.ingredientsAndPreps')}</h2><p className="max-w-prose text-muted-foreground">{t('recipe.lineDescription', { target: t(kind === 'dish' ? 'recipe.batch' : 'recipe.targetPrep') })}</p></header>
+          <div className="space-y-3">
             {draft.lines.length === 0 ? (
-              <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                No lines yet. A recipe without lines shows “cost unknown”.
-              </p>
+              <p className="border-y border-line py-5 text-center text-muted-foreground">{t('recipe.noLines')}</p>
             ) : (
               <ul className="space-y-3">
                 {draft.lines.map((line, index) => (
@@ -255,10 +256,10 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
               </ul>
             )}
             <Button ref={addLineRef} type="button" variant="outline" size="sm" onClick={addLine}>
-              <PlusIcon aria-hidden="true" /> Add line
+              <PlusIcon aria-hidden="true" /> {t('recipe.addLine')}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </Surface>
 
         <CostSummary
           kind={kind}
@@ -271,25 +272,21 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
         />
 
         {saveError !== null ? (
-          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            {saveError} Your changes are still here, nothing was saved.
-          </p>
+          <InlineStatus tone="error">{saveError} {t('recipe.saveErrorKeep')}</InlineStatus>
         ) : null}
         {attempt > 0 && !built.ok ? (
-          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            Some fields need attention. They are marked above.
-          </p>
+          <InlineStatus tone="error">{t('recipe.validationSummary')}</InlineStatus>
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit">{recipe ? 'Save changes' : kind === 'dish' ? 'Save dish' : 'Save prep'}</Button>
-          {recipe ? <Button type="button" variant="outline" disabled={!dirty} onClick={discard}>Discard changes</Button> : null}
+          <Button type="submit">{recipe ? t('recipe.saveChanges') : kind === 'dish' ? t('recipe.saveDish') : t('recipe.savePrep')}</Button>
+          {recipe ? <Button type="button" variant="outline" disabled={!dirty} onClick={discard}>{t('recipe.discard')}</Button> : null}
           <span role="status" className="text-sm text-muted-foreground">
-            {saved ? 'Saved.' : dirty && recipe ? 'You have unsaved changes.' : ''}
+            {saved ? t('recipe.saved') : dirty && recipe ? t('recipe.unsaved') : ''}
           </span>
           {recipe ? (
             <Button type="button" variant="outline" className="ml-auto text-destructive" onClick={(event) => dialog.open('delete', event)}>
-              Delete {recipe.kind}
+              {t('recipe.deleteKind', { kind: t(recipe.kind === 'dish' ? 'recipe.dishLower' : 'recipe.prepLower') })}
             </Button>
           ) : null}
         </div>

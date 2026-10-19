@@ -1,6 +1,7 @@
 import type { TranslationKey } from './en';
+import { part3Nl } from './part3.nl';
 /** Dutch terminology: basisrecept; Huidige situatie; Foodcostpercentage; je/jouw. */
-export const nl = {
+const baseNl = {
   'nav.dashboard': 'Overzicht',
   'nav.simulator': 'Simulator',
   'nav.recipes': 'Recepten',
@@ -64,4 +65,5 @@ export const nl = {
   'count.ingredients.other': '{count} ingrediënten',
   'count.scenarios.one': '{count} scenario',
   'count.scenarios.other': '{count} scenario’s',
-} satisfies Record<TranslationKey, string>;
+} satisfies Record<Exclude<TranslationKey, keyof typeof part3Nl>, string>;
+export const nl = { ...baseNl, ...part3Nl } satisfies Record<TranslationKey, string>;

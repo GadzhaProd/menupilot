@@ -6,6 +6,7 @@
  */
 import { normalizeUnit, parseMoneyToCents, parseQuantityToMilli } from '@/ui/domain/calc';
 import type { BaseUnit } from '@/ui/domain/types';
+import { createTranslator, type Locale } from '@/ui/i18n';
 
 /** Units the owner can type. Stored values are always g, ml or pc. */
 export type EnteredUnit = 'g' | 'kg' | 'ml' | 'l' | 'pc';
@@ -106,6 +107,17 @@ export function quantityToInput(milli: number, base: BaseUnit): { text: string; 
 export function formatQuantity(milli: number, base: BaseUnit): string {
   const { text, unit } = quantityToInput(milli, base);
   return `${text} ${unit}`;
+}
+
+/** Localized display for stored quantities; values and units remain separate in the document. */
+export function localizedUnit(unit: EnteredUnit, locale: Locale): string {
+  const key = unit === 'kg' ? 'units.kg' : unit === 'l' ? 'units.l' : unit === 'pc' ? 'units.pc' : unit === 'g' ? 'units.g' : 'units.ml';
+  return createTranslator(locale)(key);
+}
+
+export function formatQuantityLocale(milli: number, base: BaseUnit, locale: Locale): string {
+  const value = quantityToInput(milli, base);
+  return `${value.text} ${localizedUnit(value.unit, locale)}`;
 }
 
 /** Tenths of a percent as text: 285n becomes "28.5%". Works on BigInt, never converts to Number. */

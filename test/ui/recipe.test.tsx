@@ -19,7 +19,7 @@ async function open(hash: string, storage = memoryStorage()) {
 }
 
 const line = (position: number) => within(screen.getByRole('group', { name: `Line ${position}` }));
-const summary = () => within(screen.getByText('Cost', { selector: '[data-slot="card-title"]' }).closest('[data-slot="card"]') as HTMLElement);
+const summary = () => within(screen.getByRole('heading', { name: 'Cost' }).closest('section') as HTMLElement);
 /** The value next to a label in the cost summary. */
 const costOf = (label: RegExp | string) => {
   const term = summary().getByText(label, { selector: 'dt' });
@@ -29,8 +29,8 @@ const costOf = (label: RegExp | string) => {
 async function fillLine(u: ReturnType<typeof user>, position: number, ref: string, qty: string, extra: { unit?: string; yieldPct?: string } = {}) {
   const row = line(position);
   await u.selectOptions(row.getByLabelText('Ingredient or prep'), ref);
-  await u.clear(row.getByLabelText('Net quantity'));
-  await u.type(row.getByLabelText('Net quantity'), qty);
+  await u.clear(row.getByLabelText(/Net quantity/));
+  await u.type(row.getByLabelText(/Net quantity/), qty);
   if (extra.unit) await u.selectOptions(row.getByLabelText('Unit'), extra.unit);
   if (extra.yieldPct) {
     await u.clear(row.getByLabelText('Yield %'));
@@ -41,7 +41,7 @@ async function fillLine(u: ReturnType<typeof user>, position: number, ref: strin
 describe('Recipes list', () => {
   it('lists dishes and preps separately, with cost per portion and per kg', async () => {
     await open('#/recipes');
-    const card = (title: string) => within(screen.getByText(title, { selector: '[data-slot="card-title"]' }).closest('[data-slot="card"]') as HTMLElement);
+    const card = (title: string) => within(screen.getByRole('heading', { name: title }).closest('section') as HTMLElement);
     const dishes = card('Dishes');
     const preps = card('Preps');
     expect(dishes.getByRole('link', { name: 'Classic Burger' }).closest('li')?.textContent).toContain('€4.85');
@@ -65,7 +65,7 @@ describe('Scenario 4: one sauce for a dish (the manual example from the architec
     expect(screen.getByRole('heading', { level: 1, name: 'New prep' })).toBeTruthy();
 
     await u.type(screen.getByLabelText('Name'), 'Tomato sauce');
-    await u.type(screen.getByLabelText('One batch makes'), '1');
+    await u.type(screen.getByLabelText(/One batch makes/), '1');
     await u.selectOptions(screen.getByLabelText('Batch unit'), 'kg');
     await fillLine(u, 1, 'ingredient:ing_tomato', '800');
     await u.click(screen.getByRole('button', { name: 'Add line' }));
@@ -73,7 +73,7 @@ describe('Scenario 4: one sauce for a dish (the manual example from the architec
 
     expect(line(1).getByText('€1.60')).toBeTruthy();
     expect(line(2).getByText('€0.20')).toBeTruthy();
-    expect(costOf('Batch cost (excl. VAT)')).toBe('€1.80');
+    expect(costOf('Batch cost, all portions (excl. VAT)')).toBe('€1.80');
     expect(costOf('Cost per kg, l or pc (excl. VAT)')).toBe('€1.80/kg');
     expect(costOf('One batch makes')).toBe('1 kg');
 
@@ -235,7 +235,7 @@ describe('Form errors', () => {
     expect(describedBy(screen.getByLabelText(/Menu price/))).toMatch(/non-negative amount/);
     expect(describedBy(screen.getByLabelText('Portions per batch'))).toMatch(/whole number of portions/);
     expect(describedBy(line(1).getByLabelText('Ingredient or prep'))).toBe('Choose an ingredient or a prep.');
-    expect(describedBy(line(1).getByLabelText('Net quantity'))).toMatch(/Enter a quantity/);
+    expect(describedBy(line(1).getByLabelText(/Net quantity/))).toMatch(/Enter a quantity/);
     expect(document.activeElement).toBe(name);
     expect(screen.getAllByRole('alert').map((alert) => alert.textContent).join(' ')).toMatch(/need attention/);
     expect(storage.data.get(STORAGE_KEY)).toBe(before);
@@ -249,7 +249,7 @@ describe('Form errors', () => {
     await u.type(screen.getByLabelText(/Menu price/), '5');
     await fillLine(u, 1, 'ingredient:ing_tomato', '1.234', { yieldPct: '0' });
     await u.click(screen.getByRole('button', { name: 'Save dish' }));
-    expect(line(1).getByLabelText('Net quantity').getAttribute('aria-invalid')).toBe('true');
+    expect(line(1).getByLabelText(/Net quantity/).getAttribute('aria-invalid')).toBe('true');
     expect(line(1).getByLabelText('Yield %').getAttribute('aria-invalid')).toBe('true');
     await u.clear(line(1).getByLabelText('Yield %'));
     await u.type(line(1).getByLabelText('Yield %'), '101');
@@ -269,7 +269,7 @@ describe('Form errors', () => {
     const alert = screen.getByText(/could not be saved/i);
     expect(alert.textContent).toMatch(/disk is full.*Your changes are still here, nothing was saved/);
     expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Pasta');
-    expect((line(1).getByLabelText('Net quantity') as HTMLInputElement).value).toBe('200');
+    expect((line(1).getByLabelText(/Net quantity/) as HTMLInputElement).value).toBe('200');
     expect(storage.data.get(STORAGE_KEY)).toBe(before);
     expect(window.location.hash).toBe('#/recipe/new?kind=dish');
     // Said once, next to the Save button; the page banner stays quiet.
@@ -313,7 +313,7 @@ describe('Preps inside preps', () => {
     const alert = screen.getAllByRole('alert').map((entry) => entry.textContent).join(' ');
     expect(alert).toMatch(/preps use each other in a loop \(Sauce A uses Sauce B uses Sauce A\)/);
     expect(alert).toMatch(/nothing was saved/);
-    expect(line(2).getByLabelText('Net quantity')).toHaveProperty('value', '100');
+    expect(line(2).getByLabelText(/Net quantity/)).toHaveProperty('value', '100');
     expect(storage.data.get(STORAGE_KEY)).toBe(before);
   });
 
@@ -328,7 +328,7 @@ describe('Preps inside preps', () => {
     }));
     await open('#/recipe/new?kind=prep', storageWith(doc));
     await u.type(screen.getByLabelText('Name'), 'Too deep');
-    await u.type(screen.getByLabelText('One batch makes'), '1');
+    await u.type(screen.getByLabelText(/One batch makes/), '1');
     await fillLine(u, 1, 'prep:p1', '100');
     await u.click(screen.getByRole('button', { name: 'Save prep' }));
     expect(screen.getByText(/at most 5 levels deep/)).toBeTruthy();
@@ -435,7 +435,7 @@ describe('Deleting a recipe', () => {
     expect(within(dialog).getByText('Price +€0.75')).toBeTruthy();
     expect(savedDocument(storage).scenarios).toHaveLength(1); // nothing happens before the confirmation
 
-    await u.click(within(dialog).getByRole('button', { name: 'Delete dish and its scenario' }));
+    await u.click(within(dialog).getByRole('button', { name: 'Delete dish and its 1 scenario' }));
     const saved = savedDocument(storage);
     expect(saved.recipes.find((recipe) => recipe.id === 'dish_classic_burger')).toBeUndefined();
     expect(saved.scenarios).toEqual([]);

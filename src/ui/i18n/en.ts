@@ -1,5 +1,7 @@
+import { part3En } from './part3.en';
+
 /** Stable semantic keys. Add a complete message; never key dictionaries by rendered English. */
-export const en = {
+const baseEn = {
   'nav.dashboard': 'Dashboard',
   'nav.simulator': 'Simulator',
   'nav.recipes': 'Recipes',
@@ -64,4 +66,5 @@ export const en = {
   'count.scenarios.one': '{count} scenario',
   'count.scenarios.other': '{count} scenarios',
 } as const;
+export const en = { ...baseEn, ...part3En } as const;
 export type TranslationKey = keyof typeof en;

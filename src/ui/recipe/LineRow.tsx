@@ -3,13 +3,14 @@ import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { formatEURFromMicro } from '@/ui/domain/calc';
+import { QuantityField } from '@/components/numeric-field';
 import type { LineCost } from '@/ui/domain/recipeCosts';
 import type { Ingredient, Prep } from '@/ui/domain/types';
-import { unitsFor } from '@/ui/forms/numbers';
+import { localizedUnit, unitsFor } from '@/ui/forms/numbers';
 import {
   baseUnitOfRef, lineErrorKey, type Catalog, type FieldErrors, type LineDraft,
 } from '@/ui/forms/recipeForm';
+import { useLocale, useFormatters } from '@/ui/i18n';
 
 interface LineRowProps {
   line: LineDraft;
@@ -26,14 +27,9 @@ interface LineRowProps {
   onRemove: () => void;
 }
 
-function costText(cost: LineCost | null) {
-  if (cost === null) return <span className="text-muted-foreground">—</span>;
-  if (cost.error) return <span className="text-destructive" title={cost.error}>cannot calculate</span>;
-  if (cost.costMicro === null) return <span className="text-muted-foreground">cost unknown</span>;
-  return formatEURFromMicro(cost.costMicro);
-}
-
 export function LineRow({ line, position, ingredients, preps, catalog, errors, cost, onChange, onRemove }: LineRowProps) {
+  const { t, locale } = useLocale();
+  const f = useFormatters();
   const base = baseUnitOfRef(line.ref, catalog);
   const units = base === null ? unitsFor('g') : unitsFor(base);
 
@@ -45,20 +41,20 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
 
   return (
     <li data-line={line.id}>
-      <div role="group" aria-label={`Line ${position}`} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)] sm:items-start">
-        <FormField label="Ingredient or prep" error={errors[lineErrorKey(line, 'ref')]} className="sm:col-span-1">
+      <div role="group" aria-label={t('recipe.linePosition', { position })} className="grid gap-3 border-y border-line py-4 sm:grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)] sm:items-start">
+        <FormField label={t('recipe.chooseItem')} error={errors[lineErrorKey(line, 'ref')]} className="sm:col-span-1">
           {(control) => (
             <Select {...control} value={line.ref} onChange={(event) => chooseRef(event.target.value)}>
-              <option value="">Choose…</option>
-              <optgroup label="Ingredients">
+              <option value="">{t('recipe.choose')}</option>
+              <optgroup label={t('recipe.ingredientsGroup')}>
                 {ingredients.map((entry) => (
-                  <option key={entry.id} value={`ingredient:${entry.id}`}>{entry.name} · {entry.unit}</option>
+                  <option key={entry.id} value={`ingredient:${entry.id}`}>{entry.name} · {localizedUnit(entry.unit, locale)}</option>
                 ))}
               </optgroup>
               {preps.length > 0 ? (
-                <optgroup label="Preps">
+                <optgroup label={t('recipe.prepsGroup')}>
                   {preps.map((entry) => (
-                    <option key={entry.id} value={`prep:${entry.id}`}>{entry.name} · {entry.outputUnit}</option>
+                  <option key={entry.id} value={`prep:${entry.id}`}>{entry.name} · {localizedUnit(entry.outputUnit, locale)}</option>
                   ))}
                 </optgroup>
               ) : null}
@@ -67,19 +63,16 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
         </FormField>
 
         <div className="grid grid-cols-[minmax(0,1fr)_5rem] items-start gap-2">
-          <FormField label="Net quantity" error={errors[lineErrorKey(line, 'qty')]}>
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="decimal"
-                autoComplete="off"
-                value={line.qty}
-                onChange={(event) => onChange({ ...line, qty: event.target.value })}
-                placeholder="150"
-              />
-            )}
-          </FormField>
-          <FormField label="Unit">
+          <QuantityField
+            label={t('recipe.netQuantity')}
+            unit={localizedUnit(line.unit, locale)}
+            error={errors[lineErrorKey(line, 'qty')]}
+            autoComplete="off"
+            value={line.qty}
+            onValueChange={(qty) => onChange({ ...line, qty })}
+            placeholder="150"
+          />
+          <FormField label={t('recipe.unit')}>
             {(control) => (
               <Select
                 {...control}
@@ -87,13 +80,13 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
                 disabled={units.length < 2}
                 onChange={(event) => onChange({ ...line, unit: event.target.value as LineDraft['unit'] })}
               >
-                {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                {units.map((unit) => <option key={unit} value={unit}>{localizedUnit(unit, locale)}</option>)}
               </Select>
             )}
           </FormField>
         </div>
 
-        <FormField label="Yield %" error={errors[lineErrorKey(line, 'yield')]} hint="Usable part. 100 = no loss.">
+        <FormField label={t('recipe.yield')} error={errors[lineErrorKey(line, 'yield')]} hint={t('recipe.yieldHint')}>
           {(control) => (
             <Input
               {...control}
@@ -107,11 +100,11 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
 
         <div className="flex items-end justify-between gap-2 sm:flex-col sm:items-stretch">
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm leading-none font-medium">Line cost (excl. VAT)</span>
-            <span className="flex h-9 items-center text-sm">{costText(cost)}</span>
+            <span className="text-sm leading-none font-medium">{t('recipe.lineCost')}</span>
+            <span className="flex h-9 items-center text-sm tabular-nums">{cost === null ? '—' : cost.error ? t('recipe.cannotCalculate') : cost.costMicro === null ? t('common.costUnknown') : f.microMoney(cost.costMicro)}</span>
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={onRemove} aria-label={`Remove line ${position}`}>
-            <Trash2Icon aria-hidden="true" /> Remove
+          <Button type="button" variant="ghost" size="sm" onClick={onRemove} aria-label={t('recipe.removeLinePosition', { position })}>
+            <Trash2Icon aria-hidden="true" /> {t('recipe.removeLine')}
           </Button>
         </div>
       </div>

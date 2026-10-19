@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatEURFromCents, formatEURFromMicro } from '@/ui/domain/calc';
+import { Surface } from '@/components/ui/surface';
 import type { RecipeCosts } from '@/ui/domain/recipeCosts';
 import type { BaseUnit, Metrics } from '@/ui/domain/types';
-import { formatQuantity, formatTenthsPct } from '@/ui/forms/numbers';
+import { formatQuantityLocale } from '@/ui/forms/numbers';
 import { cn } from '@/lib/utils';
+import { useLocale, useFormatters } from '@/ui/i18n';
 
 function Row({ label, children, strong }: { label: string; children: ReactNode; strong?: boolean }) {
   return (
@@ -13,15 +13,6 @@ function Row({ label, children, strong }: { label: string; children: ReactNode; 
       <dd className={cn('text-right text-sm', strong && 'font-semibold')}>{children}</dd>
     </div>
   );
-}
-
-const Unknown = () => <span className="text-muted-foreground">cost unknown</span>;
-const NotApplicable = () => <span className="text-muted-foreground" title="The menu price is €0.00, so a percentage makes no sense">n/a</span>;
-
-function percent(value: bigint | null, metrics: Metrics) {
-  if (metrics.status === 'cost-unknown') return <Unknown />;
-  if (metrics.status === 'price-zero' || value === null) return <NotApplicable />;
-  return formatTenthsPct(value);
 }
 
 interface CostSummaryProps {
@@ -38,61 +29,59 @@ interface CostSummaryProps {
 
 /** All numbers come from src/calc through src/ui/domain; this component only lays them out. */
 export function CostSummary({ kind, costs, menuPriceInclVatCents, outputMilli, outputUnit, missing, hasLines }: CostSummaryProps) {
+  const { t, locale } = useLocale();
+  const f = useFormatters();
+  const Unknown = () => <span className="text-muted-foreground">{t('common.costUnknown')}</span>;
+  const percent = (value: bigint | null, metrics: Metrics) => metrics.status === 'cost-unknown'
+    ? <Unknown /> : metrics.status === 'price-zero' || value === null ? <span className="text-muted-foreground" title={t('recipe.notApplicableHint')}>{t('common.notApplicable')}</span> : f.percent(value);
   let body: ReactNode;
   if (costs === null) {
-    body = <p className="text-sm text-muted-foreground">Fill in the highlighted fields to see the cost.</p>;
+    body = <p className="text-sm text-muted-foreground">{t('recipe.costHint')}</p>;
   } else if ('error' in costs) {
-    body = <p role="alert" className="text-sm text-destructive">The cost cannot be calculated: {costs.error}</p>;
+    body = <p role="alert" className="text-sm text-negative">{t('recipe.costFail')}</p>;
   } else if (kind === 'dish' && costs.dish !== null) {
     const metrics = costs.dish;
     body = (
       <dl className="divide-y">
-        <Row label="Batch cost, all portions (excl. VAT)">{costs.batchCostMicro === null ? <Unknown /> : formatEURFromMicro(costs.batchCostMicro)}</Row>
-        <Row label="Recipe-based ingredient cost per portion (excl. VAT)" strong>
-          {metrics.recipeCostPerPortionMicro === null ? <Unknown /> : formatEURFromMicro(metrics.recipeCostPerPortionMicro)}
+        <Row label={t('recipe.batchCost')}>{costs.batchCostMicro === null ? <Unknown /> : f.microMoney(costs.batchCostMicro)}</Row>
+        <Row label={t('recipe.costPerPortion')} strong>
+          {metrics.recipeCostPerPortionMicro === null ? <Unknown /> : f.microMoney(metrics.recipeCostPerPortionMicro)}
         </Row>
-        {menuPriceInclVatCents === null ? null : <Row label="Menu price (incl. VAT)">{formatEURFromCents(menuPriceInclVatCents)}</Row>}
-        <Row label="Price excl. VAT">{formatEURFromMicro(metrics.priceExclVatMicro)}</Row>
-        <Row label="Contribution per portion (before other costs)" strong>
-          {metrics.contributionMicro === null ? <Unknown /> : formatEURFromMicro(metrics.contributionMicro)}
+        {menuPriceInclVatCents === null ? null : <Row label={t('recipe.menuPrice')}>{f.money(menuPriceInclVatCents)}</Row>}
+        <Row label={t('recipe.priceExclVat')}>{f.microMoney(metrics.priceExclVatMicro)}</Row>
+        <Row label={t('recipe.contributionPerPortion')} strong>
+          {metrics.contributionMicro === null ? <Unknown /> : f.microMoney(metrics.contributionMicro)}
         </Row>
-        <Row label="Food cost %">{percent(metrics.foodCostTenthsPct, metrics)}</Row>
-        <Row label="Contribution margin %">{percent(metrics.contributionMarginTenthsPct, metrics)}</Row>
+        <Row label={t('terms.foodCost')}>{percent(metrics.foodCostTenthsPct, metrics)}</Row>
+        <Row label={t('recipe.contributionMargin')}>{percent(metrics.contributionMarginTenthsPct, metrics)}</Row>
         {metrics.monthlyContributionCents === null ? null : (
-          <Row label="Estimated monthly contribution (your volume estimate, not a forecast)">{formatEURFromCents(metrics.monthlyContributionCents)}</Row>
+          <Row label={t('recipe.monthlyContribution')}>{f.money(metrics.monthlyContributionCents)}</Row>
         )}
       </dl>
     );
   } else {
     body = (
       <dl className="divide-y">
-        <Row label="Batch cost (excl. VAT)" strong>{costs.batchCostMicro === null ? <Unknown /> : formatEURFromMicro(costs.batchCostMicro)}</Row>
-        {outputMilli !== null && outputUnit !== null ? <Row label="One batch makes">{formatQuantity(outputMilli, outputUnit)}</Row> : null}
-        <Row label="Cost per kg, l or pc (excl. VAT)" strong>{costs.prepUnitCost ?? <Unknown />}</Row>
+        <Row label={t('recipe.batchCost')} strong>{costs.batchCostMicro === null ? <Unknown /> : f.microMoney(costs.batchCostMicro)}</Row>
+        {outputMilli !== null && outputUnit !== null ? <Row label={t('recipe.outputMakes')}>{formatQuantityLocale(outputMilli, outputUnit, locale)}</Row> : null}
+        <Row label={t('recipe.costPerOutputUnit')} strong>{outputMilli !== null && outputUnit !== null ? f.prepCost(costs.batchCostMicro, outputMilli, outputUnit) : <Unknown />}</Row>
       </dl>
     );
   }
 
   const unknownNote = costs !== null && !('error' in costs) && costs.batchCostMicro === null
     ? !hasLines
-      ? 'Add at least one ingredient or prep to see a cost.'
-      : missing.length > 0 ? `No price yet for: ${missing.join(', ')}.` : null
+      ? t('recipe.addLineForCost')
+      : missing.length > 0 ? t('recipe.noPriceFor', { names: missing.join(', ') }) : null
     : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Cost</CardTitle>
-        <CardDescription>
-          {kind === 'dish'
-            ? 'Theoretical cost from the recipe, not actual usage. Updates as you type; saved when you press Save.'
-            : 'Theoretical cost of one batch, not actual usage. Updates as you type; saved when you press Save.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent aria-live="polite" className="space-y-2">
+    <Surface aria-labelledby="cost-summary-title" className="space-y-4">
+      <div className="space-y-1"><h2 id="cost-summary-title" className="text-xl font-semibold">{t('recipe.costSummary')}</h2><p className="max-w-prose text-muted-foreground">{kind === 'dish' ? t('recipe.costDescriptionDish') : t('recipe.costDescriptionPrep')}</p></div>
+      <div aria-live="polite" className="space-y-2">
         {body}
         {unknownNote ? <p className="text-sm text-muted-foreground">{unknownNote}</p> : null}
-      </CardContent>
-    </Card>
+      </div>
+    </Surface>
   );
 }
