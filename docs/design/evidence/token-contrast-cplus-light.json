@@ -1,0 +1,222 @@
+{
+  "method": "WCAG 2.x sRGB relative luminance",
+  "theme": "light",
+  "pairs": [
+    {
+      "foreground": "text",
+      "background": "bg",
+      "fg": "#252C27",
+      "bg": "#F5F6F3",
+      "ratio": 13.19,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "text",
+      "background": "surface",
+      "fg": "#252C27",
+      "bg": "#FFFFFF",
+      "ratio": 14.3,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "text",
+      "background": "panel",
+      "fg": "#252C27",
+      "bg": "#E9EDE7",
+      "ratio": 12.08,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "muted",
+      "background": "bg",
+      "fg": "#515D54",
+      "bg": "#F5F6F3",
+      "ratio": 6.36,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "muted",
+      "background": "surface",
+      "fg": "#515D54",
+      "bg": "#FFFFFF",
+      "ratio": 6.9,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "muted",
+      "background": "panel",
+      "fg": "#515D54",
+      "bg": "#E9EDE7",
+      "ratio": 5.83,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "accent",
+      "background": "bg",
+      "fg": "#795400",
+      "bg": "#F5F6F3",
+      "ratio": 6.28,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "accent",
+      "background": "surface",
+      "fg": "#795400",
+      "bg": "#FFFFFF",
+      "ratio": 6.82,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "accent",
+      "background": "panel",
+      "fg": "#795400",
+      "bg": "#E9EDE7",
+      "ratio": 5.76,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "positive",
+      "background": "bg",
+      "fg": "#17633F",
+      "bg": "#F5F6F3",
+      "ratio": 6.69,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "positive",
+      "background": "surface",
+      "fg": "#17633F",
+      "bg": "#FFFFFF",
+      "ratio": 7.26,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "positive",
+      "background": "panel",
+      "fg": "#17633F",
+      "bg": "#E9EDE7",
+      "ratio": 6.13,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "negative",
+      "background": "bg",
+      "fg": "#9A352A",
+      "bg": "#F5F6F3",
+      "ratio": 6.64,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "negative",
+      "background": "surface",
+      "fg": "#9A352A",
+      "bg": "#FFFFFF",
+      "ratio": 7.2,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "negative",
+      "background": "panel",
+      "fg": "#9A352A",
+      "bg": "#E9EDE7",
+      "ratio": 6.08,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "focus",
+      "background": "bg",
+      "fg": "#795400",
+      "bg": "#F5F6F3",
+      "ratio": 6.28,
+      "minimum": 3,
+      "pass": true
+    },
+    {
+      "foreground": "focus",
+      "background": "surface",
+      "fg": "#795400",
+      "bg": "#FFFFFF",
+      "ratio": 6.82,
+      "minimum": 3,
+      "pass": true
+    },
+    {
+      "foreground": "focus",
+      "background": "panel",
+      "fg": "#795400",
+      "bg": "#E9EDE7",
+      "ratio": 5.76,
+      "minimum": 3,
+      "pass": true
+    },
+    {
+      "foreground": "border",
+      "background": "bg",
+      "fg": "#6E7D70",
+      "bg": "#F5F6F3",
+      "ratio": 4.01,
+      "minimum": 3,
+      "pass": true
+    },
+    {
+      "foreground": "border",
+      "background": "surface",
+      "fg": "#6E7D70",
+      "bg": "#FFFFFF",
+      "ratio": 4.35,
+      "minimum": 3,
+      "pass": true
+    },
+    {
+      "foreground": "border",
+      "background": "panel",
+      "fg": "#6E7D70",
+      "bg": "#E9EDE7",
+      "ratio": 3.67,
+      "minimum": 3,
+      "pass": true
+    },
+    {
+      "foreground": "accent",
+      "background": "accentSoft",
+      "fg": "#795400",
+      "bg": "#F4EBD4",
+      "ratio": 5.74,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "text",
+      "background": "accentSoft",
+      "fg": "#252C27",
+      "bg": "#F4EBD4",
+      "ratio": 12.04,
+      "minimum": 4.5,
+      "pass": true
+    },
+    {
+      "foreground": "onButton",
+      "background": "button",
+      "fg": "#FFFFFF",
+      "bg": "#283D30",
+      "ratio": 11.66,
+      "minimum": 4.5,
+      "pass": true
+    }
+  ]
+}

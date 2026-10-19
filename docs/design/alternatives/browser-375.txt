@@ -1,0 +1,27 @@
+B-market dashboard {
+  width: 375,
+  scroll: 375,
+  fonts: [ [ 'Source Sans 3', 'loaded' ], [ 'Source Sans 3', 'loaded' ], [ 'Barlow Condensed', 'loaded' ] ],
+  inputs: []
+}
+
+B-market simulator {
+  width: 375,
+  scroll: 375,
+  fonts: [ [ 'Source Sans 3', 'loaded' ], [ 'Source Sans 3', 'loaded' ], [ 'Barlow Condensed', 'loaded' ] ],
+  inputs: [ 48, 48, 48 ]
+}
+
+C-pass dashboard {
+  width: 375,
+  scroll: 375,
+  fonts: [ [ 'Source Sans 3', 'loaded' ], [ 'Source Sans 3', 'loaded' ], [ 'Archivo', 'loaded' ] ],
+  inputs: []
+}
+
+C-pass simulator {
+  width: 375,
+  scroll: 375,
+  fonts: [ [ 'Source Sans 3', 'loaded' ], [ 'Source Sans 3', 'loaded' ], [ 'Archivo', 'loaded' ] ],
+  inputs: [ 48, 48 ]
+}

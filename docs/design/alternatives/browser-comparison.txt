@@ -1,0 +1,5 @@
+comparison { width: 1440, scroll: 1440, images: true }
+
+comparison mobile { width: 375, scroll: 375 }
+
+C field { border: 'rgb(146, 154, 146)', focus: 'rgb(242, 199, 92) solid 3px', readOnly: true }

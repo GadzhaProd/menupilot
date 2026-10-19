@@ -1,0 +1,7 @@
+light dashboard 1440 { scroll: 1440, theme: 'light', overflowCells: [] }
+
+light simulator 1440 { scroll: 1440, theme: 'light', overflowCells: [] }
+
+light dashboard 375 { scroll: 375, theme: 'light', overflowCells: [] }
+
+light simulator 375 { scroll: 375, theme: 'light', overflowCells: [] }

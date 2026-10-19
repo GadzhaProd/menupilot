@@ -1,0 +1,25 @@
+matrix light 1024 dashboard { scroll: 1024, clippedCells: 0 }
+
+matrix light 1024 simulator { scroll: 1024, clippedCells: 0 }
+
+matrix light 1280 dashboard { scroll: 1280, clippedCells: 0 }
+
+matrix light 1280 simulator { scroll: 1280, clippedCells: 0 }
+
+matrix dark 1024 dashboard { scroll: 1024, clippedCells: 0 }
+
+matrix dark 1024 simulator { scroll: 1024, clippedCells: 0 }
+
+matrix dark 1280 dashboard { scroll: 1280, clippedCells: 0 }
+
+matrix dark 1280 simulator { scroll: 1280, clippedCells: 0 }
+
+fresh { preference: 'system', effective: 'dark' }
+
+override survives OS light
+
+invalid { preference: 'system', effective: 'dark' }
+
+storage denied { effective: 'light', warningVisible: true }
+
+gallery { lang: 'nl', images: 8, links: 13 }
