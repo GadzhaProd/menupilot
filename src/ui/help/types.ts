@@ -116,6 +116,8 @@ export interface HelpDocument {
     readonly contents: string;
     readonly toTop: string;
     readonly stepsDone: string;
+    readonly openLarger: string;
+    readonly backToContents: string;
     readonly messageHeader: string;
     readonly meaningHeader: string;
     readonly contextLink: string;

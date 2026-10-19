@@ -1,5 +1,3 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HELP_CONTENT } from '@/ui/help/content';
 import { HELP_IMAGES } from '@/ui/help/images';
@@ -9,7 +7,15 @@ import {
 
 const en = HELP_CONTENT.en;
 const ru = HELP_CONTENT.ru;
-const IMAGE_DIR = join(process.cwd(), 'public', 'help');
+
+/** Every file in public/help as a data URL ("?inline"): enough to count bytes and read the first ones. */
+const FILES = import.meta.glob<string>('/public/help/*', { query: '?inline', import: 'default', eager: true });
+const fileName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+const base64Bytes = (dataUrl: string) => {
+  const payload = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  return Math.floor((payload.length * 3) / 4) - (payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0);
+};
+const FILE_SIZES = new Map(Object.entries(FILES).map(([path, url]) => [fileName(path), base64Bytes(url)]));
 
 const blocksOf = (doc: HelpDocument) => doc.sections.flatMap((section) => section.blocks);
 
@@ -150,26 +156,26 @@ describe('guide pictures', () => {
     for (const id of used) {
       const file = HELP_IMAGES[id];
       expect(file, id).toBeTruthy();
-      expect(existsSync(join(IMAGE_DIR, file.file)), `${id}: ${file.file}`).toBe(true);
+      expect(FILE_SIZES.has(file.file), `${id}: ${file.file}`).toBe(true);
       expect(file.width).toBeGreaterThan(0);
       expect(file.height).toBeGreaterThan(0);
     }
   });
 
   it('every file in public/help is used, and is a real JPEG', () => {
-    const files = readdirSync(IMAGE_DIR).filter((name) => !name.startsWith('.'));
+    const files = [...FILE_SIZES.keys()];
     const referenced = new Set(Object.values(HELP_IMAGES).map((entry) => entry.file));
     expect([...referenced].sort()).toEqual(files.sort());
     expect(Object.keys(HELP_IMAGES).sort()).toEqual([...used].sort());
-    for (const name of files) {
-      const bytes = readFileSync(join(IMAGE_DIR, name));
-      expect(name).toMatch(/\.jpg$/);
-      expect([bytes[0], bytes[1]]).toEqual([0xff, 0xd8]);
+    for (const [path, url] of Object.entries(FILES)) {
+      expect(fileName(path)).toMatch(/\.jpg$/);
+      expect(url, path).toMatch(/^data:image\/jpeg;base64,\/9j\//); // 0xFF 0xD8 0xFF
     }
   });
 
   it('stay within the size budget: about 80 KB each, 2 MB in total', () => {
-    const sizes = readdirSync(IMAGE_DIR).filter((name) => name.endsWith('.jpg')).map((name) => statSync(join(IMAGE_DIR, name)).size);
+    const sizes = [...FILE_SIZES.values()];
+    expect(sizes.length).toBeGreaterThan(20);
     for (const size of sizes) expect(size).toBeLessThanOrEqual(80 * 1024);
     expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThanOrEqual(2 * 1024 * 1024);
   });

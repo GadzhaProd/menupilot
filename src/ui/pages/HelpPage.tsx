@@ -37,6 +37,21 @@ function TocLink({ id, number, title }: { id: HelpSectionId; number: number; tit
   );
 }
 
+/** At the end of every section: back to the contents list (the floating button is hidden on phones). */
+function BackToContents({ label }: { label: string }) {
+  const link = useSectionLink(null);
+  return (
+    <p className="mt-6 print:hidden">
+      <a
+        {...link}
+        className="inline-flex min-h-12 items-center gap-2 rounded-lg px-3 py-2 text-lg font-semibold text-primary underline underline-offset-4 outline-none hover:bg-accent focus-visible:ring-4 focus-visible:ring-ring/60"
+      >
+        <ArrowUpIcon aria-hidden="true" className="size-5" /> {label}
+      </a>
+    </p>
+  );
+}
+
 function Toolbar({ doc, lang, onLanguage }: { doc: HelpDocument; lang: HelpLang; onLanguage: (lang: HelpLang) => void }) {
   return (
     <div className="flex flex-wrap items-center gap-3 print:hidden">
@@ -129,6 +144,7 @@ export function HelpPage({ section }: { section: string | null }) {
               {index + 1}. {entry.title}
             </h2>
             {entry.blocks.map((block, blockIndex) => <HelpBlockView key={blockIndex} block={block} ui={doc.ui} />)}
+            <BackToContents label={doc.ui.backToContents} />
           </section>
         ))}
       </article>
@@ -137,7 +153,7 @@ export function HelpPage({ section }: { section: string | null }) {
         <button
           type="button"
           onClick={() => open(null)}
-          className={cn(BIG_BUTTON, 'fixed right-4 bottom-4 z-20 border-primary bg-primary text-primary-foreground shadow-lg print:hidden')}
+          className={cn(BIG_BUTTON, 'fixed right-4 bottom-4 z-20 hidden border-primary bg-primary text-primary-foreground shadow-lg sm:inline-flex print:hidden')}
         >
           <ArrowUpIcon aria-hidden="true" className="size-5" /> {doc.ui.toTop}
         </button>

@@ -13,6 +13,8 @@ export const contentEn: HelpDocument = {
     contents: 'Contents',
     toTop: 'Up to the top',
     stepsDone: 'What you will see',
+    openLarger: 'Open larger (in a new tab)',
+    backToContents: 'Back to contents',
     messageHeader: 'Message on the screen',
     meaningHeader: 'What it means and what to do',
     contextLink: 'Help for this page',
@@ -27,8 +29,14 @@ export const contentEn: HelpDocument = {
         {
           kind: 'note',
           tone: 'safe',
-          title: 'This is safe',
-          text: ['You cannot break the program by looking around. If you make a mistake in a window, press ', b('Cancel'), ': nothing is saved. The demo cafe is made up, so you can try everything on it.'],
+          title: 'Looking around is safe',
+          text: ['Practise with the fictional demo cafe. ', b('Cancel'), ' closes a window without saving the changes you typed in it.'],
+        },
+        {
+          kind: 'note',
+          tone: 'important',
+          title: 'Reading and working at the same time',
+          text: ['A printed guide is easier to follow while you work. If you read on the screen, the ', b('Help'), ' button in the menu opens this guide again. Save your recipe before you leave its page.'],
         },
         {
           kind: 'steps',
@@ -38,12 +46,11 @@ export const contentEn: HelpDocument = {
               text: ['Names of buttons and fields are written in ', b('bold'), '. They are written exactly as on the screen. The program’s screen is in English, so these names stay in English.'],
             },
             {
-              text: 'Each step is one action. Do it, then look at the screen. Under the step you will find what should appear.',
-              result: 'If your screen looks different from the description, do not click anything else. Go back one step and read it again.',
+              text: 'Each step is one action. Do it, then look at the screen. Under the step you will find what should appear. If your screen looks different, read the previous instruction again. You do not need to press the Back button.',
             },
             {
               text: ['To jump to a part of this guide, click its name in the ', b('Contents'), ' list below.'],
-              result: ['The page scrolls to that part. The round button ', b('Up to the top'), ' (bottom right) brings you back.'],
+              result: ['The page scrolls to that part. At the end of every section the link ', b('Back to contents'), ' brings you back. On a computer, the button ', b('Up to the top'), ' (bottom right) does the same.'],
             },
             {
               text: ['To change the language, press ', b('English'), ' or ', b('Русский'), ' at the top of this page.'],
@@ -55,7 +62,7 @@ export const contentEn: HelpDocument = {
               result: 'The printing window of your computer opens. The printed guide has large letters and no menu.',
             },
             {
-              text: 'To make everything on the screen larger, hold the Ctrl key and press the plus key (on a Mac: the ⌘ key and plus). Press the minus key to make it smaller again.',
+              text: 'To make everything on the screen larger, hold the Ctrl key and press the plus key (on a Mac: the ⌘ key and plus). To make it smaller again, hold Ctrl and press minus. On a Mac, hold ⌘ instead.',
               result: 'Text and buttons grow. Do this until you can read comfortably.',
             },
           ],
@@ -88,13 +95,13 @@ export const contentEn: HelpDocument = {
           kind: 'note',
           tone: 'safe',
           title: 'A demo cafe is already inside',
-          text: ['The first time you open MenuPilot you see a made-up burger cafe. Nothing in it is real, so try everything freely. How to switch to your own data is in ', to('first-start', 'section 4'), '.'],
+          text: ['The first time you open MenuPilot you see a made-up burger cafe. Nothing in it is real, so try everything freely. How to switch to your own data is in ', to('data', 'section 10'), '.'],
         },
         {
           kind: 'note',
           tone: 'important',
           title: 'Where your data lives',
-          text: ['Everything you type stays only in this browser on this computer. It is not sent anywhere and there is no account. This is why you should make copies from time to time: see ', to('data', 'section 10'), '.'],
+          text: ['A browser is the program you use to open MenuPilot, such as Chrome, Safari or Edge. Your saved data stays only in that browser on this computer. It is not sent anywhere and there is no account. ', to('data', 'Section 10'), ' explains how to make a backup.'],
         },
       ],
     },
@@ -135,8 +142,8 @@ export const contentEn: HelpDocument = {
             },
             {
               term: 'Net quantity',
-              meaning: 'How much of an ingredient ends up in the dish, for example on the plate.',
-              example: '180 g of mince in a burger.',
+              meaning: 'The usable amount of an ingredient for the whole batch, after the losses you entered. For four portions, enter the total amount for all four.',
+              example: '180 g of mince for one burger; 720 g for a batch of four.',
             },
             {
               term: 'Yield %',
@@ -154,7 +161,7 @@ export const contentEn: HelpDocument = {
               meaning: 'A “what if” copy of one dish in the Simulator. You change something in the copy and see the result. The real dish and the real prices are never changed.',
               example: '“What if I raise the burger price by 75 cents?”',
             },
-            { term: 'Baseline', meaning: 'Your real data as it is today. In the Simulator it is the starting point that every scenario is compared with.' },
+            { term: 'Baseline', meaning: 'The recipe and prices used for comparison. A new scenario uses current data. A saved scenario may still use older prices.', example: 'In the Simulator the Baseline column shows your real dish today.' },
             {
               term: 'Expected sales per month (monthly volume)',
               meaning: 'How many portions of a dish you think you sell in a month. This is your own estimate, not a forecast made by the program. It turns the difference per portion into euros per month. You may leave it empty.',
@@ -164,6 +171,11 @@ export const contentEn: HelpDocument = {
               term: 'cost unknown',
               meaning: 'MenuPilot shows this when a price is missing, so the cost cannot be calculated. It never shows zero for something unknown.',
               example: 'You added an ingredient but not its price yet.',
+            },
+            {
+              term: 'Browser',
+              meaning: 'The program you use to open websites and MenuPilot, for example Chrome, Safari or Edge. MenuPilot keeps your data inside it, on this computer only.',
+              example: 'If you open MenuPilot in Safari after using it in Chrome, you see no data: each browser keeps its own.',
             },
             {
               term: 'Backup',
@@ -177,14 +189,14 @@ export const contentEn: HelpDocument = {
     /* ------------------------------------------------------------------ 4 */
     {
       id: 'first-start',
-      title: 'First start: demo data or your own data',
+      title: 'First start: the demo cafe',
       blocks: [
-        { kind: 'p', text: 'When you open MenuPilot for the first time, it already contains a made-up burger cafe: 12 ingredients, 5 dishes and 2 preps. Use it to learn. When you are ready, you can empty the program and enter your own data.' },
+        { kind: 'p', text: 'When you open MenuPilot for the first time, it already contains a made-up burger cafe: 12 ingredients, 5 dishes and 2 preps. Use it to learn. When you have practised, you can empty the program and enter your own data (section 10).' },
         {
           kind: 'note',
           tone: 'safe',
           title: 'You cannot spoil the demo',
-          text: ['Whatever you change in the demo, you can always go back: ', b('Reset to demo data'), ' on the Data page puts the original demo back.'],
+          text: ['Whatever you change in the demo, you can always go back: ', b('Reset to demo data'), ' on the Data page puts the original demo back. It also removes the recipes and scenarios you made yourself.'],
         },
         {
           kind: 'steps',
@@ -203,32 +215,8 @@ export const contentEn: HelpDocument = {
         {
           kind: 'note',
           tone: 'important',
-          title: 'Read before you remove the demo',
-          text: ['“Start with empty data” removes everything that is in the program now: the demo and anything you typed yourself. If you have already entered your own data, first make a copy: see step 1 below. If you only have the demo, there is nothing to lose.'],
-        },
-        {
-          kind: 'steps',
-          title: 'Start with your own data (empty program)',
-          steps: [
-            {
-              text: ['Only if you already typed your own data: make a backup first. Click ', b('Data'), ', then ', b('Export backup'), ' (details in ', to('data', 'section 10'), ').'],
-              result: 'A file named menupilot-backup with today’s date is saved on your computer.',
-            },
-            { text: ['In the menu at the top, click ', b('Data'), '.'], result: 'The Data page opens with several cards: Export backup, Import backup, Reset to demo data and Start with empty data.', image: img('data-page', 'The Data page with the cards Export backup, Import backup, Reset to demo data and Start with empty data.', 'The last card is Start with empty data.') },
-            {
-              text: ['Scroll down to the card ', b('Start with empty data'), ' and click the button ', b('Start with empty data'), ' in it.'],
-              result: ['A window “Start with empty data?” opens. It says that everything will be removed.'],
-              image: img('data-empty-dialog', 'The confirmation window Start with empty data? with the buttons Cancel and Start with empty data.', 'You can still change your mind: Cancel closes the window and changes nothing.'),
-            },
-            {
-              text: 'Read the window. If you have simulator scenarios that you did not save, a yellow note says how many will be lost.',
-            },
-            {
-              text: ['To go on, click the red button ', b('Start with empty data'), '. To change your mind, click ', b('Cancel'), '.'],
-              result: ['The message “All data was removed. Start by adding ingredients on the Ingredients page.” appears, and the page says “Now: 0 ingredients, 0 recipes, 0 saved scenarios.”'],
-            },
-            { text: ['Click ', b('Ingredients'), ' in the menu, then click ', b('Add your first ingredient'), '.'], result: 'The window for a new ingredient opens. Section 5 shows how to fill it in.' },
-          ],
+          title: 'Want to practise first?',
+          text: ['Keep the demo cafe and continue with ', to('ingredients', 'section 5'), '. The following examples use its ingredients. Empty the program after practising: ', to('data', 'section 10'), ' shows how.'],
         },
       ],
     },
@@ -246,8 +234,9 @@ export const contentEn: HelpDocument = {
             { text: ['Click ', b('Ingredients'), ' in the menu.'], result: 'The list of your ingredients opens.' },
             { text: ['Click the green button ', b('Add ingredient'), ' at the top right of the page.'], result: 'A window “Add ingredient” opens.' },
             { text: ['Click the field ', b('Name'), ' and type the name: Olive oil.'] },
+            { text: ['In ', b('Pack size'), ' type the size of one pack as written on the invoice: 5.'] },
             {
-              text: ['In ', b('Pack size'), ' type the size of one pack as written on the invoice: 5. Then open the field ', b('Unit'), ' next to it and choose ', b('l'), '. The choices are: g (grams), kg (kilograms), ml (millilitres), l (litres), pc (pieces).'],
+              text: ['Open the list ', b('Unit'), ' next to it. Choose ', b('l'), ' for litres.'],
               result: 'The field Unit shows l.',
             },
             {
@@ -257,6 +246,12 @@ export const contentEn: HelpDocument = {
             },
             { text: ['Click the green button ', b('Add ingredient'), ' in the window.'], result: 'The window closes and Olive oil is in the list.' },
           ],
+        },
+        {
+          kind: 'note',
+          tone: 'safe',
+          title: 'What the units mean',
+          text: [b('g'), ' grams, ', b('kg'), ' kilograms, ', b('ml'), ' millilitres, ', b('l'), ' litres, ', b('pc'), ' pieces. Use the unit that is written on the invoice for one pack.'],
         },
         { kind: 'note', tone: 'safe', title: 'If you make a mistake', text: ['Press ', b('Cancel'), ' (or the key Esc on your keyboard). The window closes and nothing is saved.'] },
         {
@@ -284,7 +279,7 @@ export const contentEn: HelpDocument = {
           kind: 'note',
           tone: 'important',
           title: 'This changes real data',
-          text: ['In the demo cafe too: the burger becomes more expensive on the Dashboard. To go back to the original demo: Data, then ', b('Reset to demo data'), '.'],
+          text: ['In the demo cafe too: the burger becomes more expensive on the Dashboard. You saved the practice price of €18.50, so later figures will differ from the pictures. To follow the Simulator examples, add another price for this ingredient: ', b('New price'), ' with €17.00 excl. VAT for 1 kg.'],
         },
         {
           kind: 'steps',
@@ -294,7 +289,7 @@ export const contentEn: HelpDocument = {
             { text: ['Click ', b('Close'), '.'], result: 'The window closes. Nothing was changed.' },
           ],
         },
-        { kind: 'p', text: 'Old prices are never changed or deleted. This is on purpose: that is how the Dashboard can tell you what a dish cost a month ago.' },
+        { kind: 'p', text: 'Adding a new price keeps the earlier entries in History. Deleting the ingredient also deletes its price history. The Dashboard uses the old prices to tell you what a dish cost a month ago.' },
         {
           kind: 'steps',
           title: 'Rename an ingredient',
@@ -332,6 +327,12 @@ export const contentEn: HelpDocument = {
           text: 'When the price of an ingredient in the sauce changes, every dish with that sauce is updated by itself. If only one dish uses a sauce, you can also put its ingredients straight into that dish. Then you do not need a prep.',
         },
         {
+          kind: 'note',
+          tone: 'important',
+          title: 'Nothing is saved until you press Save',
+          text: ['Your entries are not saved yet. When finished, click ', b('Save prep'), '. The Cost card changes while you type, but leaving this page before saving loses the recipe you typed.'],
+        },
+        {
           kind: 'steps',
           title: 'Create a prep (example: Mustard mayo, 900 g mayonnaise and 100 g mustard make 1 kg)',
           steps: [
@@ -348,16 +349,12 @@ export const contentEn: HelpDocument = {
               text: ['In ', b('Net quantity'), ' type 900. Leave ', b('Yield %'), ' at 100.'],
               result: ['At the end of the line, ', b('Line cost (excl. VAT)'), ' shows €3.96.'],
             },
-            { text: ['Click ', b('Add line'), '. In the new line choose ', b('Dijon mustard · g'), ' and type 100 in ', b('Net quantity'), '.'], result: ['The line cost shows €0.50.'], image: img('prep-lines', 'The card Ingredients and preps with two lines: Mayonnaise 900 g and Dijon mustard 100 g.', 'Two lines make one batch.') },
+            { text: ['Click ', b('Add line'), '.'], result: 'A second, empty line appears.' },
+            { text: ['In the new line, choose ', b('Dijon mustard · g'), '.'] },
+            { text: ['In ', b('Net quantity'), ' of the new line, type 100.'], result: ['The line cost shows €0.50.'], image: img('prep-lines', 'The card Ingredients and preps with two lines: Mayonnaise 900 g and Dijon mustard 100 g.', 'Two lines make one batch.') },
             { text: ['Look at the card ', b('Cost'), ' at the bottom.'], result: ['It shows ', b('Cost per kg, l or pc (excl. VAT)'), ': €4.46/kg. It changes while you type.'], image: img('prep-cost', 'The card Cost with Batch cost €4.46, One batch makes 1 kg, Cost per kg €4.46/kg.', 'The cost of the whole batch and of one kilo.') },
             { text: ['Click the green button ', b('Save prep'), '.'], result: 'The prep is saved. It is now in the list of preps on the Recipes page.' },
           ],
-        },
-        {
-          kind: 'note',
-          tone: 'important',
-          title: 'Nothing is saved until you press Save',
-          text: ['The Cost card changes while you type, but the recipe is saved only when you press ', b('Save prep'), '. If you leave the page before, what you typed is lost.'],
         },
         { kind: 'p', text: ['A prep can use other preps, but not itself and not in a circle. The program refuses this with a clear message, and it allows at most 5 levels. To delete a prep or change it, open it from the Recipes page. A prep that a dish uses cannot be deleted until you remove it from that dish. How to use a prep in a dish is shown in ', to('dishes', 'section 7'), '.'] },
       ],
@@ -368,6 +365,12 @@ export const contentEn: HelpDocument = {
       title: 'Dishes: recipe, price and cost',
       blocks: [
         { kind: 'p', text: 'A dish is something a guest orders. For each dish you enter the menu price, the VAT rate and the lines: what goes into it and how much. MenuPilot then shows what the dish costs and what is left from its price.' },
+        {
+          kind: 'note',
+          tone: 'important',
+          title: 'Save before you leave',
+          text: ['Your entries are not saved yet. When finished, click ', b('Save dish'), '. Leaving this page before saving loses the recipe you typed.'],
+        },
         {
           kind: 'steps',
           title: 'Create a dish (example: Chicken Bun for €9.80)',
@@ -382,8 +385,9 @@ export const contentEn: HelpDocument = {
             },
             { text: ['In ', b('Portions per batch'), ' leave 1. This number says how many portions the lines below make. If the lines make four portions, type 4.'] },
             { text: ['In ', b('Monthly volume (optional)'), ' type how many you think you sell in a month: 100. This is your own guess. You may leave it empty.'] },
+            { text: ['In the first line, open the list ', b('Ingredient or prep'), ' and choose ', b('Chicken breast fillet · g'), '.'] },
             {
-              text: ['In the first line open ', b('Ingredient or prep'), ' and choose ', b('Chicken breast fillet · g'), '. In ', b('Net quantity'), ' type 120. Leave ', b('Yield %'), ' at 100.'],
+              text: ['In ', b('Net quantity'), ' type 120. Leave ', b('Yield %'), ' at 100.'],
               result: ['The line cost shows €1.06.'],
             },
             { text: ['Click ', b('Add line'), '. Choose ', b('Brioche burger bun · pc'), ' and type 1 in ', b('Net quantity'), '.'], result: ['The line cost shows €0.88.'] },
@@ -393,7 +397,7 @@ export const contentEn: HelpDocument = {
               image: img('dish-lines', 'The card Ingredients with three lines: Chicken breast fillet 120 g, Brioche burger bun 1 pc, Mustard mayo 20 g.', 'A dish line can be an ingredient or a prep.'),
             },
             {
-              text: 'If part of a product is lost when you prepare it, lower Yield % in that line. For example, type 80 if a fifth is lost in peeling. The line cost goes up, because you must buy more.',
+              text: ['For this example, leave ', b('Yield %'), ' at 100. ', to('glossary', 'Section 3'), ' explains other values.'],
             },
             {
               text: ['Look at the card ', b('Cost'), ' at the bottom.'],
@@ -409,6 +413,7 @@ export const contentEn: HelpDocument = {
           title: 'Kilograms and litres',
           text: ['You may type 0.12 and choose ', b('kg'), ' instead of 120 and g. The program converts it itself. You cannot mix weight and volume: a line in grams cannot be typed in litres.'],
         },
+        { kind: 'p', text: 'Amounts on the screen are rounded to cents. The program calculates more precisely, so checking with the shown amounts can give a difference of a few cents.' },
         { kind: 'h3', text: 'How to read the numbers in the Cost card' },
         {
           kind: 'list',
@@ -490,7 +495,7 @@ export const contentEn: HelpDocument = {
         {
           kind: 'messages',
           items: [
-            { message: '—', meaning: ['The dish has no monthly volume, so there is no monthly impact. To see it, open the dish, type ', b('Monthly volume (optional)'), ' and click ', b('Save changes'), '.'] },
+            { message: '—', meaning: ['No monthly sales number was entered for this dish. It is left out of the monthly total. Open the dish. Enter the number of portions in ', b('Monthly volume (optional)'), '. Click ', b('Save changes'), '.'] },
             { message: 'cost unknown', meaning: ['A price is missing for an ingredient of this dish. Add the price on the Ingredients page.'] },
             { message: 'no price on this date', meaning: ['One of the ingredients had no price yet on the chosen date, because you started entering prices later. Choose a more recent date.'] },
             { message: 'n/a', meaning: ['The number cannot be calculated, for example a percentage when the menu price is €0.00.'] },
@@ -530,7 +535,7 @@ export const contentEn: HelpDocument = {
             },
             {
               text: ['Look at the field ', b('Expected sales per month (your estimate)'), '. It already shows 300, the number saved with the dish. Change it if you wish.'],
-              result: 'The same number is used in all scenarios, so the monthly figures are comparable.',
+              result: ['This is the shared sales estimate. Each scenario also has ', b('Own sales per month (optional)'), '. Leave that field empty to use the shared number.'],
             },
           ],
         },
@@ -592,7 +597,9 @@ export const contentEn: HelpDocument = {
           kind: 'steps',
           title: 'Save a scenario and give it a name',
           steps: [
-            { text: ['In the card, click the name at the top (it says Scenario A). Press the keys Ctrl and A together (on a Mac: ⌘ and A) to select the old name, then type a new name, for example “Price 13.83”.'], result: 'The column in the table gets the same name. This step is optional. Without selecting first, your text would be added after the old name.' },
+            { text: ['Click the name field at the top of the card. It says Scenario A.'] },
+            { text: 'Hold Ctrl and press A. On a Mac, use ⌘ and A.', result: 'The old name is selected. Without this step, your text would be added after the old name.' },
+            { text: ['Type the new name: Price 13.83.'], result: 'The column in the table gets the same name. This step is optional.' },
             { text: ['Click ', b('Save scenario'), '.'], result: ['The text under the buttons changes from “Not saved yet.” to “Saved.” The button is now called ', b('Save changes'), ' and is grey until you change something.'] },
             {
               text: ['To throw a scenario away, click ', b('Remove'), ' (not saved yet) or ', b('Delete'), ' (saved). A saved one asks you to confirm with ', b('Delete scenario'), '.'],
@@ -618,9 +625,14 @@ export const contentEn: HelpDocument = {
             { text: ['Save Scenario A as described above.'] },
             { text: ['Click ', b('Ingredients'), ', press ', b('New price'), ' in the row of Beef mince 80/20, type 18.50 and click ', b('Save price'), '.'] },
             { text: ['Click ', b('Simulator'), ', then the card ', b('Classic Burger'), '.'], result: ['The card of Scenario A shows a yellow note “Baseline changed since this scenario was saved”, and the table marks the column “older prices”.'], image: img('simulator-stale', 'The yellow note Baseline changed since this scenario was saved with the button Update baseline.', 'The yellow note appears inside the scenario card.') },
-            { text: ['Click ', b('Update baseline'), '.'], result: 'The scenario is calculated again on today’s prices. Your changes stay where they still apply. Nothing is saved yet: press Save changes to keep it. To undo the demo price change, use Reset to demo data on the Data page.' },
+            { text: ['Click ', b('Update baseline'), ' to use the current recipe and prices for comparison.'], result: 'Only this scenario is recalculated, on today’s prices. Your changes stay where they still apply. Nothing is saved yet: click Save changes to keep the update.' },
           ],
         },
+        {
+          kind: 'p',
+          text: ['To restore the mince price, add a new price of €17.00 excl. VAT for 1 kg (', b('New price'), ' on the Ingredients page). ', b('Reset to demo data'), ' replaces everything, including your practice recipes and saved scenarios.'],
+        },
+        { kind: 'p', text: 'Amounts are rounded to cents, so a difference per month may not be exactly the difference per portion times 300.' },
         { kind: 'h3', text: 'Messages in the Simulator' },
         {
           kind: 'messages',
@@ -638,13 +650,13 @@ export const contentEn: HelpDocument = {
       id: 'data',
       title: 'Your data and backups',
       blocks: [
-        { kind: 'p', text: 'Everything you type is saved automatically, but only inside this browser on this computer. It is not on the internet, and nobody else can see it. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects you.' },
+        { kind: 'p', text: 'Your data is saved after you successfully use a save button. MenuPilot does not upload it to a server. It stays in this browser on this computer. Someone with access to this browser may see it. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects you.' },
         { kind: 'image', image: img('data-backup', 'The cards Export backup and Import backup on the Data page.', 'Export backup makes a copy. Import backup puts a copy back.') },
         {
           kind: 'note',
           tone: 'important',
           title: 'How often to make a backup',
-          text: ['Once a week, and after every big change: new prices, new recipes, a long session in the Simulator. It takes a few seconds.'],
+          text: ['Once a week, and after every big change: new prices, new recipes, a long session in the Simulator. It takes a few seconds. Before making a backup, save the recipes and scenarios you want to keep. Unsaved entries are not included.'],
         },
         {
           kind: 'steps',
@@ -654,6 +666,12 @@ export const contentEn: HelpDocument = {
             { text: ['In the card ', b('Export backup'), ' click the green button ', b('Export backup'), '.'], result: ['Your browser saves a file named like menupilot-backup-2026-10-19.json, usually in the folder Downloads. The page says “Backup saved as … Keep it somewhere safe.”'] },
             { text: 'Find that file in your Downloads folder and copy it to a safe place: a USB stick, or send it to yourself by email.', result: 'Now you have a copy that survives even if the computer is lost.' },
           ],
+        },
+        {
+          kind: 'note',
+          tone: 'important',
+          title: 'Importing replaces everything',
+          text: ['Importing a backup replaces all current data. Entries made after that backup will be lost. First export a separate backup of your current data.'],
         },
         {
           kind: 'steps',
@@ -669,19 +687,45 @@ export const contentEn: HelpDocument = {
           title: 'Go back to the demo data (Reset to demo data)',
           steps: [
             { text: ['Click ', b('Data'), ', then in the card ', b('Reset to demo data'), ' click the button ', b('Reset to demo data'), '.'], result: ['A window “Reset to demo data?” opens.'], image: img('data-reset-dialog', 'The window Reset to demo data? with a note about unsaved scenarios, and the buttons Cancel and Reset to demo data.', 'If you have unsaved scenarios, the yellow note counts them.') },
-            { text: 'Read the window. Make a backup first if you want to keep your own data.' },
+            { text: ['Need to keep your data? Click ', b('Cancel'), '. Make a copy with ', b('Export backup'), '. Then open ', b('Reset to demo data'), ' again. Otherwise, read the window and go on.'] },
             { text: ['Click the red button ', b('Reset to demo data'), '. To change your mind, click ', b('Cancel'), '.'], result: ['The message “Demo data restored.” appears.'] },
           ],
         },
         {
-          kind: 'p',
-          text: ['To empty the program and begin with your own data, use ', b('Start with empty data'), ' on the same page. It is explained step by step in ', to('first-start', 'section 4'), '.'],
+          kind: 'note',
+          tone: 'important',
+          title: 'Read before you empty the program',
+          text: ['“Start with empty data” removes everything that is in the program now: the demo and anything you typed yourself. If you have already entered your own data, first make a copy: see step 1 below. If you only practised with the demo, there is nothing to lose.'],
+        },
+        {
+          kind: 'steps',
+          title: 'Start with your own data (empty program)',
+          steps: [
+            {
+              text: ['Only if you already typed your own data: make a backup first. Click ', b('Data'), ', then ', b('Export backup'), ' (described above).'],
+              result: 'A file named menupilot-backup with today’s date is saved on your computer.',
+            },
+            { text: ['In the menu at the top, click ', b('Data'), '.'], result: 'The Data page opens with several cards: Export backup, Import backup, Reset to demo data and Start with empty data.', image: img('data-page', 'The Data page with the cards Export backup, Import backup, Reset to demo data and Start with empty data.', 'The last card is Start with empty data.') },
+            {
+              text: ['Scroll down to the card ', b('Start with empty data'), ' and click the button ', b('Start with empty data'), ' in it.'],
+              result: ['A window “Start with empty data?” opens. It says that everything will be removed.'],
+              image: img('data-empty-dialog', 'The confirmation window Start with empty data? with the buttons Cancel and Start with empty data.', 'You can still change your mind: Cancel closes the window and changes nothing.'),
+            },
+            {
+              text: 'Read the window. If you have simulator scenarios that you did not save, a yellow note says how many will be lost.',
+            },
+            {
+              text: ['To go on, click the red button ', b('Start with empty data'), '. To change your mind, click ', b('Cancel'), '.'],
+              result: ['The message “All data was removed. Start by adding ingredients on the Ingredients page.” appears, and the page says “Now: 0 ingredients, 0 recipes, 0 saved scenarios.”'],
+            },
+            { text: ['Click ', b('Ingredients'), ' in the menu, then click ', b('Add your first ingredient'), '.'], result: 'The window for a new ingredient opens. Section 5 shows how to fill it in.' },
+          ],
         },
         {
           kind: 'note',
           tone: 'safe',
-          title: 'Mistakes here are harmless',
-          text: 'Before anything is replaced, a window asks you to confirm, and Cancel changes nothing. A file that is not a MenuPilot backup is rejected, and your current data stays as it was.',
+          title: 'You can cancel before replacing data',
+          text: ['Cancel closes the window without replacing data. Confirming replaces your current data. You can restore it from a backup you made beforehand. A file that is not a MenuPilot backup is rejected, and your current data stays as it was.'],
         },
       ],
     },
@@ -693,13 +737,12 @@ export const contentEn: HelpDocument = {
         { kind: 'p', text: 'Most problems have a simple answer. Find your situation below.' },
         { kind: 'h3', text: 'I typed a wrong number' },
         {
-          kind: 'steps',
-          title: 'How to correct it',
-          steps: [
-            { text: 'If the window is still open: click the field with the wrong number, select the number (click it three times, or press Ctrl and A together; on a Mac ⌘ and A) and type the right one.' },
-            { text: ['If you do not want to save at all, click ', b('Cancel'), ' (in a recipe: ', b('Discard changes'), ').'], result: 'The window closes and nothing is saved.' },
-            { text: ['If a wrong ingredient price was already saved: open ', b('New price'), ' for that ingredient and save the right price.'], result: 'The newest price counts. The wrong one stays in the History, which is harmless.' },
-            { text: ['If a recipe was saved with a wrong number: click ', b('Recipes'), ', open the dish, correct the number and click ', b('Save changes'), '.'] },
+          kind: 'list',
+          items: [
+            ['The number is not saved yet: click its field. Hold Ctrl and press A (on a Mac: ⌘ and A). Type the correct number. Then click the save button.'],
+            ['You do not want to save at all: click ', b('Cancel'), ' (in a recipe: ', b('Discard changes'), '). Nothing is saved.'],
+            ['A wrong ingredient price was already saved: open ', b('New price'), ' for that ingredient and save the right price. The newest price counts. The wrong one stays in the History, which is harmless.'],
+            ['A recipe was saved with a wrong number: click ', b('Recipes'), ', open the dish, correct the number and click ', b('Save changes'), '.'],
           ],
         },
         { kind: 'h3', text: 'A window does not close' },
@@ -720,13 +763,13 @@ export const contentEn: HelpDocument = {
             { message: 'Enter a name.', meaning: 'The Name field is empty. Type a name.' },
             { message: 'Enter the pack size, for example 1 kg or 250 g.', meaning: ['The ', b('Pack size'), ' field is empty. Type the size from the invoice.'] },
             { message: 'Enter the pack price excl. VAT, for example 11.20.', meaning: ['The pack price is empty. Type the price from the invoice without VAT.'] },
-            { message: 'Enter a non-negative amount with at most two decimal places.', meaning: 'A price must be a number with at most two digits after the point or comma, for example 11.20. Do not type the € sign or a thousands separator.' },
-            { message: 'Enter a positive quantity with a decimal comma or point.', meaning: 'Type only digits and one point or comma, for example 150 or 0.5. No words or units in the field: the unit is chosen in the list next to it.' },
+            { message: 'Enter a non-negative amount with at most two decimal places.', meaning: 'Enter zero or a positive amount, such as 11.20. Use up to two decimal places. Do not type €. A minus sign is not accepted.' },
+            { message: 'Enter a positive quantity with a decimal comma or point.', meaning: 'Enter a number greater than zero, such as 150 or 0.5. Choose the unit in the list beside it. Do not type words or units in the field.' },
             { message: 'This ingredient is measured in g. Use g or kg.', meaning: 'You chose a unit of the wrong kind, for example litres for a product that is weighed. Choose a unit from the list.' },
             { message: 'Enter the menu price incl. VAT, for example 13.50.', meaning: 'The menu price of the dish is empty. Type the price your guest pays.' },
             { message: 'Enter a whole number of portions, 1 or more.', meaning: ['In ', b('Portions per batch'), ' type a whole number such as 1 or 4.'] },
             { message: 'Enter a whole number (0 or more), or leave this empty.', meaning: ['In ', b('Monthly volume (optional)'), ' type a whole number such as 300, or clear the field.'] },
-            { message: 'Enter a yield from 0.01 to 100 percent, for example 100 or 85.5.', meaning: ['The ', b('Yield %'), ' field needs a number up to 100. Type 100 if nothing is lost.'] },
+            { message: 'Enter a yield from 0.01 to 100 percent, for example 100 or 85.5.', meaning: ['Enter a number from 0.01 to 100 in ', b('Yield %'), '. Enter 100 if nothing is lost.'] },
             { message: 'Choose an ingredient or a prep.', meaning: ['A line has no ingredient. Open the list ', b('Ingredient or prep'), ' and choose one, or click ', b('Remove'), ' for that line.'] },
             { message: 'Some fields need attention. They are marked above.', meaning: 'Scroll up. The fields with a problem have a red text under them. Correct them and press Save again.' },
             { message: "Cannot delete 'Beef mince 80/20': it is used by Classic Burger.", meaning: 'You cannot delete something that a recipe uses. See the end of section 5.' },
@@ -735,6 +778,8 @@ export const contentEn: HelpDocument = {
             { message: 'The imported file is not valid JSON.', meaning: 'The file you chose is not a MenuPilot backup. Choose the file whose name starts with menupilot-backup. Nothing was changed.' },
           ],
         },
+        { kind: 'h3', text: 'I changed a number, but the result stayed the same' },
+        { kind: 'p', text: 'Look for a red message below the field. Until the entry is corrected, the Simulator shows the last accepted values.' },
         { kind: 'h3', text: 'My data disappeared' },
         {
           kind: 'steps',

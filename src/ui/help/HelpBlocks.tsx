@@ -26,19 +26,25 @@ export function RichText({ text }: { text: Rich }) {
   );
 }
 
-export function HelpFigure({ image }: { image: HelpImage }) {
+export function HelpFigure({ image, ui }: { image: HelpImage; ui: HelpDocument['ui'] }) {
   const file = HELP_IMAGES[image.id];
+  const url = helpImageUrl(file.file);
   return (
     <figure className="my-4 space-y-2 print:break-inside-avoid">
       <img
-        src={helpImageUrl(file.file)}
+        src={url}
         width={file.width}
         height={file.height}
         alt={image.alt}
         loading="lazy"
-        className="h-auto max-w-full rounded-lg border-2 border-border bg-card"
+        className="h-auto max-w-full rounded-lg border-2 border-border bg-card print:max-h-[8cm] print:w-auto"
       />
       {image.caption ? <figcaption className="text-base">{image.caption}</figcaption> : null}
+      {/* The full-size file, for small screens where the picture is too small to read. */}
+      <a href={url} target="_blank" rel="noreferrer" className={cn(LINK, 'inline-flex min-h-12 items-center print:hidden')}>
+        {ui.openLarger}
+        <span className="sr-only">: {image.alt}</span>
+      </a>
     </figure>
   );
 }
@@ -61,10 +67,10 @@ function Steps({ title, steps, ui }: { title: string; steps: readonly HelpStep[]
               {step.result ? (
                 <p className="flex gap-2">
                   <CheckCircle2Icon aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary print:hidden" />
-                  <span><span className="sr-only">{ui.stepsDone}: </span><RichText text={step.result} /></span>
+                  <span><strong className="font-semibold">{ui.stepsDone}:</strong> <RichText text={step.result} /></span>
                 </p>
               ) : null}
-              {step.image ? <HelpFigure image={step.image} /> : null}
+              {step.image ? <HelpFigure image={step.image} ui={ui} /> : null}
             </div>
           </li>
         ))}
@@ -98,7 +104,7 @@ export function HelpBlockView({ block, ui }: { block: HelpBlock; ui: HelpDocumen
     case 'h3': return <h3 className="mt-8 text-2xl font-semibold">{block.text}</h3>;
     case 'steps': return <Steps title={block.title} steps={block.steps} ui={ui} />;
     case 'note': return <Note block={block} />;
-    case 'image': return <HelpFigure image={block.image} />;
+    case 'image': return <HelpFigure image={block.image} ui={ui} />;
     case 'list':
       return (
         <ul className="my-4 list-disc space-y-2 pl-7">

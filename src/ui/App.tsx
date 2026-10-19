@@ -124,20 +124,21 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <Shell route={route}>
-        {route.name === 'help' ? (
-          // The guide needs no saved data, so it stays readable when the data cannot be opened.
-          <Suspense fallback={<p role="status" className="text-lg">Loading the guide…</p>}>
-            <HelpPage section={route.section} />
-          </Suspense>
-        ) : loadError === null ? (
-          <SimulatorSessionProvider>
+      {/* One provider above every route, so unsaved scenario drafts survive a visit to the guide. */}
+      <SimulatorSessionProvider>
+        <Shell route={route}>
+          {route.name === 'help' ? (
+            // The guide needs no saved data, so it stays readable when the data cannot be opened.
+            <Suspense fallback={<p role="status" className="text-lg">Loading the guide…</p>}>
+              <HelpPage section={route.section} />
+            </Suspense>
+          ) : loadError === null ? (
             <Page route={route} />
-          </SimulatorSessionProvider>
-        ) : (
-          <LoadError message={loadError} />
-        )}
-      </Shell>
+          ) : (
+            <LoadError message={loadError} />
+          )}
+        </Shell>
+      </SimulatorSessionProvider>
     </ErrorBoundary>
   );
 }

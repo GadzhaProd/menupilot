@@ -5,7 +5,7 @@ import { HELP_CONTENT } from '@/ui/help/content';
 import { HELP_LINK_LABEL } from '@/ui/help/HelpLink';
 import { HELP_LANGUAGE_KEY, languageFromBrowser, readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
 import { HELP_SECTION_IDS } from '@/ui/help/types';
-import { go, memoryStorage, renderApp, STORAGE_KEY, storageWith, demoCopy } from './helpers';
+import { demoCopy, go, memoryStorage, NOW, renderApp, STORAGE_KEY, storageWith } from './helpers';
 
 const scrolled: Element[] = [];
 
@@ -172,7 +172,9 @@ describe('the guide page', () => {
     renderApp();
     await go('#/help/about');
     const section = (await screen.findByRole('heading', { level: 2, name: /What MenuPilot is/ })).closest('section') as HTMLElement;
-    expect(within(section).getByRole('link', { name: 'section 4' }).getAttribute('href')).toBe('#/help/first-start');
+    const toData = within(section).getAllByRole('link', { name: /ection 10/ });
+    expect(toData.length).toBeGreaterThan(0);
+    for (const link of toData) expect(link.getAttribute('href')).toBe('#/help/data');
   });
 
   it('shows numbered steps, pictures with alt text that load lazily, and the print button works', async () => {
@@ -214,6 +216,84 @@ describe('the guide page', () => {
     expect((await h1()).textContent).toBe(HELP_CONTENT.en.title);
     expect(screen.getByRole('heading', { level: 2, name: /Your data and backups/ })).toBeTruthy();
     expect(storage.setCalls).toBe(0);
+  });
+});
+
+describe('guide layout and wording rules', () => {
+  it('shows the words "What you will see:" before each result, in both languages', async () => {
+    renderApp();
+    await go('#/help/ingredients');
+    const section = (await screen.findByRole('heading', { level: 2, name: /Ingredients and their prices/ })).closest('section') as HTMLElement;
+    const results = within(section).getAllByText('What you will see:');
+    expect(results.length).toBeGreaterThan(5);
+    for (const label of results) expect(label.tagName).toBe('STRONG');
+    await userEvent.click(screen.getByRole('button', { name: 'Русский' }));
+    expect(within(section).getAllByText('Что вы увидите:').length).toBe(results.length);
+  });
+
+  it('empties the program only after the practice sections: the steps are in section 10, not 4', () => {
+    const steps = (id: string) => HELP_CONTENT.en.sections.find((section) => section.id === id)?.blocks
+      .filter((block) => block.kind === 'steps').map((block) => (block.kind === 'steps' ? block.title : '')) ?? [];
+    expect(steps('first-start').join('|')).not.toMatch(/empty/i);
+    expect(steps('data').join('|')).toMatch(/Start with your own data/);
+    expect(HELP_SECTION_IDS.indexOf('data')).toBeGreaterThan(HELP_SECTION_IDS.indexOf('simulator'));
+  });
+
+  it('every section ends with a Back to contents link that goes to the start', async () => {
+    renderApp();
+    await go('#/help/about');
+    await screen.findByRole('heading', { level: 2, name: /What MenuPilot is/ });
+    const links = screen.getAllByRole('link', { name: 'Back to contents' });
+    expect(links.length).toBe(HELP_SECTION_IDS.length);
+    scrolled.length = 0;
+    await userEvent.click(links[2] as HTMLElement);
+    await waitFor(() => expect(window.location.hash).toBe('#/help'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })));
+  });
+
+  it('every picture has an Open larger link to the full file, in a new tab, reachable by keyboard', async () => {
+    renderApp();
+    await go('#/help/data');
+    await screen.findByRole('heading', { level: 2, name: /Your data and backups/ });
+    const pictures = screen.getAllByRole('img');
+    const larger = screen.getAllByRole('link', { name: /^Open larger \(in a new tab\)/ });
+    expect(larger.length).toBe(pictures.length);
+    pictures.forEach((picture, index) => {
+      const link = larger[index] as HTMLAnchorElement;
+      expect(link.getAttribute('href')).toBe(picture.getAttribute('src'));
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toContain('noreferrer');
+      expect(link.tabIndex).toBe(0);
+      expect(link.textContent).toContain(picture.getAttribute('alt'));
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Русский' }));
+    expect(screen.getAllByRole('link', { name: /^Открыть крупно \(в новой вкладке\)/ }).length).toBe(pictures.length);
+  });
+});
+
+describe('unsaved simulator drafts and the guide', () => {
+  it('a draft survives a visit to the guide through "Help for this page" and back', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(NOW));
+    try {
+      renderApp();
+      await go('#/simulator/dish_classic_burger');
+      await userEvent.click(await screen.findByRole('button', { name: /Add scenario/ }));
+      const menuPrice = await screen.findByLabelText('Menu price (incl. VAT, €)');
+      await userEvent.type(menuPrice, '13.83');
+      expect(screen.getByRole('region', { name: 'Scenario A' })).toBeTruthy();
+
+      await userEvent.click(screen.getByRole('link', { name: 'Help for this page' }));
+      await screen.findByRole('heading', { level: 2, name: /Simulator: try/ });
+      window.history.back();
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+
+      const scenario = await screen.findByRole('region', { name: 'Scenario A' });
+      expect((within(scenario).getByLabelText('Menu price (incl. VAT, €)') as HTMLInputElement).value).toBe('13.83');
+      expect(within(scenario).getByText('Not saved yet.')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
