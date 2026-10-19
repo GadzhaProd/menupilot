@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useFormatters, useLocale } from '@/ui/i18n';
 import { contributionTone, costTone, useDishFigures } from './useDishFigures';
 
-export function DishImpactTable({ rows, comparisonDate }: { rows: readonly DashboardDishRow[]; comparisonDate: string }) {
+export function DishImpactTable({ rows, comparisonDate, largestId }: { rows: readonly DashboardDishRow[]; comparisonDate: string; largestId?: string }) {
   const { t } = useLocale();
   const f = useFormatters();
   const figures = useDishFigures();
@@ -16,7 +16,7 @@ export function DishImpactTable({ rows, comparisonDate }: { rows: readonly Dashb
       </TableRow></TableHeader>
       <TableBody>{rows.map((row) => {
         const v = figures(row);
-        return <TableRow key={row.id} className="break-inside-avoid">
+        return <TableRow key={row.id} className={row.id === largestId ? 'break-inside-avoid bg-panel' : 'break-inside-avoid'}>
           <TableCell className="whitespace-normal align-top">
             <a className="font-semibold underline-offset-4 hover:underline" href={hrefFor({ name: 'recipe', id: row.id })}>{row.name}</a>
             <span className="mt-1 block text-xs text-muted-foreground">{v.menu} {t('common.inclVat')} · {v.net} {t('common.exclVat')}</span>
@@ -28,7 +28,7 @@ export function DishImpactTable({ rows, comparisonDate }: { rows: readonly Dashb
             <span>{v.change}</span><span className="mt-1 block text-xs">{v.points}</span>
           </TableCell>
           <TableCell className="text-right align-top whitespace-normal">{v.contribution}</TableCell>
-          <TableCell className={`text-right align-top whitespace-normal font-semibold ${contributionTone(row.monthlyImpactCents)}`}>{v.monthly}</TableCell>
+          <TableCell className={`text-right align-top whitespace-normal font-semibold ${contributionTone(row.monthlyImpactCents)}`}>{v.monthly}{row.monthlyVolume === null && <span className="mt-1 block text-xs font-normal text-muted-foreground">{t('dashboard.volumeMissing')}</span>}</TableCell>
         </TableRow>;
       })}</TableBody>
     </Table>

@@ -47,7 +47,7 @@ interface ScenarioCardProps {
 function Disclosure({ title, changed, hasError, defaultOpen, children }: {
   title: string; changed: number; hasError: boolean; defaultOpen: boolean; children: ReactNode;
 }) {
-  const { t } = useLocale();
+  const { t } = useLocale(); const f = useFormatters();
   const [open, setOpen] = useState(defaultOpen);
   return (
     <details
@@ -58,7 +58,7 @@ function Disclosure({ title, changed, hasError, defaultOpen, children }: {
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 min-h-12 rounded-lg px-3 py-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
         <span>{title}</span>
         <span className="flex items-center gap-2">
-          {changed > 0 ? <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs text-primary">{t('simulator.changed', { count: changed })}</span> : null}
+          {changed > 0 ? <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs text-primary">{t('simulator.changed', { count: f.integer(changed) })}</span> : null}
           <ChevronDownIcon aria-hidden="true" className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
         </span>
       </summary>
@@ -155,7 +155,7 @@ export function ScenarioCard({
   draft, index, run, delta, ownBaseline, sharedVolume, stale, dirty, problem, attempt,
   onRename, onFields, onSave, onDelete, onUpdateBaseline, onDismissNotes,
 }: ScenarioCardProps) {
-  const { t } = useLocale(); const f = useFormatters();
+  const { t, plural } = useLocale(); const f = useFormatters();
   const euro = (v: number | bigint | null) => v === null ? '—' : f.money(v);
   const signedEuro = (v: bigint) => `${v > 0n ? '+' : ''}${f.money(v)}`;
   const root = useRef<HTMLElement>(null);
@@ -225,7 +225,7 @@ export function ScenarioCard({
 
           <FormField
             label={t('simulator.ownVolume')}
-            hint={sharedVolume === undefined ? t('simulator.emptyVolume') : t('simulator.usesShared', { count: sharedVolume })}
+            hint={sharedVolume === undefined ? t('simulator.emptyVolume') : t('simulator.usesShared', { count: f.integer(sharedVolume) })}
             error={errors.volume ? t(errors.volume) : undefined}
           >
             {(control) => (
@@ -254,7 +254,7 @@ export function ScenarioCard({
               <div className="min-w-0"><dd className="text-xs text-muted-foreground">
                 {run.result.monthlyVolume === null
                   ? t('simulator.noEstimate')
-                  : t(draft.applied.monthlyVolume === undefined ? 'simulator.calculatedShared' : 'simulator.calculatedOwn', { count: run.result.monthlyVolume })}
+                  : plural(draft.applied.monthlyVolume === undefined ? 'simulator.calculatedShared' : 'simulator.calculatedOwn', run.result.monthlyVolume, { count: f.integer(run.result.monthlyVolume) })}
               </dd></div>
             </dl>
           ) : (

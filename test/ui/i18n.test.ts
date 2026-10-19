@@ -39,3 +39,9 @@ describe('typed EN/NL messages', () => {
     expect(() => t('count.dishes.other')).toThrow(/Missing translation parameter/);
   });
 });
+
+it('selects plural forms using the numeric count while formatting displayed parameters', () => {
+  expect(plural('en', 'count.dishes', 1000, { count: '1,000' })).toBe('1,000 dishes');
+  expect(plural('nl', 'count.dishes', 1, { count: 'één' })).toBe('één gerecht');
+  expect(plural('nl', 'dashboard.excluded', 2, { count: '2', reasons: 'kosten onbekend' })).toBe('2 gerechten uitgesloten: kosten onbekend');
+});

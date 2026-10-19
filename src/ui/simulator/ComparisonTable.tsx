@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { highestMonthly, type Run, type ScenarioDelta } from '@/ui/domain/simulator';
+import { highestMonthly, monthlyVolumesDiffer, type Run, type ScenarioDelta } from '@/ui/domain/simulator';
 import type { SimulateResult } from '@/ui/domain/types';
-import { useLocale } from '@/ui/i18n';
+import { useLocale, useFormatters } from '@/ui/i18n';
 import type { en, TranslationKey } from '@/ui/i18n/en';
 import { DASH, Delta, useSimulatorFormat } from './format';
 
@@ -26,6 +26,7 @@ function leftOutReason(column: Column): TextKey | null {
   return column.run.result.monthlyVolume === null ? 'simulator.reasonVolume' : 'simulator.reasonMonthly';
 }
 const monthlyOf = (column: Column) => ({ key: column.key,
+  monthlyVolume: column.run.ok ? column.run.result.monthlyVolume : null,
   monthlyCents: leftOutReason(column) === null && column.run.ok ? column.run.result.monthlyContributionCents : null });
 
 function Highest({ columns }: { columns: readonly Column[] }) {
@@ -37,7 +38,7 @@ function Highest({ columns }: { columns: readonly Column[] }) {
   });
   const names = best === null ? [] : columns.filter(column => best.keys.includes(column.key)).map(column => column.label);
   return <p data-testid="highest-monthly" className="border-t border-line pt-4 text-sm">
-    {best === null ? <><strong>{t('simulator.notEnough')}</strong> {leftOut.length === 0 && t('simulator.enterToCompare')}</>
+    {monthlyVolumesDiffer(columns.map(monthlyOf)) ? <strong>{t('simulator.volumesDiffer')}</strong> : best === null ? <><strong>{t('simulator.notEnough')}</strong> {leftOut.length === 0 && t('simulator.enterToCompare')}</>
       : names.length > 1 ? t('simulator.tie', { names: names.join(` ${t('simulator.and')} `), value: euro(best.cents) })
         : best.keys[0] === 'baseline' ? t('simulator.bestBaseline', { value: euro(best.cents) })
           : t('simulator.best', { name: names[0]!, value: euro(best.cents) })}
@@ -46,7 +47,7 @@ function Highest({ columns }: { columns: readonly Column[] }) {
 }
 
 export function ComparisonTable({ columns, activeKey }: { columns: readonly Column[]; activeKey?: string }) {
-  const { t } = useLocale();
+  const { t } = useLocale(); const f = useFormatters();
   const { euro, costText, percentText, signedEuro, signedPoints } = useSimulatorFormat();
   const best = highestMonthly(columns.map(monthlyOf));
   const comparable = columns.filter(c => leftOutReason(c) === null).length;
@@ -58,7 +59,7 @@ export function ComparisonTable({ columns, activeKey }: { columns: readonly Colu
     { label: 'simulator.contribution', hint: 'simulator.otherCosts', value: r => euro(r.contributionCents), delta: d => <Delta value={d.contributionDeltaCents} format={signedEuro} better="higher" /> },
     { label: 'simulator.foodCost', value: r => percentText(r, r.foodCostPct), delta: d => <Delta value={d.foodCostDeltaTenthsPct} format={signedPoints} better="lower" /> },
     { label: 'simulator.margin', value: r => percentText(r, r.marginPct) },
-    { label: 'simulator.volume', hint: 'simulator.estimate', value: r => r.monthlyVolume === null ? DASH : String(r.monthlyVolume) },
+    { label: 'simulator.volume', hint: 'simulator.estimate', value: r => r.monthlyVolume === null ? DASH : f.integer(r.monthlyVolume) },
     { label: 'simulator.monthly', hint: 'simulator.monthlyHint', value: r => euro(r.monthlyContributionCents), delta: d => <Delta value={d.monthlyContributionDeltaCents} format={signedEuro} better="higher" />, emphasis: true },
   ];
   const columnClass = (c: Column) => cn(c.kind === 'scenario' && c.key !== activeKey && 'sim-inactive-column', c.key === activeKey && 'bg-panel');

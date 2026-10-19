@@ -25,3 +25,11 @@ it.each(['en', 'nl'] as const)('an invalid date cannot crash a %s component rend
   render(<LocaleProvider storage={memoryStorage({ [LOCALE_KEY]: locale })}><DateLabel /></LocaleProvider>);
   expect(screen.getByText(locale === 'nl' ? 'n.v.t.' : 'n/a')).toBeTruthy();
 });
+
+it.each(['en', 'nl'] as const)('formats exact integer counts in %s', (locale) => {
+  const { result } = renderHook(useFormatters, { wrapper: ({ children }) => <LocaleProvider storage={memoryStorage({ [LOCALE_KEY]: locale })}>{children}</LocaleProvider> });
+  expect(result.current.integer(1000)).toBe(locale === 'en' ? '1,000' : '1.000');
+  expect(result.current.integer(9007199254740993n)).toBe(locale === 'en' ? '9,007,199,254,740,993' : '9.007.199.254.740.993');
+  expect(result.current.integer(0)).toBe('0');
+  expect(() => result.current.integer(1.5)).toThrow(RangeError);
+});

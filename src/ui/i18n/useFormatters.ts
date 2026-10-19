@@ -9,7 +9,12 @@ export function useFormatters() {
     const unitPrice = (value: UnitPrice | null): string => value === null
       ? t('common.costUnknown')
       : `${formatEURFromCentsLocale(value.cents, locale)}/${t(`units.${value.per}`)}`;
+    const integers = new Intl.NumberFormat(locale);
     return {
+      integer: (value: number | bigint) => {
+        if (typeof value === 'number' && !Number.isSafeInteger(value)) throw new RangeError('Expected a safe integer.');
+        return integers.format(value);
+      },
       money: (cents: bigint | number) => formatEURFromCentsLocale(cents, locale),
       microMoney: (micro: bigint) => formatEURFromMicroLocale(micro, locale),
       percent: (tenths: bigint | null) => formatPercentTenthsLocale(tenths, locale),

@@ -198,9 +198,18 @@ export interface BestChoice {
  * Which columns have the highest estimated monthly contribution. Only columns with a figure
  * take part, and there must be at least two of them: one result alone is nothing to compare.
  */
-export function highestMonthly(columns: readonly { key: string; monthlyCents: bigint | null }[]): BestChoice | null {
-  const comparable = columns.filter((column): column is { key: string; monthlyCents: bigint } => column.monthlyCents !== null);
-  if (comparable.length < 2) return null;
+export interface MonthlyColumn { key: string; monthlyCents: bigint | null; monthlyVolume: number | null }
+const comparableMonthly = (columns: readonly MonthlyColumn[]) =>
+  columns.filter((column): column is MonthlyColumn & { monthlyCents: bigint; monthlyVolume: number } =>
+    column.monthlyCents !== null && column.monthlyVolume !== null);
+
+export function monthlyVolumesDiffer(columns: readonly MonthlyColumn[]): boolean {
+  return new Set(comparableMonthly(columns).map(column => column.monthlyVolume)).size > 1;
+}
+
+export function highestMonthly(columns: readonly MonthlyColumn[]): BestChoice | null {
+  const comparable = comparableMonthly(columns);
+  if (comparable.length < 2 || monthlyVolumesDiffer(comparable)) return null;
   let best: BestChoice | null = null;
   for (const column of comparable) {
     if (best === null || column.monthlyCents > best.cents) best = { keys: [column.key], cents: column.monthlyCents };

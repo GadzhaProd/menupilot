@@ -585,3 +585,29 @@ Browser interaction checks: create three scenarios, change and save independent 
 Print emulation verified all Baseline/A/B/C columns visible, editor hidden, light background rgb(245,246,243), and full table. No native Safari/Firefox, physical touch device, screen reader, or PDF pagination checks claimed. EN HelpLink integration remains assigned to Part 3.
 
 Session closed with state:closed; preview stopped with Ctrl+C (exit 130). No preview server remains running from Part 2. Final git diff --check passed. No push or integration merge performed by this thread.
+
+### Part 2 review corrections — 2026-10-20
+
+Read the full Sonnet review (thr_am8u47tvcw) and coordinator's ten requested corrections. Fixed all ten in the Part 2 branch. Ranking now requires equal known monthlyVolume for every eligible column, including the current situation; different volumes produce an explicit EN/NL message and no highest badge. Monthly calculations/deltas remain unchanged. Removed dead domain excludedReasons and moved its assertion to actual NL UI; added missing-volume text and largest-increase row tint. Made the shared estimate label visually hidden under its single summary, constrained the first desktop grid row to its natural height, kept scenario letters on one line, matched the visible date label, and set print hints to 10px below 11px table text. Removed the dead dashboard formatter and its isolated tests, seven unused dictionary keys, and the English fallback run text.
+
+Coordinator authorized additive foundation APIs: f.integer(number|bigint), rejecting fractional/unsafe numbers while preserving bigint precision; plural(key, count, params?) with typed optional display parameters and numeric selection count. Existing calls remain compatible. Added README examples and tests. Updated specified whole-message plurals and formatted displayed counts; editable input strings remain intact.
+
+Regression-first run: 6 failed / 9 passed across four files before fixes ([red log](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-red.log)). Targeted suite then passed. Final full `VITEST_MAX_WORKERS=2 npm run check`, exit 0 ([log](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-check.log)):
+
+```text
+tsc --noEmit: passed
+core: 137 passed, 0 failed
+Test Files 25 passed (25)
+Tests 285 passed (285)
+✓ 2086 modules transformed.
+✓ built in 262ms
+```
+
+Tests cover a 1000-sale scenario against a 300-sale baseline (both languages, no winner), equal-volume ties, unknown exclusion, formatted integer/bigint counts, numeric plural selection with custom display parameters, each requested sales plural, NL excluded reasons, date label, missing-volume explanation and largest-increase highlight, and accessible but visually hidden duplicate field label. CSS layout/print behavior is checked in the real browser instead of tests that mirror CSS source.
+
+Browser: new local/headless session c1205078-1e92-42d4-9f46-46488a2744f2; production preview /menupilot/ on port 4175. Both screens checked EN/light and NL/dark at both 1440 and 375, without reduced motion. All measured document widths match the viewport. Scenario labels measure one 21px text line at 375. Desktop selector-to-heading gap is 24px, including with a 3499px-tall expanded ingredient editor. Empty-state field label has a 1×1px visually hidden box, its summary remains visible and accessible label retained. Print computed table cell 11px, hint 10px. Representative screenshots visually inspected:
+- [Dashboard EN desktop](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-dashboard-en-1440.jpg), [NL mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-dashboard-nl-375.jpg)
+- [Simulator EN desktop](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-simulator-en-1440.jpg), [NL mobile](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-simulator-nl-375.jpg)
+- [Print](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-print.jpg), [layout measurements](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-print-layout.json)
+
+Bounded audit/polish confirmed the requested layout corrections. Actual final Impeccable detect on the same two pages/directories returned 11 advisory font-size findings: the ten previously documented choices plus requested 10px print hints; no other finding kind ([JSON](/Users/gadzha/.bb/thread-storage/thr_n4jax9mwdj/part2-review-detect.json)). No new component adoption or 21st code. Browser closed; preview stopped (exit 130). Existing out-of-scope EN HelpLink is still pending Part 3 integration; this follow-up does not merge other branches or push.

@@ -20,10 +20,12 @@ export function interpolateMessage(message: string, params: Record<string, strin
   });
 }
 export type PluralKey = { [K in TranslationKey]: K extends `${infer Base}.one` ? `${Base}.other` extends TranslationKey ? Base : never : never }[TranslationKey];
+export type PluralParams<K extends PluralKey> = Partial<MessageParams<Extract<`${K}.one`, TranslationKey>>>;
 const rules = { en: new Intl.PluralRules('en'), nl: new Intl.PluralRules('nl') };
 /** EN/NL cardinal plurals: use whole messages, with count available as a parameter. */
-export function plural(locale: Locale, key: PluralKey, count: number): string {
+export function plural<K extends PluralKey>(locale: Locale, key: K, count: number, params?: PluralParams<K>): string {
   if (!Number.isSafeInteger(count) || count < 0) throw new RangeError('Count must be a non-negative safe integer.');
   const category = rules[locale].select(count) === 'one' ? 'one' : 'other';
-  return createTranslator(locale)(`${key}.${category}`, { count });
+  const messageKey = `${key}.${category}` as TranslationKey;
+  return interpolateMessage(dictionaries[locale][messageKey], { count, ...params }, messageKey);
 }

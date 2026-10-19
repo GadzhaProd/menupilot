@@ -1,4 +1,4 @@
-import { useLocale } from '@/ui/i18n';
+import { useLocale, useFormatters } from '@/ui/i18n';
 import type { ReactNode } from 'react';
 import type { Run } from '@/ui/domain/simulator';
 import type { SimulateResult } from '@/ui/domain/types';
@@ -15,7 +15,7 @@ function Metric({ label, value, note }: { label: string; value: ReactNode; note:
 }
 
 function Cards({ result }: { result: SimulateResult }) {
-  const { t } = useLocale(); const { euro, costText, percentText } = useSimulatorFormat();
+  const { t, plural } = useLocale(); const f = useFormatters(); const { euro, costText, percentText } = useSimulatorFormat();
   return (
     <dl className="grid gap-6 border-y border-line bg-surface p-5 sm:grid-cols-2 xl:grid-cols-5">
       <Metric
@@ -41,7 +41,7 @@ function Cards({ result }: { result: SimulateResult }) {
       <Metric
         label={t('simulator.monthly')}
         value={euro(result.monthlyContributionCents)}
-        note={result.monthlyVolume === null ? t('simulator.enterVolume') : t('simulator.sold', { count: result.monthlyVolume })}
+        note={result.monthlyVolume === null ? t('simulator.enterVolume') : plural('simulator.sold', result.monthlyVolume, { count: f.integer(result.monthlyVolume) })}
       />
     </dl>
   );

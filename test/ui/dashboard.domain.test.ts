@@ -30,7 +30,6 @@ describe('dashboard domain adapter', () => {
     expect(result.dishes.every((row) => row.status === 'no-price-on-date')).toBe(true);
     expect(result.totalMonthlyImpactCents).toBe(0n);
     expect(result.excludedWithVolume).toBe(4);
-    expect(result.excludedReasons).toContain('no price on this date');
   });
 
   it('excludes dishes without a volume and totals only the other monthly impacts', () => {

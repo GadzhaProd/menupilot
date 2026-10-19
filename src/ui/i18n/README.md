@@ -11,6 +11,8 @@ tRich('common.deleteNamed', { name: recipe.name }, { b: children => <strong>{chi
 // EN: Delete <strong>Soup</strong>?  NL: <strong>Soep</strong> verwijderen?
 t('count.dishes.other', { count: 5 }); // required parameters are checked by TypeScript
 plural('count.dishes', count); // one/other, whole messages; safe non-negative integer
+plural('count.dishes', count, { count: f.integer(count) }); // optional typed display parameters; numeric count still selects the form
+f.integer(1000); // safe integer number | bigint, EN 1,000 / NL 1.000; rejects fractional/unsafe numbers
 f.money(result.monthlyContributionCents); // number | bigint cents
 f.microMoney(result.contributionMicro); // bigint micro-euros; existing rounding
 f.percent(result.foodCostTenths); // bigint | null; n/a / n.v.t.
