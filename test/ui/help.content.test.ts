@@ -216,8 +216,8 @@ describe('guide wording matches the screen', () => {
     const known = new Set<string>(dictionary);
     for (const value of Object.values(doc.ui)) known.add(norm(value));
     for (const label of ['English', 'Nederlands', 'Русский', 'EN', 'NL', 'MenuPilot', '←', 'OK']) known.add(label);
-    // The word “bold” itself, and the delete button of a recipe: “Delete” plus the kind in lower case.
-    for (const label of ['bold', 'vet', 'жирным', 'Delete dish', 'Delete prep', 'gerecht verwijderen', 'basisrecept verwijderen']) known.add(label);
+    // The word “bold” itself, and the name a scenario gets by default.
+    for (const label of ['bold', 'vet', 'жирным', 'Scenario A']) known.add(label);
     const demo = screen === 'nl' ? demoNl : demoEn;
     for (const ingredient of demo.ingredients) { known.add(ingredient.name); known.add(`${ingredient.name} · ${ingredient.unit}`); }
     for (const recipe of demo.recipes) known.add(recipe.name);

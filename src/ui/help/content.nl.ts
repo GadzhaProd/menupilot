@@ -173,7 +173,7 @@ export const contentNl: HelpDocument = {
               meaning: 'Een “wat als”-kopie van één gerecht in de Simulator. Je verandert iets in de kopie en ziet het resultaat. Het echte gerecht en de echte prijzen veranderen nooit.',
               example: '“Wat als ik de prijs van de burger 75 cent verhoog?”',
             },
-            { term: 'Huidige situatie', meaning: 'Je echte gegevens van vandaag: het recept en de prijzen waarmee elk scenario wordt vergeleken.', example: 'In de Simulator toont de kolom Huidige situatie je echte gerecht van vandaag.' },
+            { term: 'Huidige situatie', meaning: 'Je echte gegevens van vandaag: het recept en de prijzen waarmee elk scenario wordt vergeleken. Een opgeslagen scenario kan nog een oudere basis gebruiken.', example: 'In de Simulator toont de kolom Huidige situatie je echte gerecht van vandaag.' },
             {
               term: 'Verkocht per maand (je schatting)',
               meaning: 'Hoeveel porties van een gerecht je denkt per maand te verkopen. Dit is je eigen schatting, geen voorspelling van het programma. Het rekent het verschil per portie om naar euro’s per maand. Je mag het leeg laten.',
@@ -242,13 +242,13 @@ export const contentNl: HelpDocument = {
       id: 'appearance',
       title: 'Kleuren (thema) en taal van het scherm',
       blocks: [
-        { kind: 'p', text: 'Rechtsboven op elke pagina staan twee kleine bedieningselementen. Met de ene kies je de kleuren van het scherm, met de andere de taal. Geen van beide verandert je gegevens.' },
+        { kind: 'p', text: 'Bovenaan elke pagina vind je Thema en de taalknoppen EN en NL. Met Thema kies je de kleuren van het scherm, met de knoppen de taal. Geen van beide verandert je gegevens.' },
         { kind: 'image', image: img('theme-language', 'Rechtsboven in het scherm: de lijst Thema met de keuze Licht en de taalknoppen EN en NL.', 'De lijst Thema en de taalknoppen EN | NL.') },
         {
           kind: 'steps',
           title: 'De kleuren van het scherm wijzigen',
           steps: [
-            { text: ['Zoek rechtsboven de lijst ', b('Thema'), ' en klik erop.'], result: 'Er opent een lijst met drie keuzes: Systeem, Licht en Donker.' },
+            { text: ['Zoek bovenaan de pagina de lijst ', b('Thema'), ' en klik erop.'], result: 'Er opent een lijst met drie keuzes: Systeem, Licht en Donker.' },
             { text: ['Klik op ', b('Licht'), ' voor een helder scherm of op ', b('Donker'), ' voor een donker scherm.'], result: 'De kleuren veranderen meteen. Het programma onthoudt je keuze in deze browser.' },
           ],
         },
@@ -257,7 +257,7 @@ export const contentNl: HelpDocument = {
           items: [
             [b('Licht'), ': een helder scherm. Het beste overdag en het makkelijkst te lezen in een lichte keuken.'],
             [b('Donker'), ': een donker scherm. Rustiger voor de ogen in de avond.'],
-            [b('Systeem'), ': MenuPilot neemt de instelling van je computer of telefoon over en kan dus zelf wisselen tussen dag en avond. Dit staat ingesteld totdat je kiest.'],
+            [b('Systeem'), ': MenuPilot volgt de lichte of donkere instelling van je computer of telefoon. Verandert die instelling, dan verandert MenuPilot mee. Dit staat ingesteld totdat je kiest.'],
           ],
         },
         {
@@ -270,20 +270,20 @@ export const contentNl: HelpDocument = {
           kind: 'steps',
           title: 'De taal van het scherm wijzigen',
           steps: [
-            { text: ['Klik rechtsboven op ', b('NL'), ' voor Nederlands of op ', b('EN'), ' voor Engels.'], result: 'Alle teksten en knoppen van het programma wisselen meteen van taal. De gekozen taal is onderstreept en wordt onthouden in deze browser.' },
+            { text: ['Klik bovenaan de pagina op ', b('NL'), ' voor Nederlands of op ', b('EN'), ' voor Engels.'], result: 'Alle teksten en knoppen van het programma wisselen meteen van taal. De gekozen taal is onderstreept en wordt onthouden in deze browser.' },
           ],
         },
         {
           kind: 'note',
           tone: 'important',
-          title: 'Je eigen namen worden niet vertaald',
-          text: ['De taal verandert alleen de eigen woorden van het programma. Namen die je zelf hebt getypt (ingrediënten, gerechten, scenario’s) blijven zoals je ze schreef. Het voorbeeldcafé wordt de eerste keer geladen in de taal van het scherm. ', b('Terugzetten naar voorbeeldgegevens'), ' laadt het voorbeeld in de taal die op dat moment op het scherm staat en vervangt je gegevens.'],
+          title: 'Opgeslagen namen worden niet vertaald',
+          text: ['De taal verandert alleen de eigen woorden van het programma. Namen die je zelf hebt getypt (ingrediënten, gerechten, scenario’s) blijven zoals je ze schreef. Het voorbeeldcafé wordt de eerste keer geladen in de taal van het scherm. ', b('Terugzetten naar voorbeeldgegevens'), ' laadt het voorbeeld in de taal die op dat moment op het scherm staat en vervangt je gegevens. Ook namen uit eerder geladen voorbeeldgegevens blijven in hun oorspronkelijke taal. Beef mince 80/20 verandert dus niet vanzelf in Rundergehakt 80/20. Deze Nederlandse handleiding gebruikt Nederlandse voorbeeldnamen.'],
         },
         {
           kind: 'note',
           tone: 'safe',
           title: 'Deze handleiding heeft eigen taalknoppen',
-          text: ['Bovenaan deze handleiding kies je English, Nederlands of Русский. Zonder keuze volgt de handleiding de taal van het scherm.'],
+          text: ['Bovenaan deze handleiding kies je English, Nederlands of Русский. Zonder keuze volgt de handleiding de taal van het scherm. De Russische handleiding gebruikt Engelse schermnamen en schermafbeeldingen.'],
         },
       ],
     },
@@ -299,7 +299,7 @@ export const contentNl: HelpDocument = {
           title: 'Een nieuw ingrediënt toevoegen (voorbeeld: olijfolie, een can van 5 liter voor € 24,00)',
           steps: [
             { text: ['Klik in het menu op ', b('Ingrediënten'), '.'], result: 'De lijst met je ingrediënten opent.' },
-            { text: ['Klik rechtsboven op de pagina op de donkere knop ', b('Ingrediënt toevoegen'), '.'], result: 'Een venster “Ingrediënt toevoegen” opent.' },
+            { text: ['Klik bovenaan de pagina op ', b('Ingrediënt toevoegen'), '.'], result: 'Een venster “Ingrediënt toevoegen” opent.' },
             { text: ['Klik in het veld ', b('Naam'), ' en typ de naam: Olijfolie.'] },
             {
               text: ['Open de lijst ', b('Eenheid'), ' (rechts van de verpakkingsgrootte). Kies ', b('l'), ' voor liters.'],
@@ -325,7 +325,7 @@ export const contentNl: HelpDocument = {
           kind: 'note',
           tone: 'important',
           title: 'Weet je de prijs nog niet?',
-          text: ['Typ alleen de naam en laat de verpakkingsgrootte en de prijs leeg. Voeg de prijs later toe met ', b('Nieuwe prijs'), '. Tot die tijd tonen gerechten met dit ingrediënt “kosten onbekend”. Dat is eerlijk: het programma raadt niet.'],
+          text: ['Vul de naam in en kies bij ', b('Eenheid'), ' hoe je het ingrediënt inkoopt: bijvoorbeeld kg, l of st. Laat de verpakkingsgrootte en de prijs leeg. Voeg de prijs later toe met ', b('Nieuwe prijs'), '. Tot die tijd tonen gerechten met dit ingrediënt “kosten onbekend”. Dat is eerlijk: het programma raadt niet.'],
         },
         {
           kind: 'steps',
@@ -421,7 +421,7 @@ export const contentNl: HelpDocument = {
             { text: ['Kies in de nieuwe regel ', b('Dijonmosterd · g'), '.'] },
             { text: ['Typ in ', b('Nettohoeveelheid (g)'), ' van de nieuwe regel 100.'], result: ['De kosten van de regel zijn € 0,50.'], image: img('prep-lines', 'De kaart Ingrediënten en basisrecepten met twee regels: Mayonaise 900 g en Dijonmosterd 100 g, met de kosten per regel.', 'Twee regels vormen één bereiding.') },
             { text: ['Kijk onderaan naar de kaart ', b('Kostenoverzicht'), '.'], result: ['Daar staan ', b('Kosten van de bereiding, alle porties (excl. btw)'), ' € 4,46, ', b('Opbrengst van één bereiding'), ' 1 kg en ', b('Kosten per kg, l of st (excl. btw)'), ' € 4,46/kg. Het verandert terwijl je typt.'], image: img('prep-cost', 'De kaart Kostenoverzicht met Kosten van de bereiding € 4,46, Opbrengst van één bereiding 1 kg en Kosten per kg, l of st € 4,46/kg.', 'De kosten van de hele bereiding en van één kilo.') },
-            { text: ['Klik linksonder op de donkere knop ', b('Basisrecept opslaan'), '.'], result: ['Het basisrecept is opgeslagen. De pagina heeft nu de naam van het basisrecept als titel en de knoppen onderaan worden ', b('Wijzigingen opslaan'), ', ', b('Wijzigingen ongedaan maken'), ' en ', b('basisrecept verwijderen'), '.'] },
+            { text: ['Klik onderaan de pagina op ', b('Basisrecept opslaan'), '.'], result: ['Het basisrecept is opgeslagen. De pagina heeft nu de naam van het basisrecept als titel en de knoppen onderaan worden ', b('Wijzigingen opslaan'), ', ', b('Wijzigingen ongedaan maken'), ' en ', b('Basisrecept verwijderen'), '.'] },
             { text: ['Klik bovenaan de pagina op ', b('← Alle recepten'), '.'], result: 'Mosterdmayonaise staat in de kaart Basisrecepten met de kosten, € 4,46/kg.' },
           ],
         },
@@ -445,7 +445,7 @@ export const contentNl: HelpDocument = {
           title: 'Een gerecht maken (voorbeeld: Kipbroodje voor € 9,80, met de Mosterdmayonaise uit het vorige hoofdstuk)',
           steps: [
             { text: ['Klik in het menu op ', b('Recepten'), '.'], result: 'De kaarten Gerechten en Basisrecepten openen.' },
-            { text: ['Klik in de kaart ', b('Gerechten'), ' op de donkere knop ', b('Nieuw gerecht'), '.'], result: ['Een pagina “Nieuw gerecht” opent. De eerste, lege regel staat er al.'] },
+            { text: ['Klik in de kaart ', b('Gerechten'), ' op ', b('Nieuw gerecht'), '.'], result: ['Een pagina “Nieuw gerecht” opent. De eerste, lege regel staat er al.'] },
             { text: ['Klik in het veld ', b('Naam'), ' en typ: Kipbroodje.'] },
             { text: ['Typ in ', b('Menukaartprijs (incl. btw)'), ' de prijs die je gast betaalt, mét btw: 9,80.'] },
             {
@@ -461,9 +461,13 @@ export const contentNl: HelpDocument = {
               text: ['Typ in ', b('Nettohoeveelheid (g)'), ' 120. Laat ', b('Rendement %'), ' op 100 staan.'],
               result: ['De kosten van de regel zijn € 1,06.'],
             },
-            { text: ['Klik op ', b('Regel toevoegen'), '. Kies ', b('Briocheburgerbroodje · st.'), ' en typ 1 in ', b('Nettohoeveelheid (st.)'), '.'], result: ['De kosten van de regel zijn € 0,88.'] },
+            { text: ['Klik op ', b('Regel toevoegen'), '.'], result: 'Er verschijnt een tweede, lege regel.' },
+            { text: ['Open in de nieuwe regel de lijst ', b('Ingrediënt of basisrecept'), ' en kies ', b('Briocheburgerbroodje · st.'), '.'] },
+            { text: ['Typ 1 in ', b('Nettohoeveelheid (st.)'), '.'], result: ['De kosten van de regel zijn € 0,88.'] },
+            { text: ['Klik nog eens op ', b('Regel toevoegen'), '.'], result: 'Er verschijnt een derde, lege regel.' },
+            { text: ['Open in de nieuwe regel de lijst ', b('Ingrediënt of basisrecept'), ' en kies onder de kop Basisrecepten ', b('Mosterdmayonaise · g'), '.'] },
             {
-              text: ['Klik nog eens op ', b('Regel toevoegen'), '. Kies in de lijst onder de kop Basisrecepten ', b('Mosterdmayonaise · g'), ' en typ 20 in ', b('Nettohoeveelheid (g)'), '.'],
+              text: ['Typ 20 in ', b('Nettohoeveelheid (g)'), '.'],
               result: ['De kosten van de regel zijn € 0,09. Je basisrecept wordt in het gerecht gebruikt.'],
               image: img('dish-lines', 'De kaart Ingrediënten met drie regels: Kipfilet 120 g, Briocheburgerbroodje 1 st. en Mosterdmayonaise 20 g.', 'Een regel van een gerecht kan een ingrediënt of een basisrecept zijn.'),
             },
@@ -475,7 +479,7 @@ export const contentNl: HelpDocument = {
               result: 'Daar staat wat één portie kost en wat er van de prijs overblijft: hier € 2,03 voor ingrediënten, € 8,99 prijs excl. btw en € 6,97 bijdrage. Het volgende deel legt elke regel uit.',
               image: img('dish-cost', 'De kaart Kostenoverzicht van Kipbroodje met de ingrediëntkosten per portie, de prijs excl. btw, de bijdrage en de maandschatting.', 'De kaart Kostenoverzicht van het nieuwe gerecht.'),
             },
-            { text: ['Klik linksonder op de donkere knop ', b('Gerecht opslaan'), '.'], result: ['Het gerecht is opgeslagen. De pagina heeft nu de naam van het gerecht als titel en de knoppen onderaan worden ', b('Wijzigingen opslaan'), ', ', b('Wijzigingen ongedaan maken'), ' en ', b('gerecht verwijderen'), '. Het gerecht staat op de pagina Recepten en op het Overzicht.'] },
+            { text: ['Klik onderaan de pagina op ', b('Gerecht opslaan'), '.'], result: ['Het gerecht is opgeslagen. De pagina heeft nu de naam van het gerecht als titel en de knoppen onderaan worden ', b('Wijzigingen opslaan'), ', ', b('Wijzigingen ongedaan maken'), ' en ', b('Gerecht verwijderen'), '. Het gerecht staat op de pagina Recepten en op het Overzicht.'] },
           ],
         },
         {
@@ -503,10 +507,10 @@ export const contentNl: HelpDocument = {
           title: 'Een gerecht wijzigen of verwijderen',
           steps: [
             { text: ['Klik op ', b('Recepten'), ' en dan op de naam van het gerecht.'], result: 'Het gerecht opent met al zijn regels.' },
-            { text: ['Wijzig wat je nodig hebt. Wil je je bedenken voordat je opslaat, klik dan op ', b('Wijzigingen ongedaan maken'), '.'], result: 'De melding “Je hebt niet-opgeslagen wijzigingen.” staat naast de knoppen totdat je opslaat.' },
+            { text: ['Wijzig wat je nodig hebt. Wil je de wijzigingen toch niet bewaren? Klik op ', b('Wijzigingen ongedaan maken'), '.'], result: 'De melding “Je hebt niet-opgeslagen wijzigingen.” staat naast de knoppen totdat je opslaat.' },
             { text: ['Klik op ', b('Wijzigingen opslaan'), '.'], result: 'De melding “Opgeslagen.” verschijnt.' },
             {
-              text: ['Wil je het gerecht verwijderen, klik dan rechtsonder op ', b('gerecht verwijderen'), ' en bevestig in het venster met de rode knop. Wil je het houden, klik dan op ', b('Annuleren'), '.'],
+              text: ['Wil je het gerecht verwijderen, klik dan rechtsonder op ', b('Gerecht verwijderen'), ' en bevestig in het venster met de rode knop. Wil je het houden, klik dan op ', b('Annuleren'), '.'],
               result: 'Heeft het gerecht opgeslagen scenario’s in de Simulator, dan staat in het venster dat ze ook worden verwijderd.',
             },
           ],
@@ -518,7 +522,7 @@ export const contentNl: HelpDocument = {
       id: 'dashboard',
       title: 'Overzicht: wat is duurder geworden',
       blocks: [
-        { kind: 'p', text: 'Het Overzicht beantwoordt één vraag: welke van mijn gerechten zijn sinds een gekozen datum duurder geworden en wat kost dat mij per maand? Het leest alleen je gegevens. Niets wat je hier doet, verandert iets.' },
+        { kind: 'p', text: 'Het Overzicht beantwoordt één vraag: welke van mijn gerechten zijn sinds een gekozen datum duurder geworden en wat kost dat mij per maand? Het leest alleen je gegevens. Niets wat je hier doet, verandert iets. Voor beide datums gebruikt MenuPilot je huidige recept en huidige menukaartprijs. Alleen de inkoopprijzen verschillen. Je vergelijkt dus niet met een oudere versie van het recept.' },
         {
           kind: 'steps',
           title: 'Het Overzicht lezen',
@@ -580,7 +584,7 @@ export const contentNl: HelpDocument = {
             { message: 'geen prijs op deze datum', meaning: ['Een van de ingrediënten had op de gekozen datum nog geen prijs, omdat je later met prijzen invullen begon. Kies een recentere datum.'] },
             { message: 'n.v.t.', meaning: ['Het getal is niet te berekenen, bijvoorbeeld een percentage als de menukaartprijs € 0,00 is.'] },
             { message: '(onvolledig)', meaning: ['Naast het maandeffect: sommige gerechten met een aantal per maand moesten worden weggelaten en een regel eronder zegt waarom.'] },
-            { message: 'Geen vergelijkbaar gerecht is in deze periode duurder geworden.', meaning: ['Goed nieuws voor de gekozen periode: niets is duurder geworden. Kies een langere periode of een oudere datum om verder terug te kijken.'] },
+            { message: 'Geen vergelijkbaar gerecht is in deze periode duurder geworden.', meaning: ['Van de gerechten waarvoor op beide datums prijzen bekend zijn, is geen gerecht duurder geworden. Controleer ook of andere gerechten “kosten onbekend” of “geen prijs op deze datum” tonen. Kies een langere periode of een oudere datum om verder terug te kijken.'] },
           ],
         },
         {
@@ -603,6 +607,7 @@ export const contentNl: HelpDocument = {
           title: 'Dit is veilig',
           text: 'De Simulator verandert nooit je echte ingrediënten, prijzen of recepten. Alles wat je probeert, is alleen een berekening in een kopie.',
         },
+        { kind: 'p', text: 'Op een computer staan de invoervelden links en de vergelijking rechts. Op een telefoon staat de vergelijking eronder. Je ziet daar de Huidige situatie en het gekozen scenario. Kies A, B of C om een ander scenario te bekijken.' },
         {
           kind: 'steps',
           title: 'De Simulator openen voor de Klassieke burger',
@@ -628,7 +633,7 @@ export const contentNl: HelpDocument = {
             {
               text: ['Klik in de kaart links op het veld ', b('Verkoopprijs (incl. btw)'), ' en typ 13,83.'],
               result: 'Het grijze 13,08 toont de huidige prijs. In de kaart wordt de bijdrage per portie € 7,84, met +€ 0,69, en bovenaan de pagina wordt het maandverschil +€ 206,42.',
-              image: img('simulator-scenario', 'Het blok Scenario A met het maandverschil +€ 206,42 en de kaart Pas je scenario aan met verkoopprijs 13,83 en het resultaat bijdrage per portie € 7,84.', 'Het resultaat bovenaan en in de kaart verandert meteen.'),
+              image: img('simulator-scenario', 'De bovenkant van de kaart Pas je scenario aan: scenarionaam, verkoopprijs 13,83 en de resultaten bijdrage per portie € 7,84 en maandelijkse bijdrage € 2.351,42.', 'Verkoopprijs 13,83: bijdrage € 7,84 per portie, verschil +€ 206,42 per maand.'),
             },
           ],
         },
@@ -668,7 +673,7 @@ export const contentNl: HelpDocument = {
           kind: 'steps',
           title: 'De vergelijking lezen',
           steps: [
-            { text: ['Kijk rechts naar de tabel ', b('Dezelfde basis, andere keuzes'), '.'], result: ['Die heeft vier kolommen: Huidige situatie (vandaag) en Scenario A, B en C. Elk scenario toont onder zijn getal het verschil met de Huidige situatie: groen met een pijl omhoog is goed, rood is slecht. Het gekozen scenario heeft een gekleurde kolom.'], image: img('simulator-compare', 'De vergelijkingstabel met de kolommen Huidige situatie, Scenario A, B en C en de verschillen met de Huidige situatie.', 'Groene tekens zijn goed nieuws, rode tekens slecht nieuws.') },
+            { text: ['Kijk naar de tabel ', b('Dezelfde basis, andere keuzes'), '.'], result: ['Op een computer heeft die vier kolommen: Huidige situatie (vandaag) en Scenario A, B en C. Elk scenario toont onder zijn getal het verschil met de Huidige situatie. Groen betekent een gunstige verandering in de berekening, rood een ongunstige. De pijl laat zien of het getal stijgt of daalt. Lagere ingrediëntkosten krijgen dus een groene pijl omlaag. Het gekozen scenario heeft een gekleurde kolom.'], image: img('simulator-compare', 'De vergelijkingstabel met de kolommen Huidige situatie, Scenario A, B en C en de verschillen met de Huidige situatie.', 'Groen is een gunstige verandering, rood een ongunstige. De pijl wijst omhoog of omlaag.') },
             { text: ['Kijk naar de rij ', b('Bijdrage per portie'), '. De kleine tekens tonen hoeveel meer of minder er van één portie overblijft, vergeleken met de Huidige situatie.'] },
             { text: ['Kijk naar de rijen ', b('Geschatte maandelijkse bijdrage'), ' en ', b('Verschil per maand'), '. Ze tonen het verschil per maand bij je verkoopschatting: A +€ 206,42, B +€ 102,00, C +€ 162,00.'] },
             { text: 'Lees de zin onder de tabel. Die noemt de kolom met de hoogste geschatte maandelijkse bijdrage. Die kolom zegt ook “hoogste maandbijdrage”.', result: 'Dit is alleen een berekening met jouw getallen. Het is geen advies en geen voorspelling.' },
@@ -678,6 +683,7 @@ export const contentNl: HelpDocument = {
           kind: 'steps',
           title: 'Een scenario opslaan en een naam geven',
           steps: [
+            { text: ['Klik onder ', b('Kies een scenario om te vergelijken'), ' op ', b('Scenario A'), '.'], result: 'De kaart toont nu Scenario A met verkoopprijs 13,83.' },
             { text: ['Klik in de kaart op het veld ', b('Scenarionaam'), '. Daar staat Scenario A.'] },
             { text: 'Houd Ctrl ingedrukt en druk op A. Op een Mac gebruik je ⌘ en A.', result: 'De oude naam is geselecteerd. Zonder deze stap komt je tekst achter de oude naam.' },
             { text: ['Typ de nieuwe naam: Prijs 13,83.'], result: 'De kolom in de tabel krijgt dezelfde naam. Deze stap is optioneel.' },
@@ -697,7 +703,7 @@ export const contentNl: HelpDocument = {
         { kind: 'h3', text: '“De huidige situatie is veranderd” en “Huidige situatie bijwerken”' },
         {
           kind: 'p',
-          text: 'Een opgeslagen scenario onthoudt de prijzen en het recept van de dag dat je het opsloeg. Verandert er later een prijs, dan zou het scenario met oude getallen worden vergeleken. Het programma waarschuwt je en laat je opnieuw rekenen met de gegevens van vandaag.',
+          text: 'Een scenario bewaart het recept en de prijzen waarmee je begon, of die je koos met Huidige situatie bijwerken. Scenario opslaan bewaart die basis; het haalt niet automatisch nieuwe prijzen op. Verandert er later een prijs, dan zou het scenario met oude getallen worden vergeleken. Het programma waarschuwt je en laat je opnieuw rekenen met de gegevens van vandaag.',
         },
         {
           kind: 'steps',
@@ -721,7 +727,7 @@ export const contentNl: HelpDocument = {
             { message: 'De huidige situatie is veranderd sinds je dit scenario opsloeg', meaning: ['Prijzen of het recept zijn veranderd nadat je opsloeg. Klik op ', b('Huidige situatie bijwerken'), ' om met de gegevens van vandaag te rekenen.'] },
             { message: 'Huidige situatie bijgewerkt. Sommige wijzigingen gelden niet meer en zijn verwijderd (sla op om dit te bewaren):', meaning: ['Na de update paste een van je wijzigingen niet meer (bijvoorbeeld omdat een ingrediënt uit het recept is gehaald). Klik op ', b('OK'), ', controleer de getallen en sla op als je het ermee eens bent.'] },
             { message: 'Niet genoeg gegevens om maandresultaten te vergelijken.', meaning: ['De tabel heeft minstens twee kolommen met een maandbedrag nodig. Typ een getal in ', b('Verkocht per maand (jouw schatting)'), ' en zorg dat er geen prijs ontbreekt, of druk op ', b('Huidige situatie bijwerken'), ' bij een scenario met “oudere prijzen”.'] },
-            { message: 'Vul je schatting in (0 als je geen maandbedrag wilt).', meaning: ['Het gerecht heeft een aantal per maand, dus het veld mag niet leeg blijven. Typ een getal, of 0.'] },
+            { message: 'Vul je schatting in (0 als je geen maandbedrag wilt).', meaning: ['Het gerecht heeft een aantal per maand, dus het veld mag niet leeg blijven. Typ een getal, of 0. Let op: 0 betekent dat je geen verkopen verwacht. De maandbedragen worden dan nul; ze verdwijnen niet.'] },
             { message: 'Vul een geheel getal van 0 of meer in, bijvoorbeeld 300.', meaning: ['Typ in het veld voor de verkoop per maand een heel getal zoals 300, zonder woorden of eenheid.'] },
           ],
         },
@@ -733,7 +739,7 @@ export const contentNl: HelpDocument = {
       title: 'Je gegevens en reservekopieën',
       blocks: [
         { kind: 'p', text: 'Je gegevens worden opgeslagen nadat je met succes een opslaanknop gebruikt. MenuPilot uploadt ze niet naar een server. Ze blijven in deze browser op deze computer. Wie toegang heeft tot deze browser kan ze zien. De keerzijde: worden de browsergegevens gewist, of open je MenuPilot in een andere browser of op een andere computer, dan zijn je gegevens daar niet. Een reservekopie beschermt je.' },
-        { kind: 'image', image: img('data-page', 'De pagina Gegevens met de kaarten Reservekopie exporteren, Reservekopie importeren, Terugzetten naar voorbeeldgegevens en Begin met lege gegevens.', 'Vier kaarten. Reservekopie exporteren maakt een kopie, Reservekopie importeren zet een kopie terug.') },
+        { kind: 'image', image: img('data-page', 'De pagina Gegevens met de kaarten Reservekopie exporteren, Reservekopie importeren, Terugzetten naar voorbeeldgegevens en Begin met lege gegevens.', 'Maak eerst een reservekopie voordat je gegevens vervangt of verwijdert.') },
         {
           kind: 'note',
           tone: 'important',
@@ -745,8 +751,8 @@ export const contentNl: HelpDocument = {
           title: 'Een reservekopie maken (Reservekopie exporteren)',
           steps: [
             { text: ['Klik in het menu op ', b('Gegevens'), '.'], result: ['De pagina Gegevens opent. Onder de titel staat wat er nu in zit, bijvoorbeeld “Nu: 12 ingrediënten, 7 recepten, 0 opgeslagen scenario’s.”'] },
-            { text: ['Klik in de kaart ', b('Reservekopie exporteren'), ' op de donkere knop ', b('Reservekopie exporteren'), '.'], result: ['Je browser bewaart een bestand met een naam als menupilot-backup-2026-10-20.json, meestal in de map Downloads. De pagina zegt “Reservekopie opgeslagen als … Bewaar het bestand op een veilige plek.”'] },
-            { text: 'Zoek dat bestand in je map Downloads en kopieer het naar een veilige plek: een usb-stick, of mail het naar jezelf.', result: 'Nu heb je een kopie die bewaard blijft, ook als de computer kwijtraakt.' },
+            { text: ['Klik in de kaart ', b('Reservekopie exporteren'), ' op ', b('Reservekopie exporteren'), '.'], result: ['Je browser bewaart een bestand met een naam als menupilot-backup-2026-10-20.json, meestal in de map Downloads. De pagina zegt “Reservekopie opgeslagen als … Bewaar het bestand op een veilige plek.”'] },
+            { text: 'Zoek dat bestand in je map Downloads en kopieer het naar een veilige plek: een usb-stick, of mail het naar jezelf.', result: 'Zo blijft je reservekopie beschikbaar, ook als je je computer kwijtraakt.' },
           ],
         },
         {
@@ -761,7 +767,7 @@ export const contentNl: HelpDocument = {
           steps: [
             { text: ['Klik op ', b('Gegevens'), ' en klik dan in de kaart ', b('Reservekopie importeren'), ' op de knop ', b('Reservekopie importeren'), '.'], result: 'Een venster van je computer opent om een bestand te kiezen.' },
             { text: 'Kies je reservekopiebestand (de naam begint met menupilot-backup) en klik op Openen.', result: ['Een venster “Deze reservekopie importeren?” opent en toont de naam van het bestand. Er staat dat alle huidige gegevens worden vervangen.'] },
-            { text: ['Klik om door te gaan op ', b('Vervangen door reservekopie'), '. Wil je je bedenken, klik dan op ', b('Annuleren'), '.'], result: ['De melding “Reservekopie … is geïmporteerd. Je gegevens zijn vervangen.” verschijnt. Is het bestand onbruikbaar, dan verschijnt in het venster een rode melding die zegt waarom, en er verandert niets.'] },
+            { text: ['Klik om door te gaan op ', b('Vervangen door reservekopie'), '. Wil je toch niet doorgaan? Klik op ', b('Annuleren'), '.'], result: ['De melding “Reservekopie … is geïmporteerd. Je gegevens zijn vervangen.” verschijnt. Is het bestand onbruikbaar, dan verschijnt in het venster een rode melding die zegt waarom, en er verandert niets.'] },
           ],
         },
         {
@@ -770,14 +776,14 @@ export const contentNl: HelpDocument = {
           steps: [
             { text: ['Klik op ', b('Gegevens'), ' en klik dan in de kaart ', b('Terugzetten naar voorbeeldgegevens'), ' op de knop ', b('Terugzetten naar voorbeeldgegevens'), '.'], result: ['Een venster “Terugzetten naar voorbeeldgegevens?” opent. Er staat dat alle huidige gegevens worden vervangen.'], image: img('data-reset-dialog', 'Het venster Terugzetten naar voorbeeldgegevens? met de knoppen Annuleren en Terugzetten naar voorbeeldgegevens.', 'Heb je niet-opgeslagen scenario’s, dan telt een melding in dit venster ze.') },
             { text: ['Wil je je gegevens houden? Klik op ', b('Annuleren'), '. Maak een kopie met ', b('Reservekopie exporteren'), '. Open daarna ', b('Terugzetten naar voorbeeldgegevens'), ' opnieuw. Anders lees je het venster en ga je verder.'] },
-            { text: ['Klik op de rode knop ', b('Terugzetten naar voorbeeldgegevens'), '. Wil je je bedenken, klik dan op ', b('Annuleren'), '.'], result: ['De melding “Voorbeeldgegevens zijn teruggezet.” verschijnt. Het voorbeeld wordt geladen in de taal van het scherm.'] },
+            { text: ['Klik op de rode knop ', b('Terugzetten naar voorbeeldgegevens'), '. Wil je toch niet doorgaan? Klik op ', b('Annuleren'), '.'], result: ['De melding “Voorbeeldgegevens zijn teruggezet.” verschijnt. Het voorbeeld wordt geladen in de taal van het scherm.'] },
           ],
         },
         {
           kind: 'note',
           tone: 'important',
           title: 'Lees dit voordat je het programma leegmaakt',
-          text: ['“Begin met lege gegevens” verwijdert alles wat nu in het programma staat: het voorbeeld en alles wat je zelf typte. Heb je al je eigen gegevens ingevuld, maak dan eerst een kopie: zie stap 1 hieronder. Heb je alleen met het voorbeeld geoefend, dan raak je niets kwijt.'],
+          text: ['“Begin met lege gegevens” verwijdert alles wat nu in het programma staat: het voorbeeld en alles wat je zelf typte. Heb je al je eigen gegevens ingevuld, maak dan eerst een kopie: zie stap 1 hieronder. Ook oefenrecepten en opgeslagen scenario’s worden verwijderd. Maak een reservekopie als je die wilt bewaren.'],
         },
         {
           kind: 'steps',
@@ -791,13 +797,13 @@ export const contentNl: HelpDocument = {
             {
               text: ['Scroll omlaag naar de kaart ', b('Begin met lege gegevens'), ' en klik daarin op de knop ', b('Begin met lege gegevens'), '.'],
               result: ['Een venster “Beginnen met lege gegevens?” opent. Er staat dat alles wordt verwijderd.'],
-              image: img('data-empty-dialog', 'Het bevestigingsvenster Beginnen met lege gegevens? met de knoppen Annuleren en Beginnen met lege gegevens.', 'Je kunt je nog bedenken: Annuleren sluit het venster en verandert niets.'),
+              image: img('data-empty-dialog', 'Het bevestigingsvenster Beginnen met lege gegevens? met de knoppen Annuleren en Beginnen met lege gegevens.', 'Je kunt nog stoppen: Annuleren sluit het venster en verandert niets.'),
             },
             {
               text: 'Lees het venster. Heb je scenario’s in de Simulator die je niet hebt opgeslagen, dan zegt een melding hoeveel er verloren gaan.',
             },
             {
-              text: ['Klik om door te gaan op de rode knop ', b('Beginnen met lege gegevens'), '. Wil je je bedenken, klik dan op ', b('Annuleren'), '.'],
+              text: ['Klik om door te gaan op de rode knop ', b('Beginnen met lege gegevens'), '. Wil je toch niet doorgaan? Klik op ', b('Annuleren'), '.'],
               result: ['De melding “Alle gegevens zijn verwijderd. Voeg ingrediënten toe op de pagina Ingrediënten.” verschijnt en de pagina zegt “Nu: 0 ingrediënten, 0 recepten, 0 opgeslagen scenario’s.”'],
             },
             { text: ['Klik in het menu op ', b('Ingrediënten'), ' en dan op ', b('Voeg je eerste ingrediënt toe'), '.'], result: ['Het venster voor een nieuw ingrediënt opent. ', secLink('ingredients', true), ' laat zien hoe je het invult.'] },
@@ -823,7 +829,7 @@ export const contentNl: HelpDocument = {
           items: [
             ['Het getal is nog niet opgeslagen: klik in het veld. Houd Ctrl ingedrukt en druk op A (op een Mac: ⌘ en A). Typ het juiste getal. Klik daarna op de opslaanknop.'],
             ['Je wilt helemaal niets opslaan: klik op ', b('Annuleren'), ' (in een recept: ', b('Wijzigingen ongedaan maken'), '). Er wordt niets opgeslagen.'],
-            ['Een verkeerde ingrediëntprijs is al opgeslagen: open ', b('Nieuwe prijs'), ' van dat ingrediënt en sla de juiste prijs op. De nieuwste prijs telt. De verkeerde blijft in de geschiedenis staan, en dat is onschuldig.'],
+            ['Een verkeerde ingrediëntprijs is al opgeslagen: open ', b('Nieuwe prijs'), ' van dat ingrediënt en sla de juiste prijs op. De nieuwste prijs telt. De verkeerde prijs blijft in de geschiedenis staan. Die kan nog meetellen bij vergelijkingen met een datum vóór je correctie.'],
             ['Een recept is met een verkeerd getal opgeslagen: klik op ', b('Recepten'), ', open het gerecht, verbeter het getal en klik op ', b('Wijzigingen opslaan'), '.'],
           ],
         },

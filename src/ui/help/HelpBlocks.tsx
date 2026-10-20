@@ -38,7 +38,7 @@ export function HelpFigure({ image, ui, lang }: { image: HelpImage; ui: HelpDocu
         height={file.height}
         alt={image.alt}
         loading="lazy"
-        className="h-auto max-w-full rounded-lg border-2 border-border bg-card print:max-h-[8cm] print:w-auto"
+        className="h-auto max-w-full rounded-lg border-2 border-border bg-card print:max-h-[12cm] print:w-auto"
       />
       {image.caption ? <figcaption className="text-base">{image.caption}</figcaption> : null}
       {/* The full-size file, for small screens where the picture is too small to read. */}

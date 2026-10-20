@@ -173,7 +173,7 @@ export const contentEn: HelpDocument = {
               meaning: 'A “what if” copy of one dish in the Simulator. You change something in the copy and see the result. The real dish and the real prices are never changed.',
               example: '“What if I raise the burger price by 75 cents?”',
             },
-            { term: 'Baseline', meaning: 'Your real data today: the recipe and the prices that every scenario is compared with.', example: 'In the Simulator the Baseline column shows your real dish today.' },
+            { term: 'Baseline', meaning: 'Your real data today: the recipe and the prices that every scenario is compared with. A saved scenario may still use an older starting point.', example: 'In the Simulator the Baseline column shows your real dish today.' },
             {
               term: 'Expected sales per month (monthly volume)',
               meaning: 'How many portions of a dish you think you sell in a month. This is your own estimate, not a forecast made by the program. It turns the difference per portion into euros per month. You may leave it empty.',
@@ -242,13 +242,13 @@ export const contentEn: HelpDocument = {
       id: 'appearance',
       title: 'Colours (theme) and language of the screen',
       blocks: [
-        { kind: 'p', text: 'At the top right of every page there are two small controls. One chooses the colours of the screen, the other chooses the language. Neither changes your data.' },
+        { kind: 'p', text: 'At the top of each page, find Theme and the EN and NL language buttons. Theme chooses the colours of the screen, the buttons choose the language. Neither changes your data.' },
         { kind: 'image', image: img('theme-language', 'The top right of the screen: the list Theme with the choice Light, and the language buttons EN and NL.', 'The list Theme and the language buttons EN | NL.') },
         {
           kind: 'steps',
           title: 'Change the colours of the screen',
           steps: [
-            { text: ['At the top right, find the list ', b('Theme'), ' and click it.'], result: 'A list opens with three choices: System, Light and Dark.' },
+            { text: ['At the top of the page, find the list ', b('Theme'), ' and click it.'], result: 'A list opens with three choices: System, Light and Dark.' },
             { text: ['Click ', b('Light'), ' for a bright screen, or ', b('Dark'), ' for a dark screen.'], result: 'The colours change at once. The program remembers your choice in this browser.' },
           ],
         },
@@ -257,7 +257,7 @@ export const contentEn: HelpDocument = {
           items: [
             [b('Light'), ': a bright screen. Best by day, and easiest to read in a bright kitchen.'],
             [b('Dark'), ': a dark screen. Easier on the eyes in the evening.'],
-            [b('System'), ': MenuPilot copies the setting of your computer or phone, so it can change by itself between day and evening. This is what you have until you choose.'],
+            [b('System'), ': MenuPilot follows your computer’s or phone’s light or dark setting. When that setting changes, MenuPilot changes with it. This is what you have until you choose.'],
           ],
         },
         {
@@ -270,14 +270,14 @@ export const contentEn: HelpDocument = {
           kind: 'steps',
           title: 'Change the language of the screen',
           steps: [
-            { text: ['At the top right, click ', b('NL'), ' for Dutch (Nederlands) or ', b('EN'), ' for English.'], result: 'All texts and buttons of the program change language at once. The chosen language is underlined and remembered in this browser.' },
+            { text: ['At the top of the page, click ', b('NL'), ' for Dutch (Nederlands) or ', b('EN'), ' for English.'], result: 'All texts and buttons of the program change language at once. The chosen language is underlined and remembered in this browser.' },
           ],
         },
         {
           kind: 'note',
           tone: 'important',
-          title: 'Your own names are not translated',
-          text: ['The language only changes the program’s own words. The names you typed yourself (ingredients, dishes, scenarios) stay as you wrote them. The demo cafe is loaded in the language of the screen the first time. ', b('Reset to demo data'), ' loads the demo in the language of the screen at that moment, and replaces your data.'],
+          title: 'Saved names are not translated',
+          text: ['The language only changes the program’s own words. The names you typed yourself (ingredients, dishes, scenarios) stay as you wrote them. The demo cafe is loaded in the language of the screen the first time. ', b('Reset to demo data'), ' loads the demo in the language of the screen at that moment, and replaces your data. Names in demo data already loaded also keep their original language: Rundergehakt 80/20 does not automatically become Beef mince 80/20. This English guide uses English demo names.'],
         },
         {
           kind: 'note',
@@ -299,7 +299,7 @@ export const contentEn: HelpDocument = {
           title: 'Add a new ingredient (example: olive oil, a 5 litre can for €24.00)',
           steps: [
             { text: ['Click ', b('Ingredients'), ' in the menu.'], result: 'The list of your ingredients opens.' },
-            { text: ['Click the dark button ', b('Add ingredient'), ' at the top right of the page.'], result: 'A window “Add ingredient” opens.' },
+            { text: ['Click ', b('Add ingredient'), ' near the top of the page.'], result: 'A window “Add ingredient” opens.' },
             { text: ['Click the field ', b('Name'), ' and type the name: Olive oil.'] },
             {
               text: ['Open the list ', b('Unit'), ' (right of the pack size). Choose ', b('l'), ' for litres.'],
@@ -325,7 +325,7 @@ export const contentEn: HelpDocument = {
           kind: 'note',
           tone: 'important',
           title: 'You do not know the price yet?',
-          text: ['Type only the name and leave the pack size and the price empty. Add the price later with ', b('New price'), '. Until then the dishes that use this ingredient show “cost unknown”, which is honest: the program does not guess.'],
+          text: ['Enter the name and choose the ', b('Unit'), ' you buy it in, such as kg, l or pc. Leave the pack size and the price empty. Add the price later with ', b('New price'), '. Until then the dishes that use this ingredient show “cost unknown”, which is honest: the program does not guess.'],
         },
         {
           kind: 'steps',
@@ -421,7 +421,7 @@ export const contentEn: HelpDocument = {
             { text: ['In the new line, choose ', b('Dijon mustard · g'), '.'] },
             { text: ['In ', b('Net quantity (g)'), ' of the new line, type 100.'], result: ['The line cost shows €0.50.'], image: img('prep-lines', 'The card Ingredients and preps with two lines: Mayonnaise 900 g and Dijon mustard 100 g, with their line costs.', 'Two lines make one batch.') },
             { text: ['Look at the card ', b('Cost'), ' at the bottom.'], result: ['It shows ', b('Batch cost, all portions (excl. VAT)'), ' €4.46, ', b('One batch makes'), ' 1 kg and ', b('Cost per kg, l or pc (excl. VAT)'), ' €4.46/kg. It changes while you type.'], image: img('prep-cost', 'The card Cost with Batch cost €4.46, One batch makes 1 kg, Cost per kg, l or pc €4.46/kg.', 'The cost of the whole batch and of one kilo.') },
-            { text: ['Click the dark button ', b('Save prep'), ' at the bottom left.'], result: ['The prep is saved. The page now has the name of the prep as its title, and the buttons at the bottom become ', b('Save changes'), ', ', b('Discard changes'), ' and ', b('Delete prep'), '.'] },
+            { text: ['Click ', b('Save prep'), ' at the bottom of the page.'], result: ['The prep is saved. The page now has the name of the prep as its title, and the buttons at the bottom become ', b('Save changes'), ', ', b('Discard changes'), ' and ', b('Delete prep'), '.'] },
             { text: ['Click ', b('← All recipes'), ' at the top of the page.'], result: 'Mustard mayo is in the card Preps with its cost, €4.46/kg.' },
           ],
         },
@@ -445,7 +445,7 @@ export const contentEn: HelpDocument = {
           title: 'Create a dish (example: Chicken Bun for €9.80, with the Mustard mayo from the previous section)',
           steps: [
             { text: ['Click ', b('Recipes'), ' in the menu.'], result: 'The cards Dishes and Preps open.' },
-            { text: ['In the card ', b('Dishes'), ' click the dark button ', b('New dish'), '.'], result: ['A page “New dish” opens. The first, empty line is already there.'] },
+            { text: ['In the card ', b('Dishes'), ' click ', b('New dish'), '.'], result: ['A page “New dish” opens. The first, empty line is already there.'] },
             { text: ['Click the field ', b('Name'), ' and type: Chicken Bun.'] },
             { text: ['In ', b('Menu price (incl. VAT)'), ' type the price your guest pays, with tax: 9.80.'] },
             {
@@ -453,7 +453,7 @@ export const contentEn: HelpDocument = {
             },
             { text: ['In ', b('Portions per batch'), ' leave 1. This number says how many portions the lines below make. If the lines make four portions, type 4.'] },
             {
-              text: ['In ', b('Monthly volume (optional)'), ' type how many you think you sell in a month: 100. This is your own guess. You may leave it empty.'],
+              text: ['In ', b('Monthly volume (optional)'), ' enter your estimate of how many portions you sell per month: 100. You may leave this field empty.'],
               image: img('dish-form', 'The top of the New dish page: Chicken Bun, menu price 9.80, VAT rate 9%, portions per batch 1, monthly volume 100.', 'The first card of a dish.'),
             },
             { text: ['In the first line, open the list ', b('Ingredient or prep'), ' and choose ', b('Chicken breast fillet · g'), '.'] },
@@ -461,9 +461,13 @@ export const contentEn: HelpDocument = {
               text: ['In ', b('Net quantity (g)'), ' type 120. Leave ', b('Yield %'), ' at 100.'],
               result: ['The line cost shows €1.06.'],
             },
-            { text: ['Click ', b('Add line'), '. Choose ', b('Brioche burger bun · pc'), ' and type 1 in ', b('Net quantity (pc)'), '.'], result: ['The line cost shows €0.88.'] },
+            { text: ['Click ', b('Add line'), '.'], result: 'A second, empty line appears.' },
+            { text: ['In the new line, open the list ', b('Ingredient or prep'), ' and choose ', b('Brioche burger bun · pc'), '.'] },
+            { text: ['Type 1 in ', b('Net quantity (pc)'), '.'], result: ['The line cost shows €0.88.'] },
+            { text: ['Click ', b('Add line'), ' again.'], result: 'A third, empty line appears.' },
+            { text: ['In the new line, open the list ', b('Ingredient or prep'), ' and, under the heading Preps, choose ', b('Mustard mayo · g'), '.'] },
             {
-              text: ['Click ', b('Add line'), ' again. In the list, under the heading Preps, choose ', b('Mustard mayo · g'), ' and type 20 in ', b('Net quantity (g)'), '.'],
+              text: ['Type 20 in ', b('Net quantity (g)'), '.'],
               result: ['The line cost shows €0.09. Your prep is used inside the dish.'],
               image: img('dish-lines', 'The card Ingredients with three lines: Chicken breast fillet 120 g, Brioche burger bun 1 pc, Mustard mayo 20 g.', 'A dish line can be an ingredient or a prep.'),
             },
@@ -475,7 +479,7 @@ export const contentEn: HelpDocument = {
               result: 'It shows what one portion costs and what is left from the price: here €2.03 for ingredients, €8.99 price excl. VAT and €6.97 contribution. The next part explains every row.',
               image: img('dish-cost', 'The card Cost for Chicken Bun with the ingredient cost per portion, the price excl. VAT, the contribution and the monthly estimate.', 'The Cost card of the new dish.'),
             },
-            { text: ['Click the dark button ', b('Save dish'), ' at the bottom left.'], result: ['The dish is saved. The page now has the dish name as its title, and the buttons at the bottom become ', b('Save changes'), ', ', b('Discard changes'), ' and ', b('Delete dish'), '. The dish is on the Recipes page and on the Dashboard.'] },
+            { text: ['Click ', b('Save dish'), ' at the bottom of the page.'], result: ['The dish is saved. The page now has the dish name as its title, and the buttons at the bottom become ', b('Save changes'), ', ', b('Discard changes'), ' and ', b('Delete dish'), '. The dish is on the Recipes page and on the Dashboard.'] },
           ],
         },
         {
@@ -518,7 +522,7 @@ export const contentEn: HelpDocument = {
       id: 'dashboard',
       title: 'Dashboard: what became more expensive',
       blocks: [
-        { kind: 'p', text: 'The Dashboard answers one question: since a chosen date, which of my dishes became more expensive, and how much does that cost me per month? It only reads your data. Nothing you do here changes anything.' },
+        { kind: 'p', text: 'The Dashboard answers one question: since a chosen date, which of my dishes became more expensive, and how much does that cost me per month? It only reads your data. Nothing you do here changes anything. For both dates, MenuPilot uses your current recipe and current menu price. Only the supplier prices differ. This does not compare older versions of the recipe.' },
         {
           kind: 'steps',
           title: 'Read the Dashboard',
@@ -580,7 +584,7 @@ export const contentEn: HelpDocument = {
             { message: 'no price on this date', meaning: ['One of the ingredients had no price yet on the chosen date, because you started entering prices later. Choose a more recent date.'] },
             { message: 'n/a', meaning: ['The number cannot be calculated, for example a percentage when the menu price is €0.00.'] },
             { message: '(incomplete)', meaning: ['Next to the monthly impact: some dishes with a monthly volume had to be left out, and a line below says why.'] },
-            { message: 'No comparable dish became more expensive in this period.', meaning: ['Good news for the chosen period: nothing became more expensive. Choose a longer period or an older date to look further back.'] },
+            { message: 'No comparable dish became more expensive in this period.', meaning: ['None of the dishes with known prices on both dates became more expensive. Also check whether other dishes show cost unknown or no price on this date. Choose a longer period or an older date to look further back.'] },
           ],
         },
         {
@@ -603,6 +607,7 @@ export const contentEn: HelpDocument = {
           title: 'This is safe',
           text: 'The Simulator never changes your real ingredients, prices or recipes. Everything you try is only a calculation in a copy.',
         },
+        { kind: 'p', text: 'On a computer, the fields are on the left and the comparison is on the right. On a phone, the comparison is below the fields. It shows Baseline and the selected scenario. Select A, B or C to view another scenario.' },
         {
           kind: 'steps',
           title: 'Open the Simulator for the Classic Burger',
@@ -628,7 +633,7 @@ export const contentEn: HelpDocument = {
             {
               text: ['In the card on the left, click the field ', b('Menu price (incl. VAT)'), ' and type 13.83.'],
               result: 'The grey 13.08 shows the current price. In the card the contribution per portion becomes €7.84, with +€0.69, and at the top of the page the monthly difference becomes +€206.42.',
-              image: img('simulator-scenario', 'The block Scenario A with the monthly difference +€206.42 and the card Adjust your scenario with menu price 13.83 and the result contribution per portion €7.84.', 'The result at the top and in the card changes at once.'),
+              image: img('simulator-scenario', 'The top of the card Adjust your scenario: scenario name, menu price 13.83, and the results contribution per portion €7.84 and monthly contribution €2,351.42.', 'Menu price 13.83: contribution €7.84 per portion, monthly difference +€206.42.'),
             },
           ],
         },
@@ -668,7 +673,7 @@ export const contentEn: HelpDocument = {
           kind: 'steps',
           title: 'Read the comparison',
           steps: [
-            { text: ['Look at the table ', b('Same starting point, different choices'), ' on the right.'], result: ['It has four columns: Baseline (today) and Scenarios A, B and C. Each scenario shows the difference from Baseline under its number: green with an up arrow is good, red is bad. The chosen scenario has a tinted column.'], image: img('simulator-compare', 'The comparison table with the columns Baseline, Scenario A, B and C and the differences from Baseline.', 'Green marks are good news, red marks are bad news.') },
+            { text: ['Look at the table ', b('Same starting point, different choices'), '.'], result: ['On a computer it has four columns: Baseline (today) and Scenarios A, B and C. Each scenario shows the difference from Baseline under its number. Green marks a favourable change in the calculation, red an unfavourable one. The arrow shows whether the number goes up or down, so lower ingredient costs have a green arrow pointing down. The chosen scenario has a tinted column.'], image: img('simulator-compare', 'The comparison table with the columns Baseline, Scenario A, B and C and the differences from Baseline.', 'Green is a favourable change, red an unfavourable one. The arrow shows up or down.') },
             { text: ['Look at the row ', b('Contribution per portion'), '. The small marks show how much more or less is left from one portion, compared with Baseline.'] },
             { text: ['Look at the rows ', b('Estimated monthly contribution'), ' and ', b('Monthly difference'), '. They show the difference per month at your sales estimate: A +€206.42, B +€102.00, C +€162.00.'] },
             { text: 'Read the sentence under the table. It names the column with the highest estimated monthly contribution. That column also says “highest monthly”.', result: 'This is only a calculation from your numbers. It is not advice and not a forecast.' },
@@ -678,6 +683,7 @@ export const contentEn: HelpDocument = {
           kind: 'steps',
           title: 'Save a scenario and give it a name',
           steps: [
+            { text: ['Under ', b('Choose a scenario to compare'), ', click ', b('Scenario A'), '.'], result: 'The card now shows Scenario A with the menu price 13.83.' },
             { text: ['In the card, click the field ', b('Scenario name'), '. It says Scenario A.'] },
             { text: 'Hold Ctrl and press A. On a Mac, use ⌘ and A.', result: 'The old name is selected. Without this step, your text would be added after the old name.' },
             { text: ['Type the new name: Price 13.83.'], result: 'The column in the table gets the same name. This step is optional.' },
@@ -697,7 +703,7 @@ export const contentEn: HelpDocument = {
         { kind: 'h3', text: '“Baseline changed” and “Update baseline”' },
         {
           kind: 'p',
-          text: 'A saved scenario remembers the prices and recipe from the day you saved it. If a price changes later, the scenario would be compared with old numbers. The program warns you and lets you calculate again on today’s data.',
+          text: 'A scenario keeps the recipe and prices from when you created it or last used Update baseline. Save scenario keeps that starting point; it does not automatically fetch newer prices. If a price changes later, the scenario would be compared with old numbers. The program warns you and lets you calculate again on today’s data.',
         },
         {
           kind: 'steps',
@@ -721,7 +727,7 @@ export const contentEn: HelpDocument = {
             { message: 'Baseline changed since this scenario was saved', meaning: ['Prices or the recipe changed after you saved it. Click ', b('Update baseline'), ' to calculate on today’s data.'] },
             { message: 'Baseline updated. Some changes no longer apply and were removed (save to keep this):', meaning: ['After the update, one of your changes did not fit any more (for example an ingredient was removed from the recipe). Click ', b('OK'), ', check the numbers and save if you agree.'] },
             { message: 'Not enough data to compare monthly results.', meaning: ['The table needs at least two columns with a monthly figure. Type a number in ', b('Expected sales per month (your estimate)'), ' and make sure no price is missing, or press ', b('Update baseline'), ' on a scenario marked “older prices”.'] },
-            { message: 'Enter your estimate (0 if you do not want a monthly figure).', meaning: ['The dish has a monthly volume, so the field cannot be left empty. Type a number, or 0.'] },
+            { message: 'Enter your estimate (0 if you do not want a monthly figure).', meaning: ['The dish has a monthly volume, so the field cannot be left empty. Type a number, or 0. Note: 0 means you expect no sales. Monthly amounts become zero; they are not hidden.'] },
             { message: 'Enter a whole number of 0 or more, for example 300.', meaning: ['In the field for sales per month, type a whole number such as 300, without words or a unit.'] },
           ],
         },
@@ -733,7 +739,7 @@ export const contentEn: HelpDocument = {
       title: 'Your data and backups',
       blocks: [
         { kind: 'p', text: 'Your data is saved after you successfully use a save button. MenuPilot does not upload it to a server. It stays in this browser on this computer. Someone with access to this browser may see it. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects you.' },
-        { kind: 'image', image: img('data-page', 'The Data page with the cards Export backup, Import backup, Reset to demo data and Start with empty data.', 'Four cards. Export backup makes a copy, Import backup puts a copy back.') },
+        { kind: 'image', image: img('data-page', 'The Data page with the cards Export backup, Import backup, Reset to demo data and Start with empty data.', 'Make a backup before replacing or removing data.') },
         {
           kind: 'note',
           tone: 'important',
@@ -745,7 +751,7 @@ export const contentEn: HelpDocument = {
           title: 'Make a backup copy (Export backup)',
           steps: [
             { text: ['Click ', b('Data'), ' in the menu.'], result: ['The Data page opens. Under the title it says what is inside now, for example “Now: 12 ingredients, 7 recipes, 0 saved scenarios.”'] },
-            { text: ['In the card ', b('Export backup'), ' click the dark button ', b('Export backup'), '.'], result: ['Your browser saves a file named like menupilot-backup-2026-10-20.json, usually in the folder Downloads. The page says “Backup saved as … Keep it somewhere safe.”'] },
+            { text: ['In the card ', b('Export backup'), ' click ', b('Export backup'), '.'], result: ['Your browser saves a file named like menupilot-backup-2026-10-20.json, usually in the folder Downloads. The page says “Backup saved as … Keep it somewhere safe.”'] },
             { text: 'Find that file in your Downloads folder and copy it to a safe place: a USB stick, or send it to yourself by email.', result: 'Now you have a copy that survives even if the computer is lost.' },
           ],
         },
@@ -777,7 +783,7 @@ export const contentEn: HelpDocument = {
           kind: 'note',
           tone: 'important',
           title: 'Read before you empty the program',
-          text: ['“Start with empty data” removes everything that is in the program now: the demo and anything you typed yourself. If you have already entered your own data, first make a copy: see step 1 below. If you only practised with the demo, there is nothing to lose.'],
+          text: ['“Start with empty data” removes everything that is in the program now: the demo and anything you typed yourself. If you have already entered your own data, first make a copy: see step 1 below. Practice recipes and saved scenarios are removed too. Make a backup if you want to keep them.'],
         },
         {
           kind: 'steps',
@@ -823,7 +829,7 @@ export const contentEn: HelpDocument = {
           items: [
             ['The number is not saved yet: click its field. Hold Ctrl and press A (on a Mac: ⌘ and A). Type the correct number. Then click the save button.'],
             ['You do not want to save at all: click ', b('Cancel'), ' (in a recipe: ', b('Discard changes'), '). Nothing is saved.'],
-            ['A wrong ingredient price was already saved: open ', b('New price'), ' for that ingredient and save the right price. The newest price counts. The wrong one stays in the history, which is harmless.'],
+            ['A wrong ingredient price was already saved: open ', b('New price'), ' for that ingredient and save the right price. The newest price counts. The incorrect price stays in the history. It may still affect comparisons with dates before your correction.'],
             ['A recipe was saved with a wrong number: click ', b('Recipes'), ', open the dish, correct the number and click ', b('Save changes'), '.'],
           ],
         },
