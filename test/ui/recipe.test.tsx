@@ -1,17 +1,18 @@
-import { screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createBaselineSnapshot } from '@/ui/domain/calc';
 import type { MenuDocument } from '@/ui/domain/types';
 import { formatQuantityLocale } from '@/ui/forms/numbers';
 import { vatOptions } from '@/ui/forms/recipeForm';
+import { clearRecipeDrafts } from '@/ui/recipe/sessionDrafts';
 import {
   demoCopy, go, memoryStorage, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
 
 const user = () => userEvent.setup();
 
-beforeEach(() => { window.location.hash = ''; });
+beforeEach(() => { window.location.hash = ''; clearRecipeDrafts(); });
 
 async function open(hash: string, storage = memoryStorage()) {
   renderApp(storage);
@@ -82,6 +83,93 @@ describe('localized numeric and link presentation', () => {
     await go('#/recipe/new?kind=prep');
     await screen.findByRole('heading', { level: 1, name: 'Nieuw basisrecept' });
     expect(screen.getByText(/in het basisrecept/)).toBeTruthy();
+  });
+});
+
+describe('recipe session drafts', () => {
+  it('restores an unsaved new dish after opening Help and warns before leaving', async () => {
+    const u = user();
+    await open('#/recipe/new?kind=dish');
+    await u.type(screen.getByLabelText('Name'), 'Soup special');
+    await u.type(screen.getByLabelText(/Menu price/), '12.50');
+    await u.click(screen.getByRole('link', { name: 'Help for this page' }));
+    expect(window.location.hash).toBe('#/help/dishes');
+    await go('#/recipe/new?kind=dish');
+    expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Soup special');
+    expect(screen.getByLabelText(/Menu price/)).toHaveProperty('value', '12.50');
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('does not carry fields from New dish into New prep', async () => {
+    const u = user();
+    await open('#/recipe/new?kind=dish');
+    await u.type(screen.getByLabelText('Name'), 'Soup special');
+    await go('#/recipe/new?kind=prep');
+    expect(await screen.findByRole('heading', { level: 1, name: 'New prep' })).toBeTruthy();
+    expect(screen.getByLabelText('Name')).toHaveProperty('value', '');
+    expect(screen.queryByLabelText('Menu price (incl. VAT)')).toBeNull();
+    expect(screen.getByLabelText(/One batch makes/)).toBeTruthy();
+  });
+
+  it('does not warn on beforeunload when the new recipe form is untouched', async () => {
+    await open('#/recipe/new?kind=dish');
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('restores a changed saved recipe when returning to it', async () => {
+    const u = user();
+    await open('#/recipe/dish_classic_burger');
+    await u.clear(screen.getByLabelText('Name'));
+    await u.type(screen.getByLabelText('Name'), 'Draft Burger');
+    await go('#/recipes');
+    await go('#/recipe/dish_classic_burger');
+    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Draft Burger');
+  });
+
+  it('drops a saved-recipe draft when its source recipe has changed', async () => {
+    const u = user();
+    const storage = await open('#/recipe/dish_classic_burger', storageWith(demoCopy()));
+    await u.clear(screen.getByLabelText('Name'));
+    await u.type(screen.getByLabelText('Name'), 'Unsaved draft');
+    cleanup();
+    const replaced = savedDocument(storage);
+    replaced.recipes.find((entry) => entry.id === 'dish_classic_burger')!.name = 'Imported Burger';
+    storage.setItem(STORAGE_KEY, JSON.stringify(replaced));
+    renderApp(storage);
+    await go('#/recipe/dish_classic_burger');
+    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Imported Burger');
+  });
+
+  it('does not restore the new-dish draft after the dish was saved', async () => {
+    const u = user();
+    await open('#/recipe/new?kind=dish');
+    await u.type(screen.getByLabelText('Name'), 'Saved soup');
+    await u.type(screen.getByLabelText('Menu price (incl. VAT)'), '10.00');
+    await fillLine(u, 1, 'ingredient:ing_beef', '100');
+    await u.click(screen.getByRole('button', { name: 'Save dish' }));
+    await screen.findByRole('heading', { level: 1, name: 'Saved soup' });
+    await go('#/recipe/new?kind=dish');
+    expect(await screen.findByLabelText('Name')).toHaveProperty('value', '');
+  });
+
+  it('clears a recipe draft when that recipe is deleted', async () => {
+    const u = user();
+    const original = demoCopy();
+    const storage = await open('#/recipe/dish_fries', storageWith(original));
+    await u.clear(screen.getByLabelText('Name'));
+    await u.type(screen.getByLabelText('Name'), 'Deleted draft');
+    await u.click(screen.getByRole('button', { name: 'Delete dish' }));
+    await u.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete dish' }));
+    await screen.findByRole('heading', { level: 1, name: 'Recipes' });
+    cleanup();
+    storage.setItem(STORAGE_KEY, JSON.stringify(original));
+    renderApp(storage);
+    await go('#/recipe/dish_fries');
+    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Fries with Burger Sauce');
   });
 });
 

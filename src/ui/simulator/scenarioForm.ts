@@ -41,7 +41,7 @@ const MAX_NAME = 60;
 export function emptyFields(baseline: Baseline): FieldsDraft {
   const qty: Record<string, QtyDraft> = {};
   for (const line of dishLines(baseline)) {
-    if (line.refKind === 'ingredient') qty[line.id] = { text: '', unit: unitsFor(line.unit)[0] ?? line.unit };
+    qty[line.id] = { text: '', unit: unitsFor(line.unit)[0] ?? line.unit };
   }
   return { menuPrice: '', volume: '', prices: {}, qty };
 }
@@ -54,7 +54,7 @@ export function fieldsFromOverrides(overrides: ScenarioOverrides, baseline: Base
   for (const [id, cents] of Object.entries(overrides.ingredientPriceCents)) fields.prices[id] = centsToInput(cents);
   for (const line of dishLines(baseline)) {
     const milli = overrides.lineQtyMilli[line.id];
-    if (milli !== undefined && line.refKind === 'ingredient') fields.qty[line.id] = quantityToInput(milli, line.unit);
+    if (milli !== undefined) fields.qty[line.id] = quantityToInput(milli, line.unit);
   }
   return fields;
 }
@@ -106,7 +106,7 @@ export function parseFields(fields: FieldsDraft, baseline: Baseline): ParsedFiel
   }
   for (const line of dishLines(baseline)) {
     const draft = fields.qty[line.id];
-    if (line.refKind !== 'ingredient' || !draft || draft.text.trim() === '') continue;
+    if (!draft || draft.text.trim() === '') continue;
     const parsed = parseQuantityField(draft.text, draft.unit, '');
     if (!parsed.ok) errors[qtyKey(line.id)] = 'simulator.error.quantity';
     else if (parsed.value.milli < 1) errors[qtyKey(line.id)] = 'simulator.error.zeroQuantity';
