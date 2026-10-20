@@ -4,13 +4,14 @@ import { cn } from '@/lib/utils';
 import { HELP_CONTENT } from '@/ui/help/content';
 import { HelpBlockView } from '@/ui/help/HelpBlocks';
 import { HelpNavContext, useSectionLink } from '@/ui/help/HelpNav';
-import { readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
+import { languageFromInterface, readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
 import { HELP_SECTION_IDS, type HelpDocument, type HelpLang, type HelpSectionId } from '@/ui/help/types';
 import { hrefFor } from '@/ui/router/routes';
 import { useLocale } from '@/ui/i18n';
 
 const LANGUAGES: readonly { lang: HelpLang; label: string }[] = [
   { lang: 'en', label: 'English' },
+  { lang: 'nl', label: 'Nederlands' },
   { lang: 'ru', label: 'Русский' },
 ];
 
@@ -80,15 +81,15 @@ function Toolbar({ doc, lang, onLanguage }: { doc: HelpDocument; lang: HelpLang;
   );
 }
 
-/** The built-in step-by-step guide, in English or Russian. */
+/** The built-in step-by-step guide: English, Dutch or Russian. It follows the screen language until a language is chosen here. */
 export function HelpPage({ section }: { section: string | null }) {
-  const { t } = useLocale();
-  const [lang, setLang] = useState<HelpLang>(() => readHelpLanguage());
+  const { locale } = useLocale();
+  const [chosen, setChosen] = useState<HelpLang | null>(() => readHelpLanguage());
+  const lang = chosen ?? languageFromInterface(locale);
   const [showTop, setShowTop] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const doc = HELP_CONTENT[lang];
   const target = asSectionId(section);
-  const languageNote = t('help.ui.languageNote');
 
   const scrollTo = useCallback((id: HelpSectionId | null) => {
     const heading = id === null ? titleRef.current : window.document.getElementById(`${sectionElementId(id)}-title`);
@@ -115,7 +116,7 @@ export function HelpPage({ section }: { section: string | null }) {
   }, []);
 
   function chooseLanguage(next: HelpLang) {
-    setLang(next);
+    setChosen(next);
     saveHelpLanguage(next);
   }
 
@@ -126,7 +127,6 @@ export function HelpPage({ section }: { section: string | null }) {
           <h1 id="help-title" ref={titleRef} tabIndex={-1} className="text-4xl font-semibold outline-none">{doc.title}</h1>
           <p className="text-xl">{doc.subtitle}</p>
           <Toolbar doc={doc} lang={lang} onLanguage={chooseLanguage} />
-          {languageNote ? <p role="note" className="border-y border-line py-3 text-base text-muted-foreground">{languageNote}</p> : null}
         </header>
 
         <nav aria-label={doc.ui.contents} className="border-y border-line bg-surface p-4 print:break-inside-avoid">
@@ -147,7 +147,7 @@ export function HelpPage({ section }: { section: string | null }) {
             >
               {index + 1}. {entry.title}
             </h2>
-            {entry.blocks.map((block, blockIndex) => <HelpBlockView key={blockIndex} block={block} ui={doc.ui} />)}
+            {entry.blocks.map((block, blockIndex) => <HelpBlockView key={blockIndex} block={block} ui={doc.ui} lang={lang} />)}
             <BackToContents label={doc.ui.backToContents} />
           </section>
         ))}

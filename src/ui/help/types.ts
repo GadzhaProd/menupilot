@@ -1,12 +1,17 @@
 /** Shape of the built-in guide. Both languages use these types, so they cannot drift apart. */
 
-export type HelpLang = 'en' | 'ru';
+export type HelpLang = 'en' | 'nl' | 'ru';
+
+/** Which set of screenshots a guide language uses: the Russian guide shows the English screen. */
+export type HelpImageSet = 'en' | 'nl';
+export const HELP_IMAGE_SET: Record<HelpLang, HelpImageSet> = { en: 'en', nl: 'nl', ru: 'en' };
 
 export const HELP_SECTION_IDS = [
   'how-to-use',
   'about',
   'glossary',
   'first-start',
+  'appearance',
   'ingredients',
   'preps',
   'dishes',
@@ -18,12 +23,17 @@ export const HELP_SECTION_IDS = [
 
 export type HelpSectionId = (typeof HELP_SECTION_IDS)[number];
 
+/** The number a section has in the contents (1-based), so texts never hard-code "section 10". */
+export const sectionNumber = (id: HelpSectionId): number => HELP_SECTION_IDS.indexOf(id) + 1;
+
 /** A screenshot in public/help; the file name and size live in images.ts. */
 export type HelpImageId =
   | 'menu'
+  | 'theme-language'
   | 'help-toolbar'
   | 'data-page'
   | 'data-empty-dialog'
+  | 'data-reset-dialog'
   | 'ingredients-list'
   | 'ingredient-add'
   | 'ingredient-price'
@@ -37,19 +47,18 @@ export type HelpImageId =
   | 'dish-form'
   | 'dish-lines'
   | 'dish-cost'
-  | 'dashboard-picker'
   | 'dashboard-cards'
+  | 'dashboard-picker'
   | 'dashboard-table'
   | 'dashboard-preps'
+  | 'dashboard-summary'
   | 'simulator-picker'
   | 'simulator-baseline'
   | 'simulator-scenario'
   | 'simulator-qty'
   | 'simulator-prices'
   | 'simulator-compare'
-  | 'simulator-stale'
-  | 'data-backup'
-  | 'data-reset-dialog';
+  | 'simulator-stale';
 
 /** Inline text: plain, a button or field name as shown on screen (bold), or a link to another section. */
 export type RichPart = string | { readonly b: string } | { readonly to: HelpSectionId; readonly text: string };
@@ -83,7 +92,7 @@ export interface HelpTerm {
   readonly example?: Rich;
 }
 
-/** A message the app shows. `message` is the English text on screen, the same in both languages. */
+/** A message the app shows. `message` is the text on screen: English for the English and Russian guides, Dutch for the Dutch one. */
 export interface HelpMessage {
   readonly message: string;
   readonly meaning: Rich;

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { useSectionLink } from './HelpNav';
 import { HELP_IMAGES, helpImageUrl } from './images';
-import type { HelpBlock, HelpDocument, HelpImage, HelpSectionId, HelpStep, Rich } from './types';
+import { HELP_IMAGE_SET, type HelpBlock, type HelpDocument, type HelpImage, type HelpLang, type HelpSectionId, type HelpStep, type Rich } from './types';
 
 const LINK = 'rounded-sm font-medium text-accent-foreground underline underline-offset-4 outline-none hover:bg-panel focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
@@ -26,9 +26,10 @@ export function RichText({ text }: { text: Rich }) {
   );
 }
 
-export function HelpFigure({ image, ui }: { image: HelpImage; ui: HelpDocument['ui'] }) {
-  const file = HELP_IMAGES[image.id];
-  const url = helpImageUrl(file.file);
+export function HelpFigure({ image, ui, lang }: { image: HelpImage; ui: HelpDocument['ui']; lang: HelpLang }) {
+  const set = HELP_IMAGE_SET[lang];
+  const file = HELP_IMAGES[set][image.id];
+  const url = helpImageUrl(set, file.file);
   return (
     <figure className="my-4 space-y-2 print:break-inside-avoid">
       <img
@@ -49,7 +50,7 @@ export function HelpFigure({ image, ui }: { image: HelpImage; ui: HelpDocument['
   );
 }
 
-function Steps({ title, steps, ui }: { title: string; steps: readonly HelpStep[]; ui: HelpDocument['ui'] }) {
+function Steps({ title, steps, ui, lang }: { title: string; steps: readonly HelpStep[]; ui: HelpDocument['ui']; lang: HelpLang }) {
   return (
     <div className="my-5 space-y-3">
       <h3 className="text-2xl font-semibold">{title}</h3>
@@ -70,7 +71,7 @@ function Steps({ title, steps, ui }: { title: string; steps: readonly HelpStep[]
                   <span><strong className="font-semibold">{ui.stepsDone}:</strong> <RichText text={step.result} /></span>
                 </p>
               ) : null}
-              {step.image ? <HelpFigure image={step.image} ui={ui} /> : null}
+              {step.image ? <HelpFigure image={step.image} ui={ui} lang={lang} /> : null}
             </div>
           </li>
         ))}
@@ -98,13 +99,13 @@ function Note({ block }: { block: Extract<HelpBlock, { kind: 'note' }> }) {
   );
 }
 
-export function HelpBlockView({ block, ui }: { block: HelpBlock; ui: HelpDocument['ui'] }): ReactNode {
+export function HelpBlockView({ block, ui, lang }: { block: HelpBlock; ui: HelpDocument['ui']; lang: HelpLang }): ReactNode {
   switch (block.kind) {
     case 'p': return <p className="my-4"><RichText text={block.text} /></p>;
     case 'h3': return <h3 className="mt-8 text-2xl font-semibold">{block.text}</h3>;
-    case 'steps': return <Steps title={block.title} steps={block.steps} ui={ui} />;
+    case 'steps': return <Steps title={block.title} steps={block.steps} ui={ui} lang={lang} />;
     case 'note': return <Note block={block} />;
-    case 'image': return <HelpFigure image={block.image} ui={ui} />;
+    case 'image': return <HelpFigure image={block.image} ui={ui} lang={lang} />;
     case 'list':
       return (
         <ul className="my-4 list-disc space-y-2 pl-7">
