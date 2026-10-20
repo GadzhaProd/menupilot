@@ -8,7 +8,7 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 - Build only what the current stage in docs/planning/04_IMPLEMENTATION_PLAN.md asks for.
 - Out of scope unless the owner approves: AI features, POS, invoices/OCR, inventory,
   auth, multi-location, billing, analytics, new currencies.
-- Use only the approved exact-version dependencies and commit the lockfile: react, react-dom, vite, @vitejs/plugin-react, typescript, tailwindcss, @tailwindcss/vite, vitest, jsdom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom. For shadcn use only needed Radix primitives, class-variance-authority, clsx, tailwind-merge, lucide-react. The owner approved a motion library (motion) if a screen truly needs it; it is not installed now — add it with an exact version only when used. No other dependency without coordinator approval; never use --force/--legacy-peer-deps.
+- Use only the approved exact-version dependencies and commit the lockfile: react, react-dom, vite, @vitejs/plugin-react, typescript, tailwindcss, @tailwindcss/vite, vitest, jsdom, @testing-library/react, @testing-library/user-event, @playwright/test, @types/react, @types/react-dom. For shadcn use only needed Radix primitives, class-variance-authority, clsx, tailwind-merge, lucide-react. The owner approved a motion library (motion) if a screen truly needs it; it is not installed now — add it with an exact version only when used. No other dependency without coordinator approval; never use --force/--legacy-peer-deps.
 
 ## Money and numbers (non-negotiable)
 - Money is stored as integer euro cents. Never store or sum money as floats.
@@ -48,9 +48,9 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 - Calculation changes: write or update a failing test in test/calc first (TDD).
 - Bug fix: reproduce, add a regression test, fix the cause, run npm test.
 - `test:core` runs node:test only for `test/calc` and `test/store` via explicit globs/paths; `test:ui` runs `vitest run` only for UI tests (jsdom + Testing Library). `npm test` runs both and fails if either fails. Avoid `node --test test/` (Node 25 directory behavior).
-- `npm run check` runs typecheck, test, and build. CI runs it and deploys GitHub Pages on push to main; production base is `/menupilot/`. Verify production preview under that subpath.
-- Each UI stage requires real-browser checking with bb browser-automation: desktop and 375 px screenshots, keyboard/focus in dialogs, and field errors. Playwright is post-MVP.
-- Tests use in-memory storage only. No external services, no network.
+- `npm run check` runs typecheck, test, and build. CI also runs `npm run test:e2e` against a production preview before deploying GitHub Pages on push to main; production base is `/menupilot/`. Verify production preview under that subpath.
+- Each UI stage requires real-browser checking with bb browser-automation: desktop and 375 px screenshots, keyboard/focus in dialogs, and field errors. `npm run test:e2e` adds Playwright with Chromium only, desktop and 375 px projects, production build under `/menupilot/`, and no external network requests.
+- Core and UI tests use in-memory storage. E2E tests use isolated browser storage and block external requests. No external services or network calls are used by tests.
 - Never report tests as passed without running them; show the actual output.
 
 ## Workflow
