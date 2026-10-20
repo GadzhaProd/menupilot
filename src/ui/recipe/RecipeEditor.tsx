@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { PlusIcon } from 'lucide-react';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import { LineRow } from './LineRow';
 import { useLocale } from '@/ui/i18n';
 import { Surface } from '@/components/ui/surface';
 import { InlineStatus } from '@/components/ui/inline-status';
+import { clearRecipeDraft, readRecipeDraft, writeRecipeDraft } from './sessionDrafts';
 
 /** Stands in for the id of a recipe that is not saved yet, so its cost can still be calculated. */
 const UNSAVED_ID = 'unsaved';
@@ -38,9 +39,9 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const { t, locale } = useLocale();
   const document = useDocument();
   const { execute } = useCommands();
-  const [initial] = useState(() => (recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp)));
+  const [initial] = useState(() => recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp));
   const [baseline, setBaseline] = useState<RecipeDraft>(initial);
-  const [draft, setDraft] = useState<RecipeDraft>(initial);
+  const [draft, setDraft] = useState<RecipeDraft>(() => readRecipeDraft(recipe?.id ?? `new:${kind}`) ?? initial);
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -51,6 +52,22 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
 
   const id = recipe?.id ?? UNSAVED_ID;
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
+
+  useEffect(() => {
+    const key = recipe?.id ?? `new:${kind}`;
+    if (dirty) writeRecipeDraft(key, draft);
+    else clearRecipeDraft(key);
+  }, [dirty, draft, recipe?.id, kind]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   // Everything below is derived from the draft while rendering: nothing calculated is stored.
   const validationCopy = useMemo<RecipeValidationCopy>(() => ({
@@ -129,6 +146,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
       setSaveError(localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
       return;
     }
+    clearRecipeDraft(recipe?.id ?? `new:${kind}`);
     setSaveError(null);
     if (!recipe) {
       window.location.hash = hrefFor({ name: 'recipe', id: result.value.id });

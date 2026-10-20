@@ -5,13 +5,14 @@ import { createBaselineSnapshot } from '@/ui/domain/calc';
 import type { MenuDocument } from '@/ui/domain/types';
 import { formatQuantityLocale } from '@/ui/forms/numbers';
 import { vatOptions } from '@/ui/forms/recipeForm';
+import { clearRecipeDrafts } from '@/ui/recipe/sessionDrafts';
 import {
   demoCopy, go, memoryStorage, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
 
 const user = () => userEvent.setup();
 
-beforeEach(() => { window.location.hash = ''; });
+beforeEach(() => { window.location.hash = ''; clearRecipeDrafts(); });
 
 async function open(hash: string, storage = memoryStorage()) {
   renderApp(storage);
@@ -82,6 +83,23 @@ describe('localized numeric and link presentation', () => {
     await go('#/recipe/new?kind=prep');
     await screen.findByRole('heading', { level: 1, name: 'Nieuw basisrecept' });
     expect(screen.getByText(/in het basisrecept/)).toBeTruthy();
+  });
+});
+
+describe('recipe session drafts', () => {
+  it('restores an unsaved new dish after opening Help and warns before leaving', async () => {
+    const u = user();
+    await open('#/recipe/new?kind=dish');
+    await u.type(screen.getByLabelText('Name'), 'Soup special');
+    await u.type(screen.getByLabelText(/Menu price/), '12.50');
+    await u.click(screen.getByRole('link', { name: 'Help for this page' }));
+    expect(window.location.hash).toBe('#/help/dishes');
+    await go('#/recipe/new?kind=dish');
+    expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Soup special');
+    expect(screen.getByLabelText(/Menu price/)).toHaveProperty('value', '12.50');
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
   });
 });
 
