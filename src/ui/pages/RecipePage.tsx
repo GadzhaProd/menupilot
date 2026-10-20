@@ -12,7 +12,7 @@ export function RecipePage({ id, kind }: { id: string | null; kind?: 'dish' | 'p
   const lastSeen = useRef<Recipe | null>(null);
   if (recipe) lastSeen.current = recipe;
 
-  if (id === null) return <RecipeEditor key="new" recipe={null} kind={kind ?? 'dish'} />;
+  if (id === null) return <RecipeEditor key={`new:${kind ?? 'dish'}`} recipe={null} kind={kind ?? 'dish'} />;
   if (!recipe) return lastSeen.current?.id === id ? null : <NotFoundPage what="recipe" />;
   return <RecipeEditor key={recipe.id} recipe={recipe} kind={recipe.kind} />;
 }

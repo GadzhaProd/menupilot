@@ -145,6 +145,7 @@ export const part2NL = {
   "simulator.newQuantityOf": "Nieuwe nettohoeveelheid van {name} ({unit})",
   "simulator.unit": "Eenheid",
   "simulator.unitOf": "Eenheid van {name}",
+  "simulator.unitChangeClearedHint": "De waarde is gewist omdat deze niet exact naar deze eenheid kan worden omgerekend.",
   "simulator.unchanged": "ongewijzigd",
   "simulator.name": "Scenarionaam",
   "simulator.monthlyOwn": "Maandelijkse bijdrage (jouw schatting)",

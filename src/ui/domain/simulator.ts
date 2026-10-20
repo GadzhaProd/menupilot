@@ -92,7 +92,7 @@ export function ingredientInfos(baseline: Baseline): IngredientInfo[] {
   });
 }
 
-/** One top-level line of the dish. Prep lines are shown but cannot be changed. */
+/** One top-level line of the dish. Prep internals are not included here. */
 export interface LineInfo {
   id: string;
   name: string;
@@ -135,8 +135,8 @@ export interface Rebased {
 /**
  * Carry a scenario's changes over to a fresh baseline. A price change stays only while the
  * ingredient is still reachable from the dish and has a price. A quantity change stays only
- * while the line with the same id still points to the same ingredient and has the same base
- * unit. Anything else is dropped, and `dropped` says so in words.
+ * while the line with the same id still points to the same ingredient or prep and has the same
+ * base unit. Anything else is dropped, and `dropped` says so in words.
  */
 export function rebaseOverrides(
   oldBaseline: Baseline,
@@ -172,7 +172,7 @@ export function rebaseOverrides(
       droppedLineIds.push(id);
       note('simulator.rebase.lineMissing', name);
       dropped.push(`the quantity change for ${name} (that line is no longer in the dish)`);
-    } else if (now.refKind !== 'ingredient' || (before && (before.refKind !== now.refKind || before.refId !== now.refId))) {
+    } else if (before && (before.refKind !== now.refKind || before.refId !== now.refId)) {
       droppedLineIds.push(id);
       note('simulator.rebase.lineReplaced', name, now.name);
       dropped.push(`the quantity change for ${name} (that line now holds ${now.name})`);

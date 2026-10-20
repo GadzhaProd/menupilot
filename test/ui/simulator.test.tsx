@@ -206,6 +206,24 @@ describe('Scenarios recalculate as calc does', () => {
     expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(expectedOil.ingredientCostCents as bigint));
   });
 
+  it('converts a typed quantity exactly when its unit changes', async () => {
+    const u = user();
+    await open(`#/simulator/${BURGER}`);
+    await addScenario(u);
+    const beef = scenario('A').getByRole('group', { name: 'Quantity of Beef mince 80/20' });
+    const units = within(beef).getByLabelText('Unit of Beef mince 80/20');
+    await typeInto(u, within(beef).getByLabelText('New net quantity of Beef mince 80/20 (g)'), '160');
+    await u.selectOptions(units, 'kg');
+    expect(within(beef).getByLabelText('New net quantity of Beef mince 80/20 (kg)')).toHaveProperty('value', '0.16');
+    await u.selectOptions(units, 'g');
+    expect(within(beef).getByLabelText('New net quantity of Beef mince 80/20 (g)')).toHaveProperty('value', '160');
+    expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(expected({ lineQtyMilli: { l1: 160_000 } }).result.ingredientCostCents as bigint));
+    await typeInto(u, within(beef).getByLabelText('New net quantity of Beef mince 80/20 (g)'), '0.01');
+    await u.selectOptions(units, 'kg');
+    expect(within(beef).getByLabelText('New net quantity of Beef mince 80/20 (kg)')).toHaveProperty('value', '');
+    expect(within(beef).getByRole('status').textContent).toMatch(/cleared because it cannot be converted exactly/i);
+  });
+
   it('a beef price back at €14 per kg lowers the cost by €0.54 (+€162.00 a month)', async () => {
     const u = user();
     await open(`#/simulator/${BURGER}`);
@@ -253,6 +271,7 @@ describe('Scenarios recalculate as calc does', () => {
     await addScenario(u);
     expect(scenario('A').getByText(/prep’s internal lines stay unchanged/)).toBeTruthy();
     expect(scenario('A').getByLabelText('New net quantity of Burger sauce (g)')).toBeTruthy();
+    expect(scenario('A').queryByLabelText(/New net quantity of Mayonnaise/)).toBeNull();
     await typeInto(u, scenario('A').getByLabelText('New net quantity of Burger sauce (g)'), '60');
     const { result } = expected({ lineQtyMilli: { l4: 60_000 } });
     expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(result.ingredientCostCents as bigint));
@@ -530,6 +549,14 @@ const burgerOf = (doc: ReturnType<typeof demoCopy>) => {
 };
 
 describe('Review fixes: Update baseline', () => {
+  it('keeps a prep quantity override when the scenario baseline is updated', async () => {
+    const u = user();
+    await open(`#/simulator/${BURGER}`, storageWith(savedScenarioDoc({ lineQtyMilli: { l4: 60_000 } }, raiseMayo)));
+    await u.click(scenario('A').getByRole('button', { name: 'Update baseline' }));
+    expect(scenario('A').getByLabelText('New net quantity of Burger sauce (g)')).toHaveProperty('value', '60');
+    expect(scenario('A').queryByText(/quantity change for Burger sauce/)).toBeNull();
+  });
+
   it('changes only the draft: nothing is written until Save, and a wrong entry is kept as typed', async () => {
     const u = user();
     const storage = storageWith(savedScenarioDoc({ menuPriceInclVatCents: 1383 }, raiseMayo));

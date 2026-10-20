@@ -39,9 +39,13 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const { t, locale } = useLocale();
   const document = useDocument();
   const { execute } = useCommands();
+  const draftKey = recipe?.id ?? `new:${kind}`;
+  const sourceSnapshot = JSON.stringify(recipe ?? document) ?? '';
+  const sourceSnapshotRef = useRef(sourceSnapshot);
+  const sourceChanged = sourceSnapshotRef.current !== sourceSnapshot;
   const [initial] = useState(() => recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp));
   const [baseline, setBaseline] = useState<RecipeDraft>(initial);
-  const [draft, setDraft] = useState<RecipeDraft>(() => readRecipeDraft(recipe?.id ?? `new:${kind}`) ?? initial);
+  const [draft, setDraft] = useState<RecipeDraft>(() => readRecipeDraft(draftKey, sourceSnapshot) ?? initial);
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -54,10 +58,21 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   useEffect(() => {
-    const key = recipe?.id ?? `new:${kind}`;
-    if (dirty) writeRecipeDraft(key, draft);
-    else clearRecipeDraft(key);
-  }, [dirty, draft, recipe?.id, kind]);
+    if (!sourceChanged) return;
+    sourceSnapshotRef.current = sourceSnapshot;
+    clearRecipeDraft(draftKey);
+    const fresh = recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp);
+    setDraft(fresh);
+    setBaseline(fresh);
+    setAttempt(0);
+    setSaveError(null);
+  }, [sourceChanged, sourceSnapshot, draftKey, recipe, document, kind]);
+
+  useEffect(() => {
+    if (sourceChanged) return;
+    if (dirty) writeRecipeDraft(draftKey, draft, sourceSnapshot);
+    else clearRecipeDraft(draftKey);
+  }, [sourceChanged, dirty, draft, draftKey, sourceSnapshot]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -146,7 +161,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
       setSaveError(localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
       return;
     }
-    clearRecipeDraft(recipe?.id ?? `new:${kind}`);
+    clearRecipeDraft(draftKey);
     setSaveError(null);
     if (!recipe) {
       window.location.hash = hrefFor({ name: 'recipe', id: result.value.id });
@@ -315,7 +330,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
           recipe={recipe}
           onClose={dialog.close}
           onCloseAutoFocus={dialog.onCloseAutoFocus}
-          onDeleted={() => { dialog.close(); window.location.hash = hrefFor({ name: 'recipes' }); }}
+          onDeleted={() => { clearRecipeDraft(draftKey); dialog.close(); window.location.hash = hrefFor({ name: 'recipes' }); }}
         />
       ) : null}
     </section>

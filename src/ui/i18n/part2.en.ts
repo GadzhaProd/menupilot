@@ -145,6 +145,7 @@ export const part2EN = {
   "simulator.newQuantityOf": "New net quantity of {name} ({unit})",
   "simulator.unit": "Unit",
   "simulator.unitOf": "Unit of {name}",
+  "simulator.unitChangeClearedHint": "The value was cleared because it cannot be converted exactly to this unit.",
   "simulator.unchanged": "unchanged",
   "simulator.name": "Scenario name",
   "simulator.monthlyOwn": "Monthly contribution (your estimate)",
