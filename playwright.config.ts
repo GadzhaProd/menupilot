@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   outputDir: 'test-results',
   use: {
-    baseURL: 'http://127.0.0.1:4173/menupilot/',
+    baseURL: 'http://127.0.0.1:4174/menupilot/',
     browserName: 'chromium',
     actionTimeout: 10_000,
     navigationTimeout: 10_000,
@@ -20,12 +20,14 @@ export default defineConfig({
     serviceWorkers: 'block',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
-    { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 375, height: 812 }, deviceScaleFactor: 1 } },
+    { name: 'desktop', testMatch: '**/desktop.spec.ts', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'mobile', testMatch: '**/mobile.spec.ts', use: { ...devices['Pixel 7'], viewport: { width: 375, height: 812 }, deviceScaleFactor: 1 } },
   ],
   webServer: {
-    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
-    url: 'http://127.0.0.1:4173/menupilot/',
+    command: process.env.CI
+      ? 'npm run preview -- --host 127.0.0.1 --port 4174 --strictPort'
+      : 'npm run build && npm run preview -- --host 127.0.0.1 --port 4174 --strictPort',
+    url: 'http://127.0.0.1:4174/menupilot/',
     reuseExistingServer: false,
     timeout: 120_000,
   },
