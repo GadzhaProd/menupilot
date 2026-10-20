@@ -647,7 +647,7 @@ export const contentRu: HelpDocument = {
             { text: ['Снова нажмите ', b('Add scenario'), '.'], result: ['Появится второй сценарий, B. Он выбран, его карточка слева. Под ', b('Choose a scenario to compare'), ' можно переключаться между A и B.'] },
             { text: ['В карточке сценария B нажмите полосу ', b('Quantities in the dish'), ' (Количества в блюде).'], result: 'Полоса раскроется и покажет поле для каждой строки блюда с ингредиентом. Строку-заготовку здесь менять нельзя.' },
             {
-              text: ['Найдите ', b('Beef mince 80/20'), ' и напечатайте 160 в поле ', b('New net quantity of Beef mince 80/20 (g)'), '. Единица остаётся g.'],
+              text: ['Найдите ', b('Beef mince 80/20'), ' и напечатайте 160 в поле ', b('New net quantity (g)'), '. В списке ', b('Unit'), ' оставьте g.'],
               result: 'Поля, которые вы оставили пустыми, показывают «unchanged» (без изменений). На полосе появится метка «1 changed». Вклад станет €7.49 (+€0.34).',
               image: img('simulator-qty', 'Раскрытая полоса Quantities in the dish: в поле New net quantity для Beef mince 80/20 напечатано 160.', 'Меняются только те поля, которые вы заполнили.'),
             },
@@ -730,7 +730,7 @@ export const contentRu: HelpDocument = {
             { message: 'Baseline changed since this scenario was saved', meaning: ['Цены или рецепт изменились после сохранения. Нажмите ', b('Update baseline'), ', чтобы посчитать по сегодняшним данным.'] },
             { message: 'Baseline updated. Some changes no longer apply and were removed (save to keep this):', meaning: ['После обновления одно из ваших изменений перестало подходить (например, ингредиент убрали из рецепта). Нажмите ', b('OK'), ', проверьте цифры и сохраните, если согласны.'] },
             { message: 'Not enough data to compare monthly results.', meaning: ['Таблице нужно хотя бы два столбца с месячной суммой. Напечатайте число в ', b('Expected sales per month (your estimate)'), ' и проверьте, что нет недостающих цен, либо нажмите ', b('Update baseline'), ' у сценария с пометкой «older prices».'] },
-            { message: 'Enter your estimate (0 if you do not want a monthly figure).', meaning: ['У блюда есть продажи в месяц, поэтому поле нельзя оставить пустым. Напечатайте число или 0. Обратите внимание: 0 означает, что вы ожидаете нулевые продажи. Месячные суммы станут нулевыми, а не исчезнут.'] },
+            { message: 'Enter your estimate. Enter 0 for no sales.', meaning: ['У блюда есть продажи в месяц, поэтому поле нельзя оставить пустым. Напечатайте число или 0. Обратите внимание: 0 означает, что вы ожидаете нулевые продажи. Месячные суммы станут нулевыми, а не исчезнут.'] },
             { message: 'Enter a whole number of 0 or more, for example 300.', meaning: ['В поле продаж в месяц напечатайте целое число, например 300, без слов и единиц.'] },
           ],
         },

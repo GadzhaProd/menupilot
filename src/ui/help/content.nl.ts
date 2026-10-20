@@ -644,7 +644,7 @@ export const contentNl: HelpDocument = {
             { text: ['Klik nog eens op ', b('Scenario toevoegen'), '.'], result: ['Een tweede scenario, B, verschijnt. Het is gekozen en de kaart ervan staat links. Onder ', b('Kies een scenario om te vergelijken'), ' wissel je tussen A en B.'] },
             { text: ['Klik in de kaart van Scenario B op de balk ', b('Hoeveelheden in het gerecht'), '.'], result: 'De balk opent en toont een veld voor elke ingrediëntregel van het gerecht. Een regel die een basisrecept is, kun je hier niet wijzigen.' },
             {
-              text: ['Zoek ', b('Rundergehakt 80/20'), ' en typ 160 in ', b('Nieuwe nettohoeveelheid van Rundergehakt 80/20 (g)'), '. De eenheid blijft g.'],
+              text: ['Zoek ', b('Rundergehakt 80/20'), ' en typ 160 in ', b('Nieuwe nettohoeveelheid (g)'), '. Laat ', b('Eenheid'), ' op g staan.'],
               result: 'Velden die je leeg laat, zeggen “ongewijzigd”. Op de balk verschijnt een klein label “1 gewijzigd”. De bijdrage wordt € 7,49 (+€ 0,34).',
               image: img('simulator-qty', 'De geopende balk Hoeveelheden in het gerecht met het veld Nieuwe nettohoeveelheid ingevuld met 160 voor Rundergehakt 80/20.', 'Alleen de velden die je invult, worden gewijzigd.'),
             },
@@ -727,7 +727,7 @@ export const contentNl: HelpDocument = {
             { message: 'De huidige situatie is veranderd sinds je dit scenario opsloeg', meaning: ['Prijzen of het recept zijn veranderd nadat je opsloeg. Klik op ', b('Huidige situatie bijwerken'), ' om met de gegevens van vandaag te rekenen.'] },
             { message: 'Huidige situatie bijgewerkt. Sommige wijzigingen gelden niet meer en zijn verwijderd (sla op om dit te bewaren):', meaning: ['Na de update paste een van je wijzigingen niet meer (bijvoorbeeld omdat een ingrediënt uit het recept is gehaald). Klik op ', b('OK'), ', controleer de getallen en sla op als je het ermee eens bent.'] },
             { message: 'Niet genoeg gegevens om maandresultaten te vergelijken.', meaning: ['De tabel heeft minstens twee kolommen met een maandbedrag nodig. Typ een getal in ', b('Verkocht per maand (jouw schatting)'), ' en zorg dat er geen prijs ontbreekt, of druk op ', b('Huidige situatie bijwerken'), ' bij een scenario met “oudere prijzen”.'] },
-            { message: 'Vul je schatting in (0 als je geen maandbedrag wilt).', meaning: ['Het gerecht heeft een aantal per maand, dus het veld mag niet leeg blijven. Typ een getal, of 0. Let op: 0 betekent dat je geen verkopen verwacht. De maandbedragen worden dan nul; ze verdwijnen niet.'] },
+            { message: 'Vul je schatting in. Vul 0 in als je geen verkopen verwacht.', meaning: ['Het gerecht heeft een aantal per maand, dus het veld mag niet leeg blijven. Typ een getal, of 0. Let op: 0 betekent dat je geen verkopen verwacht. De maandbedragen worden dan nul; ze verdwijnen niet.'] },
             { message: 'Vul een geheel getal van 0 of meer in, bijvoorbeeld 300.', meaning: ['Typ in het veld voor de verkoop per maand een heel getal zoals 300, zonder woorden of eenheid.'] },
           ],
         },

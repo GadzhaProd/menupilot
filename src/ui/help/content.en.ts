@@ -644,7 +644,7 @@ export const contentEn: HelpDocument = {
             { text: ['Click ', b('Add scenario'), ' again.'], result: ['A second scenario, B, appears. It is chosen, and its card is on the left. Under ', b('Choose a scenario to compare'), ' you can switch between A and B.'] },
             { text: ['In the card of Scenario B click the bar ', b('Quantities in the dish'), '.'], result: 'The bar opens and shows a field for every ingredient line of the dish. A line that is a prep cannot be changed here.' },
             {
-              text: ['Find ', b('Beef mince 80/20'), ' and type 160 in ', b('New net quantity of Beef mince 80/20 (g)'), '. The unit stays g.'],
+              text: ['Find ', b('Beef mince 80/20'), ' and type 160 in ', b('New net quantity (g)'), '. Leave ', b('Unit'), ' set to g.'],
               result: 'Fields you leave empty say “unchanged”. A small mark “1 changed” appears on the bar. The contribution becomes €7.49 (+€0.34).',
               image: img('simulator-qty', 'The opened bar Quantities in the dish with the field New net quantity filled with 160 for Beef mince 80/20.', 'Only the fields you fill in are changed.'),
             },
@@ -727,7 +727,7 @@ export const contentEn: HelpDocument = {
             { message: 'Baseline changed since this scenario was saved', meaning: ['Prices or the recipe changed after you saved it. Click ', b('Update baseline'), ' to calculate on today’s data.'] },
             { message: 'Baseline updated. Some changes no longer apply and were removed (save to keep this):', meaning: ['After the update, one of your changes did not fit any more (for example an ingredient was removed from the recipe). Click ', b('OK'), ', check the numbers and save if you agree.'] },
             { message: 'Not enough data to compare monthly results.', meaning: ['The table needs at least two columns with a monthly figure. Type a number in ', b('Expected sales per month (your estimate)'), ' and make sure no price is missing, or press ', b('Update baseline'), ' on a scenario marked “older prices”.'] },
-            { message: 'Enter your estimate (0 if you do not want a monthly figure).', meaning: ['The dish has a monthly volume, so the field cannot be left empty. Type a number, or 0. Note: 0 means you expect no sales. Monthly amounts become zero; they are not hidden.'] },
+            { message: 'Enter your estimate. Enter 0 for no sales.', meaning: ['The dish has a monthly volume, so the field cannot be left empty. Type a number, or 0. Note: 0 means you expect no sales. Monthly amounts become zero; they are not hidden.'] },
             { message: 'Enter a whole number of 0 or more, for example 300.', meaning: ['In the field for sales per month, type a whole number such as 300, without words or a unit.'] },
           ],
         },

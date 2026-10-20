@@ -121,6 +121,15 @@ describe('Baseline', () => {
     await typeInto(u, volume, '');
     expect(screen.getByText(/Enter your estimate/)).toBeTruthy();
   });
+
+  it('uses the revised estimate hint in English and Dutch', async () => {
+    const u = user();
+    await open(`#/simulator/${BURGER}`);
+    await typeInto(u, screen.getByLabelText('Expected sales per month (your estimate)'), '');
+    expect(screen.getByText('Enter your estimate. Enter 0 for no sales.')).toBeTruthy();
+    await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    expect(screen.getByText('Vul je schatting in. Vul 0 in als je geen verkopen verwacht.')).toBeTruthy();
+  });
 });
 
 describe('Scenarios recalculate as calc does', () => {
@@ -145,12 +154,25 @@ describe('Scenarios recalculate as calc does', () => {
     const u = user();
     await open(`#/simulator/${BURGER}`);
     await addScenario(u);
-    await typeInto(u, scenario('A').getByLabelText(/New net quantity of Beef mince/), '160');
+    const quantityGroup = scenario('A').getByRole('group', { name: 'Quantity of Beef mince 80/20' });
+    expect(within(quantityGroup).getByText('New net quantity (g)')).toBeTruthy();
+    expect(within(quantityGroup).getByText('Unit')).toBeTruthy();
+    const quantity = within(quantityGroup).getByLabelText('New net quantity of Beef mince 80/20 (g)');
+    expect(quantity).toBeTruthy();
+    expect(within(quantityGroup).getByLabelText('Unit of Beef mince 80/20')).toBeTruthy();
+    expect(quantity.closest('div.flex.flex-col')?.parentElement?.className).toContain('grid-cols-1');
+    await typeInto(u, quantity, '160');
 
     const { result, delta } = expected({ lineQtyMilli: { l1: 160_000 } });
     expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(result.ingredientCostCents as bigint));
     expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(delta.ingredientCostDeltaCents as bigint));
     expect(cell(/Estimated monthly contribution/, 1)).toContain(`+${formatEURFromCents(delta.monthlyContributionDeltaCents as bigint)}`);
+
+    await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    const bunGroup = scenario('A').getByRole('group', { name: 'Hoeveelheid van Brioche burger bun' });
+    expect(within(bunGroup).getByText('Nieuwe nettohoeveelheid (st.)')).toBeTruthy();
+    expect(within(bunGroup).getByLabelText('Nieuwe nettohoeveelheid van Brioche burger bun (st.)')).toBeTruthy();
+    expect(within(bunGroup).getByLabelText('Eenheid van Brioche burger bun')).toBeTruthy();
   });
 
   it('a beef price back at €14 per kg lowers the cost by €0.54 (+€162.00 a month)', async () => {
