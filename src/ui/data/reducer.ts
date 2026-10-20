@@ -18,7 +18,7 @@ export type DataAction =
 export function dataReducer(state: DataState, action: DataAction): DataState {
   switch (action.type) {
     case 'documentReplaced':
-      return { ...state, document: action.document, commandError: null };
+      return { ...state, document: action.document, loadError: null, commandError: null };
     case 'commandFailed':
       return { ...state, commandError: action.message };
     case 'errorDismissed':

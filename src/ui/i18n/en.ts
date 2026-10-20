@@ -1,9 +1,11 @@
+import { safetyEn } from './safety.en';
 import { part2EN } from './part2.en';
 import { part3En } from './part3.en';
 
 /** Stable semantic keys. Add a complete message; never key dictionaries by rendered English. */
 const baseEn = {
   ...part2EN,
+  ...safetyEn,
   'nav.dashboard': 'Dashboard',
   'nav.simulator': 'Simulator',
   'nav.recipes': 'Recipes',

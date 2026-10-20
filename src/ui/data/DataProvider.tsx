@@ -1,10 +1,12 @@
+import { createSynchronizedStore, type SynchronizedStore } from './store';
+import { coordinateStorage } from './browserStorage';
 import { LocaleProvider, useLocale } from '@/ui/i18n';
 import { ThemeProvider } from '@/ui/theme/ThemeProvider';
 import { demoForLocale, isBundledDemo } from './demo';
 import {
-  createContext, useCallback, useContext, useMemo, useReducer, useState, type ReactNode,
+  createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode,
 } from 'react';
-import { StoreError, createStore, type StorageLike, type Store } from '@/ui/domain/store';
+import { StoreError, STORAGE_KEY, type StorageLike, type Store } from '@/ui/domain/store';
 import type { MenuDocument } from '@/ui/domain/types';
 import { dataReducer, type DataState } from './reducer';
 
@@ -25,6 +27,12 @@ export interface ExecuteOptions {
 
 interface DataContextValue {
   state: DataState;
+  safety: string | null;
+  reloadLatest(): Promise<void>;
+  activateEditing(): Promise<void>;
+  hasDrafts: { current: () => boolean };
+  recoveryRaw: string | null;
+  loadCode: string | null;
   /**
    * Run a store command OUTSIDE the reducer. On success the new document replaces the
    * one on screen; on failure the document stays as it was and the error is shown.
@@ -48,8 +56,10 @@ export interface DataProviderProps {
 }
 
 interface Loaded {
-  store: Store | null;
+  store: SynchronizedStore | null;
   state: DataState;
+  raw: string | null;
+  loadCode: string | null;
 }
 
 function describe(error: unknown): string {
@@ -60,7 +70,7 @@ function describe(error: unknown): string {
 function openStore({ storage, demo, now, createId }: Omit<DataProviderProps, 'children'>): Loaded {
   if (storage === null) {
     return {
-      store: null,
+      store: null, raw: null, loadCode: 'read-failed',
       state: {
         document: null,
         commandError: null,
@@ -68,11 +78,17 @@ function openStore({ storage, demo, now, createId }: Omit<DataProviderProps, 'ch
       },
     };
   }
+  let store: SynchronizedStore | null = null;
+  let raw: string | null = null;
   try {
-    const store = createStore(storage, { demo, ...(now && { now }), ...(createId && { createId }) });
-    return { store, state: { document: store.load(), loadError: null, commandError: null } };
+    store = createSynchronizedStore(storage, { demo, ...(now && { now }), ...(createId && { createId }) });
+    const document = store.load();
+    raw = store.getRevision() ?? null;
+    return { store, raw, loadCode: null, state: { document, loadError: null, commandError: null } };
   } catch (error) {
-    return { store: null, state: { document: null, commandError: null, loadError: describe(error) } };
+    raw = store?.getRevision() ?? null;
+    return { store, raw, loadCode: error instanceof StoreError ? error.code : 'read-failed',
+      state: { document: null, commandError: null, loadError: describe(error) } };
   }
 }
 
@@ -86,9 +102,66 @@ function LocalizedDataProvider(props: DataProviderProps) {
 function DocumentProvider(props: DataProviderProps) {
   const { children } = props;
   // Lazy initialiser: StrictMode may call it twice, but React keeps one consistent result.
-  const [loaded] = useState(() => openStore(props));
+  const { t } = useLocale();
+  const [coordinator] = useState(() => coordinateStorage(props.storage));
+  const [loaded] = useState(() => openStore({ ...props, storage: coordinator.storage }));
+  const [safety, setSafety] = useState<string | null>(null);
+  const hasDrafts = useRef<() => boolean>(() => false);
+  const lastRaw = useRef(loaded.raw);
   const [state, dispatch] = useReducer(dataReducer, loaded.state);
   const { store } = loaded;
+
+  useEffect(() => coordinator.start(), [coordinator]);
+
+  const activateEditing = useCallback(async () => {
+    try { await coordinator.activate(); setSafety(current => current === 'write-busy' ? null : current); }
+    catch { setSafety('write-unavailable'); }
+  }, [coordinator]);
+
+  const reloadLatest = useCallback(async () => {
+    if (!store) return;
+    try {
+      const document = store.load({ beforeReplace: next => {
+        const previous = state.document;
+        if (!previous || !window.document.querySelector('form, [role="dialog"], [role="alertdialog"]')) return;
+        // Existing editors unmount when their entity disappears. Refuse that refresh
+        // before advancing the store's token; the user can copy/cancel their draft first.
+        const missing = <T extends { readonly id: string }>(before: readonly T[], after: readonly T[]) =>
+          before.some(item => !after.some(other => other.id === item.id));
+        const removed = missing(previous.ingredients, next.ingredients) || missing(previous.recipes, next.recipes);
+        if (removed) throw new Error('draft-target-removed');
+      } });
+      lastRaw.current = store.getRevision() ?? null;
+      dispatch({ type: 'documentReplaced', document });
+      setSafety(null);
+      await activateEditing();
+    } catch (error) { setSafety(error instanceof Error && error.message === 'draft-target-removed' ? 'draft-target-removed' : 'read-failed'); }
+  }, [store, activateEditing, state.document]);
+
+  useEffect(() => {
+    function changed(event?: StorageEvent) {
+      if (event && (event.key !== null && event.key !== STORAGE_KEY)) return;
+      if (event?.storageArea && event.storageArea !== props.storage) return;
+      if (!store) return;
+      try {
+        if (store.readRaw() === lastRaw.current) return;
+        // Treat a mounted editing form/dialog as an in-progress draft, even before
+        // its first keystroke. Existing local drafts must never be silently rebased.
+        if (hasDrafts.current() || document.querySelector('form, [role="dialog"], [role="alertdialog"]')) {
+          setSafety('conflict');
+        } else {
+          const document = store.load();
+          lastRaw.current = store.getRevision() ?? null;
+          dispatch({ type: 'documentReplaced', document });
+          setSafety(null);
+        }
+      } catch { setSafety('read-failed'); }
+    }
+    const focus = () => changed();
+    window.addEventListener('storage', changed);
+    window.addEventListener('focus', focus);
+    return () => { window.removeEventListener('storage', changed); window.removeEventListener('focus', focus); };
+  }, [store, props.storage]);
 
   const execute = useCallback(<R extends CommandOutput>(
     command: (store: Store) => R,
@@ -99,11 +172,18 @@ function DocumentProvider(props: DataProviderProps) {
         throw new StoreError('not-loaded', 'Data is not loaded, so nothing can be changed.');
       }
       const value = command(store);
+      lastRaw.current = store.getRevision() ?? null;
+      setSafety(null);
       dispatch({ type: 'documentReplaced', document: 'document' in value ? value.document : value });
       return { ok: true, value };
     } catch (error) {
-      const message = describe(error);
-      if (report) {
+      const code = error instanceof StoreError ? String(error.code) : 'unexpected';
+      const special = ['conflict', 'write-busy', 'write-unavailable'].includes(code);
+      const message = code === 'conflict' ? t('safety.changed')
+        : code === 'write-busy' ? t('safety.busy')
+          : code === 'write-unavailable' ? t('safety.unavailable') : describe(error);
+      if (special) setSafety(code);
+      if (report && !special) {
         dispatch({ type: 'commandFailed', message });
       }
       return {
@@ -113,7 +193,7 @@ function DocumentProvider(props: DataProviderProps) {
         details: error instanceof StoreError ? error.details : [],
       };
     }
-  }, [store]);
+  }, [store, t]);
 
   const exportBackup = useCallback((): CommandResult<string> => {
     try {
@@ -132,7 +212,9 @@ function DocumentProvider(props: DataProviderProps) {
   }, [store]);
 
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
-  const value = useMemo(() => ({ state, execute, exportBackup, dismissError }), [state, execute, exportBackup, dismissError]);
+  const value = useMemo(() => ({ state, execute, exportBackup, dismissError, safety, reloadLatest,
+    activateEditing, hasDrafts, recoveryRaw: loaded.raw, loadCode: loaded.loadCode }),
+  [state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, loaded]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -163,4 +245,10 @@ export function useDocument(): MenuDocument {
 export function useCommands(): Pick<DataContextValue, 'execute' | 'exportBackup' | 'dismissError'> {
   const { execute, exportBackup, dismissError } = useData();
   return { execute, exportBackup, dismissError };
+}
+
+/** Recovery and cross-tab controls; form command signatures remain synchronous. */
+export function useDataSafety() {
+  const { safety, reloadLatest, activateEditing, hasDrafts, recoveryRaw, loadCode } = useData();
+  return { safety, reloadLatest, activateEditing, hasDrafts, recoveryRaw, loadCode };
 }

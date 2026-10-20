@@ -1,7 +1,8 @@
 /**
  * Error thrown by the store and by assertValidDocument.
  * `code` is one of: corrupt-json, unsupported-version, invalid, read-failed,
- * write-failed, quota, in-use, not-found, not-loaded, bad-options. `details` lists every
+ * write-failed, quota, in-use, not-found, not-loaded, bad-options, conflict,
+ * write-busy, write-unavailable. `details` lists every
  * validation message when code is "invalid" (or "unsupported-version").
  */
 export class StoreError extends Error {

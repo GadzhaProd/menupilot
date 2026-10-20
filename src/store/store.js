@@ -99,6 +99,8 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
   }
   assertValidDocument(demo);
   let current = null;
+  // Exact persisted bytes are the comparison token; no second key or format change.
+  let expectedRaw;
   const isoNow = () => new Date(now()).toISOString();
 
   function loaded() {
@@ -115,11 +117,17 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
   function persist(candidate, { checkFuture = false } = {}) {
     assertValidDocument(candidate, checkFuture ? { now: isoNow() } : undefined);
     const text = JSON.stringify(candidate);
+    const actualRaw = readRaw();
+    if (expectedRaw !== undefined && actualRaw !== expectedRaw) {
+      throw new StoreError('conflict', 'Another tab changed the saved data. Load the latest data, review your draft and save again.');
+    }
     try {
       storage.setItem(STORAGE_KEY, text);
     } catch (error) {
+      if (error instanceof StoreError) throw error;
       throw writeError(error);
     }
+    expectedRaw = text;
     current = deepFreeze(JSON.parse(text));
     return current;
   }
@@ -160,14 +168,19 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
 
   return {
     /** Load saved data (first run: the demo, not yet written). Never overwrites bad data. */
-    load() {
+    load({ beforeReplace = () => {} } = {}) {
       const raw = readRaw();
+      if (current === null) expectedRaw = raw;
       const doc = raw === null ? demoDocument() : parseDocumentText(raw, 'The saved data');
+      beforeReplace(deepFreeze(doc));
+      expectedRaw = raw;
       current = deepFreeze(doc);
       return current;
     },
 
     getDocument: loaded,
+    /** Comparison token for the loaded document; never performs storage I/O. */
+    getRevision: () => expectedRaw,
     readRaw,
 
     /** Replace the whole document (validated, then written). */
@@ -280,7 +293,8 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
 
     /** Replace all data with a backup file. Any error leaves current data untouched. */
     importJSON(text) {
-      loaded();
+      // Recovery is allowed after load() captured even an unreadable document.
+      if (expectedRaw === undefined) loaded();
       return persist(parseDocumentText(text, 'The imported file', { now: isoNow() }));
     },
 

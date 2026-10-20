@@ -1,3 +1,5 @@
+import { DataSafetyNotice } from '@/ui/data/DataSafetyNotice';
+import { RecoveryPage } from '@/ui/recovery/RecoveryPage';
 import { useLocale, type TranslationKey } from '@/ui/i18n';
 import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useEffect } from 'react';
 import { useDataState } from '@/ui/data/DataProvider';
@@ -90,29 +92,6 @@ function Page({ route }: { route: Route }) {
   }
 }
 
-function LoadError({ message }: { message: string }) {
-  const { t } = useLocale();
-  return (
-    <section aria-labelledby="page-title" className="space-y-3">
-      <h1 id="page-title" className="text-2xl font-semibold">
-        {t('error.dataTitle')}
-      </h1>
-      <p
-        role="alert"
-        className={[
-          'rounded-md border border-destructive/40 bg-destructive/5',
-          'p-3 text-sm text-destructive',
-        ].join(' ')}
-      >
-        {message}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        {t('error.dataKept')}
-      </p>
-    </section>
-  );
-}
-
 export function App() {
   const { t } = useLocale();
   const route = useRoute();
@@ -127,6 +106,7 @@ export function App() {
       {/* One provider above every route, so unsaved scenario drafts survive a visit to the guide. */}
       <SimulatorSessionProvider>
         <Shell route={route}>
+          <DataSafetyNotice />
           {route.name === 'help' ? (
             // The guide needs no saved data, so it stays readable when the data cannot be opened.
             <Suspense fallback={<p role="status" className="text-lg">{t('help.loading')}</p>}>
@@ -135,7 +115,7 @@ export function App() {
           ) : loadError === null ? (
             <Page route={route} />
           ) : (
-            <LoadError message={loadError} />
+            <RecoveryPage />
           )}
         </Shell>
       </SimulatorSessionProvider>

@@ -36,7 +36,7 @@ function dialogText(pending: Pending, t: ReturnType<typeof useLocale>['t']) {
   return { title: t('data.confirmDemo'), description: t('data.confirmDemoDescription'), confirmLabel: t('data.reset') };
 }
 
-function downloadText(text: string, fileName: string) {
+export function downloadText(text: string, fileName: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const link = window.document.createElement('a');
   link.href = url;
