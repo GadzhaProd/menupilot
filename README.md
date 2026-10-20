@@ -80,9 +80,14 @@ Tools such as Apicbase, meez, MarketMan and Restaurant365 are broad restaurant o
 ```sh
 npm test          # test:core (node:test) + test:ui (Vitest, Testing Library, jsdom)
 npm run check     # typecheck + all tests + production build
+npm run test:e2e  # Playwright on Chromium against production preview under /menupilot/
 ```
 
-Last run: **301 tests, all passing** (122 core tests for calculations and store; 179 UI tests). Calculation changes are written test-first. Tests use in-memory storage only: no network, no external services. The UI was also checked by hand in a real browser at desktop width and at 375 px (screenshots above). Browser end-to-end tests (Playwright) are not part of the MVP.
+`npm run check` intentionally skips Playwright to keep the fast local check quick. `npm run test:e2e:install` installs Chromium for local runs. Playwright runs Chromium at 1280×800 and 375×812 against the production build and blocks external network requests. CI runs these browser tests on pull requests and branches, and on `main` before uploading the GitHub Pages deployment artifact. Failed CI runs retain the HTML report, screenshots, and traces as an artifact.
+
+Playwright uses `retries: 0`; a failure is reported immediately with its trace and screenshot so flaky behavior stays visible. The current fast check covers 137 core tests and 291 UI tests. Keep the manual browser check for changes to screens: inspect desktop and 375 px layouts, keyboard and focus behavior in dialogs, and field validation messages.
+
+Calculation changes are written test-first. Unit and UI tests use in-memory storage; e2e starts each test with clean browser storage and exercises the real local production preview without external services.
 
 ## Run locally
 
@@ -93,6 +98,8 @@ npm run build     # production build into dist/ (base path /menupilot/)
 npm run preview   # serve dist/ at http://localhost:4173/menupilot/
 npm run typecheck # tsc --noEmit
 npm run check     # typecheck + tests + build
+npm run test:e2e:install # install Playwright Chromium
+npm run test:e2e  # production build + Chromium end-to-end tests; no retries
 ```
 
 Money input accepts a decimal comma or point and rejects thousands separators.
