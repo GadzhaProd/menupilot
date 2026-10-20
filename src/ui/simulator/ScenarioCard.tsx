@@ -12,7 +12,7 @@ import {
   dishLines, ingredientInfos, type IngredientInfo, type LineInfo, type Run, type ScenarioDelta,
 } from '@/ui/domain/simulator';
 import type { SimulateResult } from '@/ui/domain/types';
-import { centsToInput, formatQuantity, parseMoneyField, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
+import { centsToInput, formatQuantity, localizedUnit, parseMoneyField, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
 import { Delta } from './format';
 import {
@@ -111,7 +111,7 @@ function LineRow({ line, draft, error, onChange }: {
   line: LineInfo; draft: { text: string; unit: EnteredUnit } | undefined; error: FormErrorKey | undefined;
   onChange: (next: { text: string; unit: EnteredUnit }) => void;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   if (line.refKind === 'prep') {
     return (
       <li className="rounded-md border border-dashed p-2.5 text-xs text-muted-foreground">
@@ -122,25 +122,28 @@ function LineRow({ line, draft, error, onChange }: {
   }
   const units = unitsFor(line.unit);
   const value = draft ?? { text: '', unit: units[0] ?? 'g' };
+  const baseUnitLabel = localizedUnit(line.unit, locale);
   return (
     <li>
       <div role="group" aria-label={t('simulator.quantityOf', { name: line.name })} className="space-y-1.5 rounded-md border p-2.5">
         <p className="text-sm font-medium">{line.name}</p>
         <p className="text-xs text-muted-foreground">{t('simulator.inBaseline', { quantity: formatQuantity(line.netQtyMilli, line.unit) })}</p>
-        <div className="grid grid-cols-[minmax(0,1fr)_5rem] items-start gap-2">
-          <QuantityField label={t('simulator.newQuantity', { name: line.name })} unit={value.unit}
+        <div className="grid grid-cols-1 items-start gap-2">
+          <QuantityField label={t('simulator.newQuantity')} unit={baseUnitLabel}
+            aria-label={t('simulator.newQuantityOf', { name: line.name, unit: baseUnitLabel })}
             error={error ? t(error) : undefined} autoComplete="off" value={value.text}
             placeholder={t('simulator.unchanged')} onValueChange={text => onChange({ ...value, text })}
           />
-          <FormField label={t('simulator.unit', { name: line.name })}>
+          <FormField label={t('simulator.unit')}>
             {(control) => (
               <Select
                 {...control}
+                aria-label={t('simulator.unitOf', { name: line.name })}
                 value={value.unit}
                 disabled={units.length < 2}
                 onChange={(event) => onChange({ ...value, unit: event.target.value as EnteredUnit })}
               >
-                {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                {units.map((unit) => <option key={unit} value={unit}>{localizedUnit(unit, locale)}</option>)}
               </Select>
             )}
           </FormField>
