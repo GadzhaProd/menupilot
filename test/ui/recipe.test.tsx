@@ -558,3 +558,32 @@ describe('Deleting a recipe', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Recipes' })).toBeTruthy();
   });
 });
+
+describe('Dutch delete buttons of a recipe', () => {
+  it('start with a capital letter: Gerecht verwijderen, Basisrecept verwijderen', async () => {
+    const u = user();
+    await open('#/recipe/dish_classic_burger');
+    await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    const dish = await screen.findByRole('button', { name: 'Gerecht verwijderen' });
+    await u.click(dish);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByRole('button', { name: 'Gerecht verwijderen' })).toBeTruthy();
+    await u.click(within(dialog).getByRole('button', { name: 'Annuleren' }));
+    await go('#/recipe/prep_burger_sauce');
+    expect(await screen.findByRole('button', { name: 'Basisrecept verwijderen' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^(gerecht|basisrecept) verwijderen$/ })).toBeNull();
+  });
+
+  it('a dish with saved scenarios names them in the confirm button, also with a capital letter', async () => {
+    const u = user();
+    const doc = demoCopy();
+    await open('#/simulator/dish_classic_burger', storageWith(doc));
+    await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    await u.click(await screen.findByRole('button', { name: 'Scenario toevoegen' }));
+    await u.click(await screen.findByRole('button', { name: 'Scenario opslaan' }));
+    await go('#/recipe/dish_classic_burger');
+    await u.click(await screen.findByRole('button', { name: 'Gerecht verwijderen' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByRole('button', { name: 'Gerecht en het bijbehorende 1 scenario verwijderen' })).toBeTruthy();
+  });
+});

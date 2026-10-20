@@ -286,7 +286,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
           </span>
           {recipe ? (
             <Button type="button" variant="outline" className="ml-auto text-destructive" onClick={(event) => dialog.open('delete', event)}>
-              {t('recipe.deleteKind', { kind: t(recipe.kind === 'dish' ? 'recipe.dishLower' : 'recipe.prepLower') })}
+              {t(recipe.kind === 'dish' ? 'recipe.deleteDish' : 'recipe.deletePrep')}
             </Button>
           ) : null}
         </div>

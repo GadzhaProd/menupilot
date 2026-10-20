@@ -1,10 +1,13 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, configure, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HELP_CONTENT } from '@/ui/help/content';
-import { HELP_LANGUAGE_KEY, languageFromBrowser, readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
-import { HELP_SECTION_IDS } from '@/ui/help/types';
+import { HELP_LANGUAGE_KEY, languageFromInterface, readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
+import { HELP_SECTION_IDS, sectionNumber } from '@/ui/help/types';
 import { demoCopy, go, memoryStorage, NOW, renderApp, STORAGE_KEY, storageWith } from './helpers';
+
+// The guide is loaded on demand and holds three languages: give a busy machine time to load it.
+configure({ asyncUtilTimeout: 8000 });
 
 const scrolled: Element[] = [];
 
@@ -19,14 +22,9 @@ function memoryLocalStorage() {
   };
 }
 
-function browserLanguage(language: string) {
-  vi.spyOn(window.navigator, 'language', 'get').mockReturnValue(language);
-}
-
 beforeEach(() => {
   Object.defineProperty(window, 'localStorage', { value: memoryLocalStorage(), configurable: true });
   scrolled.length = 0;
-  browserLanguage('en-US');
   Element.prototype.scrollIntoView = function scrollIntoView(this: Element) { scrolled.push(this); };
   window.scrollTo = () => {};
   window.print = vi.fn();
@@ -35,68 +33,119 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 const h1 = () => screen.findByRole('heading', { level: 1 });
 
+const switchScreenTo = (name: 'EN – English' | 'NL – Nederlands') => userEvent.click(screen.getByRole('button', { name }));
+/** The row of language buttons; its own name is written in the language of the guide, so find it by its buttons. */
+const guideLanguages = () => {
+  const group = screen.getAllByRole('group').find((entry) => within(entry).queryByRole('button', { name: 'English' }) !== null);
+  if (group === undefined) throw new Error('The language buttons of the guide are missing');
+  return group;
+};
+
 describe('language of the guide', () => {
-  it('follows the browser language: ru gives Russian, everything else English', () => {
-    expect(languageFromBrowser('ru')).toBe('ru');
-    expect(languageFromBrowser('ru-RU')).toBe('ru');
-    expect(languageFromBrowser('RU_ru')).toBe('ru');
-    expect(languageFromBrowser('en-GB')).toBe('en');
-    expect(languageFromBrowser('uk-UA')).toBe('en');
-    expect(languageFromBrowser('russian')).toBe('en');
-    expect(languageFromBrowser(undefined)).toBe('en');
+  it('follows the language of the screen: Dutch gives Dutch, everything else English, Russian only by choice', () => {
+    expect(languageFromInterface('nl')).toBe('nl');
+    expect(languageFromInterface('en')).toBe('en');
   });
 
-  it('a remembered choice wins over the browser language, bad values are ignored', () => {
-    browserLanguage('ru-RU');
+  it('a remembered choice is read back, bad values are ignored', () => {
+    expect(readHelpLanguage()).toBeNull();
+    saveHelpLanguage('ru');
     expect(readHelpLanguage()).toBe('ru');
-    saveHelpLanguage('en');
-    expect(readHelpLanguage()).toBe('en');
+    saveHelpLanguage('nl');
+    expect(readHelpLanguage()).toBe('nl');
     window.localStorage.setItem(HELP_LANGUAGE_KEY, 'de');
-    expect(readHelpLanguage()).toBe('ru');
+    expect(readHelpLanguage()).toBeNull();
   });
 
   it('works when browser storage is blocked', () => {
     const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
-    browserLanguage('ru');
-    expect(readHelpLanguage(blocked)).toBe('ru');
+    expect(readHelpLanguage(blocked)).toBeNull();
     expect(() => saveHelpLanguage('en', blocked)).not.toThrow();
-    expect(readHelpLanguage(null)).toBe('ru');
+    expect(readHelpLanguage(null)).toBeNull();
   });
 
   it('uses its own storage key, not the data document', () => {
     expect(HELP_LANGUAGE_KEY).not.toBe(STORAGE_KEY);
   });
 
-  it('the page starts in the browser language', async () => {
-    browserLanguage('ru-RU');
+  it('the page starts in English on an English screen, and in Dutch on a Dutch screen', async () => {
     renderApp();
     await go('#/help');
-    expect((await h1()).textContent).toBe(HELP_CONTENT.ru.title);
-    expect(document.querySelector('article')?.getAttribute('lang')).toBe('ru');
+    expect((await h1()).textContent).toBe(HELP_CONTENT.en.title);
+    expect(document.querySelector('article')?.getAttribute('lang')).toBe('en');
+    await switchScreenTo('NL – Nederlands');
+    expect((await h1()).textContent).toBe(HELP_CONTENT.nl.title);
+    expect(document.querySelector('article')?.getAttribute('lang')).toBe('nl');
+    expect(screen.getByRole('button', { name: HELP_CONTENT.nl.ui.print })).toBeTruthy();
+    expect(window.localStorage.getItem(HELP_LANGUAGE_KEY)).toBeNull();
+    await switchScreenTo('EN – English');
+    expect((await h1()).textContent).toBe(HELP_CONTENT.en.title);
   });
 
-  it('switching the language changes the page and is remembered, without touching the data', async () => {
+  it('shows no note about missing translations in any language', async () => {
+    renderApp();
+    await go('#/help');
+    await h1();
+    expect(screen.queryByRole('note')).toBeNull();
+    await switchScreenTo('NL – Nederlands');
+    await h1();
+    expect(screen.queryByRole('note')).toBeNull();
+    expect(screen.queryByText(/handleiding volgt/i)).toBeNull();
+  });
+
+  it('offers English, Dutch and Russian, and the chosen one is pressed', async () => {
+    renderApp();
+    await go('#/help');
+    await h1();
+    const group = guideLanguages();
+    expect(within(group).getAllByRole('button').map((button) => button.textContent)).toEqual(['English', 'Nederlands', 'Русский']);
+    expect(within(group).getByRole('button', { name: 'English' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(group).getByRole('button', { name: 'Nederlands' }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('switching the language changes the page and is remembered, without touching the data or the screen', async () => {
     const storage = memoryStorage();
     renderApp(storage);
     await go('#/help');
     expect((await h1()).textContent).toBe(HELP_CONTENT.en.title);
-    const group = screen.getByRole('group', { name: 'Language' });
-    expect(within(group).getByRole('button', { name: 'English' }).getAttribute('aria-pressed')).toBe('true');
 
-    await userEvent.click(within(group).getByRole('button', { name: 'Русский' }));
+    await userEvent.click(within(guideLanguages()).getByRole('button', { name: 'Nederlands' }));
+    expect((await h1()).textContent).toBe(HELP_CONTENT.nl.title);
+    expect(window.localStorage.getItem(HELP_LANGUAGE_KEY)).toBe('nl');
+    expect(screen.getByRole('link', { name: 'Help' })).toBeTruthy(); // the screen stays English
+
+    await userEvent.click(within(guideLanguages()).getByRole('button', { name: 'Русский' }));
     expect((await h1()).textContent).toBe(HELP_CONTENT.ru.title);
     expect(screen.getByRole('button', { name: HELP_CONTENT.ru.ui.print })).toBeTruthy();
-    expect(within(group).getByRole('button', { name: 'Русский' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(guideLanguages()).getByRole('button', { name: 'Русский' }).getAttribute('aria-pressed')).toBe('true');
     expect(window.localStorage.getItem(HELP_LANGUAGE_KEY)).toBe('ru');
     expect(storage.setCalls).toBe(0);
     expect(storage.data.has(STORAGE_KEY)).toBe(false);
   });
 
-  it('remembers the choice for the next visit', async () => {
+  it('remembers the choice for the next visit, and the choice wins over the screen language', async () => {
     window.localStorage.setItem(HELP_LANGUAGE_KEY, 'ru');
     renderApp();
     await go('#/help');
     expect((await h1()).textContent).toBe(HELP_CONTENT.ru.title);
+    await switchScreenTo('NL – Nederlands');
+    expect((await h1()).textContent).toBe(HELP_CONTENT.ru.title);
+  });
+
+  it('pictures come from the set of the screen: English for English and Russian, Dutch for Dutch', async () => {
+    renderApp();
+    await go('#/help/ingredients');
+    await screen.findByRole('heading', { level: 2, name: /Ingredients and their prices/ });
+    for (const picture of screen.getAllByRole('img')) expect(picture.getAttribute('src')).toMatch(/^\/help\/en\/.+\.jpg$/);
+    await userEvent.click(within(guideLanguages()).getByRole('button', { name: 'Русский' }));
+    for (const picture of screen.getAllByRole('img')) expect(picture.getAttribute('src')).toMatch(/^\/help\/en\/.+\.jpg$/);
+    await userEvent.click(within(guideLanguages()).getByRole('button', { name: 'Nederlands' }));
+    const dutch = screen.getAllByRole('img');
+    expect(dutch.length).toBeGreaterThan(5);
+    for (const picture of dutch) {
+      expect(picture.getAttribute('src')).toMatch(/^\/help\/nl\/.+\.jpg$/);
+      expect(picture.getAttribute('alt')).not.toMatch(/Add ingredient|New price/);
+    }
   });
 });
 
@@ -135,7 +184,7 @@ describe('the guide page', () => {
       const heading = await screen.findByRole('heading', { level: 2, name: new RegExp(`^${index + 1}\\. `) });
       await waitFor(() => expect(document.activeElement).toBe(heading));
     }
-  });
+  }, 30_000);
 
   it('an unknown section shows the start of the guide instead of failing', async () => {
     renderApp();
@@ -171,7 +220,7 @@ describe('the guide page', () => {
     renderApp();
     await go('#/help/about');
     const section = (await screen.findByRole('heading', { level: 2, name: /What MenuPilot is/ })).closest('section') as HTMLElement;
-    const toData = within(section).getAllByRole('link', { name: /ection 10/ });
+    const toData = within(section).getAllByRole('link', { name: new RegExp(`ection ${sectionNumber('data')}$`) });
     expect(toData.length).toBeGreaterThan(0);
     for (const link of toData) expect(link.getAttribute('href')).toBe('#/help/data');
   });
@@ -228,6 +277,8 @@ describe('guide layout and wording rules', () => {
     for (const label of results) expect(label.tagName).toBe('STRONG');
     await userEvent.click(screen.getByRole('button', { name: 'Русский' }));
     expect(within(section).getAllByText('Что вы увидите:').length).toBe(results.length);
+    await userEvent.click(screen.getByRole('button', { name: 'Nederlands' }));
+    expect(within(section).getAllByText('Dit zie je:').length).toBe(results.length);
   });
 
   it('empties the program only after the practice sections: the steps are in section 10, not 4', () => {
@@ -267,6 +318,8 @@ describe('guide layout and wording rules', () => {
     });
     await userEvent.click(screen.getByRole('button', { name: 'Русский' }));
     expect(screen.getAllByRole('link', { name: /^Открыть крупно \(в новой вкладке\)/ }).length).toBe(pictures.length);
+    await userEvent.click(screen.getByRole('button', { name: 'Nederlands' }));
+    expect(screen.getAllByRole('link', { name: /^Groter openen \(in een nieuw tabblad\)/ }).length).toBe(pictures.length);
   });
 });
 
@@ -316,12 +369,11 @@ describe('"Help for this page" links', () => {
   it('Simulator: a prep', () => linkOn('#/simulator/prep_burger_sauce', '#/help/simulator', /is a prep/));
   it('Data', () => linkOn('#/data', '#/help/data', 'Data'));
 
-  it('uses readable foreground accent colors for links and shows the Dutch guide note as a note', async () => {
+  it('uses readable foreground accent colors for links, also in the Dutch guide', async () => {
     renderApp();
     await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
     await go('#/help');
     await screen.findByRole('article');
-    expect((await screen.findByRole('note')).textContent).toContain('De app is in het Nederlands');
     expect(document.querySelectorAll('a[class~="text-accent"]')).toHaveLength(0);
     expect(document.querySelectorAll('a[class~="text-accent-foreground"]')).not.toHaveLength(0);
   });

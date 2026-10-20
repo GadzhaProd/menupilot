@@ -30,7 +30,6 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
   const scenarios = document.scenarios.filter((scenario) => scenario.recipeId === recipe.id);
   const users = error === null || recipe.kind !== 'prep' ? [] : recipesUsing(document, 'prep', recipe.id);
   const noun = recipe.kind === 'dish' ? t('recipe.dish') : t('recipe.prep');
-  const deleteNoun = t(recipe.kind === 'dish' ? 'recipe.dishLower' : 'recipe.prepLower');
 
   function confirm() {
     const result = execute(
@@ -74,9 +73,9 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
         <DialogFooter>
           <DialogClose asChild><Button type="button" variant="outline">{t('common.cancel')}</Button></DialogClose>
           <Button type="button" variant="destructive" onClick={confirm}>
-            {scenarios.length > 0
-              ? t(scenarios.length === 1 ? 'recipe.deleteScenariosOne' : 'recipe.deleteScenariosOther', { kind: deleteNoun, count: scenarios.length })
-              : t('recipe.deleteKind', { kind: deleteNoun })}
+            {scenarios.length > 0 && recipe.kind === 'dish'
+              ? t(scenarios.length === 1 ? 'recipe.deleteDishScenariosOne' : 'recipe.deleteDishScenariosOther', { count: scenarios.length })
+              : t(recipe.kind === 'dish' ? 'recipe.deleteDish' : 'recipe.deletePrep')}
           </Button>
         </DialogFooter>
       </DialogContent>
