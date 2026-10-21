@@ -86,7 +86,7 @@ This raises the project tooling minimum above Vite's minimum. No new dependencie
 ```sh
 npm ci
 npm start
-# Open http://127.0.0.1:4710/menupilot/ — stop with Ctrl+C
+# Open the complete private address printed above (#k=…) — stop with Ctrl+C
 ```
 
 The first local launch starts empty. Add an ingredient, or choose Data → Reset to
@@ -105,7 +105,7 @@ older than 5 seconds, or an orphaned `lock.guard` older than 30 seconds. A separ
 never displaced merely because it stops answering HTTP. The console always gives
 **Data folder**, **Lock file**, and one next step:
 
-- **Already running** (verified matching instance): open the printed address.
+- **Already running** (verified matching instance): run `npm run menupilot -- open-url`.
 - **Lock looks stale or MenuPilot is still starting**: stop the existing MenuPilot
   process, then run `npm start` again.
 - **Incomplete lock**: wait 5 seconds, then run `npm start` again.
@@ -122,10 +122,73 @@ After restarting the server, an open page preserves drafts and asks you to copy
 unsaved input before reloading. An interrupted write may have committed: reload
 the latest data before submitting a new command. There is no offline write queue.
 
-D1 is a preview: loopback-only binding, Host checks and separate UI/CLI tokens are
-implemented. Origin/CSP hardening (D2), automatic backups (D3), CLI (D4), approved
-proposals (D5), and installation/doctor (D6) remain. It does not isolate data from
-browser extensions with page access or other processes running as your user.
+Local security (D2): `npm start` prints a private, one-use address ending in
+`/menupilot/#k=…`, valid for 15 minutes. Open the complete address. The login script
+replaces the current session-history entry before exchanging the secret. This does
+**not** guarantee erasure from browser history or sync, crash recovery, or terminal
+scrollback. Consumed, replaced or expired links cannot be reused.
+
+The exchange returns a separate token for each session. The UI stores it in
+`sessionStorage`, which is isolated by origin **including the port**, and sends it
+as Authorization for config and API requests. The HttpOnly, SameSite=Strict cookie
+(Path `/menupilot/`) only unlocks HTML containing no secrets. A cookie captured by
+another loopback port cannot fetch the config/token or read/write the API.
+Sessions expire after 10 hours absolutely or 1 hour without authorized requests.
+An open page polls the server, so the absolute deadline still applies. A new tab
+without sessionStorage needs its own sign-in address. Closing a tab normally
+clears sessionStorage, but browser session recovery may restore it.
+
+For another tab/browser, an expired link, or after a server restart:
+
+```sh
+npm run menupilot -- open-url
+# Issue a new link AND revoke all existing sessions:
+npm run menupilot -- open-url --revoke-sessions
+```
+
+Use the server's `MENUPILOT_DATA_DIR` if set. Every `open-url` call uses the private
+CLI token to issue a new one-use secret; previous links become invalid. Existing
+sessions remain valid unless revoked or expired. Restart invalidates every session.
+The `launch-secret` and CLI `token` files are replaced with mode 0600. At most 128
+sessions are retained; a further sign-in evicts the oldest remaining session.
+
+The server binds only to 127.0.0.1. Exact Host checks prevent DNS rebinding;
+`localhost` at the page URL shows a short instruction to use 127.0.0.1. All API
+reads require a token. Foreign and `null` Origins are rejected; UI POST requires
+the server's exact Origin. CLI-token POST may omit Origin; raw writes remain denied.
+CSP permits only same-origin scripts, forbids frames, forms and external connections;
+inline styles remain allowed for UI layout. CORP/COOP are same-origin. Responses
+use nosniff/no-referrer; HTML, config and API use no-store. Only listed routes,
+methods and build files are served. Build assets are read into memory at startup;
+rebuilding or deleting dist files does not change the running server's snapshot.
+Request-handler failures, including errors while sending an error response, are
+contained without terminating the server.
+
+JSON bodies are limited to 15,100,000 UTF-8 bytes (5 million UTF-16 units can need
+15 million bytes, plus command metadata); login/open-url bodies to 1024 bytes.
+Header/body deadlines are 10/15 seconds, keep-alive 5 seconds (Node may add a
+1-second socket buffer), at most 32 connections and 100 requests per connection.
+Local DoS remains possible: another process can repeatedly fill all 32 connections
+and deny access even though idle connections time out. These limits bound resources;
+they do not guarantee availability against a hostile local process.
+
+Diagnostics in `logs/server.log` contain timestamps, fixed event names, levels,
+numeric HTTP status and optional fixed denial reasons (`host`, `origin`, `sign-in`,
+`token`, `size`): no URLs, tokens, cookies, secrets, arbitrary error text or documents.
+Rotation keeps three files total, at most 1 MiB each.
+`MENUPILOT_LOG_LEVEL=off|error|warn|info` controls logging (default `warn`, so successful
+polling does not displace denial events). The SQLite journal is separate: deleting
+an unused ingredient records its ID, name and price-entry count and saves the
+pre-change document in bounded version history.
+
+This protects against hostile websites, unauthenticated loopback clients and other
+OS users who cannot read private files. **A leaked UI token grants full read/write
+access** until expiry, revocation or restart: Origin can be forged by a native client.
+The launch secret grants a session while valid. This does not isolate data from a
+process running as your user (it can read 0600 files and SQLite), root, page-capable
+extensions or a compromised browser. Cookie theft alone no longer grants API access.
+HttpOnly does not prove human approval against an agent with your OS access.
+Automatic backups (D3), broader CLI (D4), proposals (D5) and doctor (D6) remain.
 
 ## Testing
 
