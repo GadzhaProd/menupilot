@@ -184,6 +184,7 @@ export interface ScenarioComparison {
 
 /** Error codes thrown by the store (src/store/errors.js). */
 export type StoreErrorCode =
+  | 'conflict' | 'write-busy' | 'write-unavailable'
   | 'corrupt-json' | 'unsupported-version' | 'invalid' | 'read-failed' | 'write-failed'
   | 'quota' | 'in-use' | 'not-found' | 'not-loaded' | 'bad-options';
 

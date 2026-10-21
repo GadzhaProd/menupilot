@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { PlusIcon } from 'lucide-react';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,8 @@ import { LineRow } from './LineRow';
 import { useLocale } from '@/ui/i18n';
 import { Surface } from '@/components/ui/surface';
 import { InlineStatus } from '@/components/ui/inline-status';
+import { useRecipeDrafts } from './RecipeDraftProvider';
+import { isSafetyError } from '@/ui/data/safetyErrors';
 
 /** Stands in for the id of a recipe that is not saved yet, so its cost can still be calculated. */
 const UNSAVED_ID = 'unsaved';
@@ -38,9 +40,14 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const { t, locale } = useLocale();
   const document = useDocument();
   const { execute } = useCommands();
-  const [initial] = useState(() => (recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp)));
+  const draftCache = useRecipeDrafts();
+  const draftKey = recipe?.id ?? `new:${kind}`;
+  const sourceSnapshot = JSON.stringify(recipe ?? document) ?? '';
+  const sourceSnapshotRef = useRef(sourceSnapshot);
+  const sourceChanged = sourceSnapshotRef.current !== sourceSnapshot;
+  const [initial] = useState(() => recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp));
   const [baseline, setBaseline] = useState<RecipeDraft>(initial);
-  const [draft, setDraft] = useState<RecipeDraft>(initial);
+  const [draft, setDraft] = useState<RecipeDraft>(() => draftCache.read(draftKey) ?? initial);
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -51,6 +58,32 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
 
   const id = recipe?.id ?? UNSAVED_ID;
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
+
+  useEffect(() => {
+    if (!sourceChanged) return;
+    sourceSnapshotRef.current = sourceSnapshot;
+    const fresh = recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp);
+    if (!dirty) setDraft(fresh);
+    setBaseline(fresh);
+    setAttempt(0);
+    setSaveError(null);
+  }, [sourceChanged, sourceSnapshot, draftKey, recipe, document, kind, dirty]);
+
+  useEffect(() => {
+    if (sourceChanged) return;
+    if (dirty) draftCache.write(draftKey, draft);
+    else draftCache.clear(draftKey);
+  }, [sourceChanged, dirty, draft, draftKey, sourceSnapshot, draftCache]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   // Everything below is derived from the draft while rendering: nothing calculated is stored.
   const validationCopy = useMemo<RecipeValidationCopy>(() => ({
@@ -126,9 +159,10 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     const result = execute((store) => store.saveRecipe(toSave), { report: false });
     if (!result.ok) {
       // The draft stays exactly as typed; the saved data is unchanged.
-      setSaveError(localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
+      setSaveError(isSafetyError(result.code) ? null : localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
       return;
     }
+    draftCache.clear(draftKey);
     setSaveError(null);
     if (!recipe) {
       window.location.hash = hrefFor({ name: 'recipe', id: result.value.id });
@@ -162,7 +196,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
         <HelpLink section={kind === 'dish' ? 'dishes' : 'preps'} />
       </div>
 
-      <form ref={formRef} noValidate onSubmit={submit} className="space-y-6">
+      <form data-draft-kind={recipe ? "recipe" : undefined} data-draft-id={recipe?.id} ref={formRef} noValidate onSubmit={submit} className="space-y-6">
         <Surface aria-labelledby="recipe-details-title" className="space-y-4">
           <header className="space-y-1"><h2 id="recipe-details-title" className="text-xl font-semibold">{kind === 'dish' ? t('recipe.dish') : t('recipe.prep')}</h2><p className="text-muted-foreground">{t('recipe.vatNote')}</p></header>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -297,7 +331,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
           recipe={recipe}
           onClose={dialog.close}
           onCloseAutoFocus={dialog.onCloseAutoFocus}
-          onDeleted={() => { dialog.close(); window.location.hash = hrefFor({ name: 'recipes' }); }}
+          onDeleted={() => { draftCache.clear(draftKey); dialog.close(); window.location.hash = hrefFor({ name: 'recipes' }); }}
         />
       ) : null}
     </section>

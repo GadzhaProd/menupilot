@@ -1,3 +1,4 @@
+import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ type StoreFailure = { code: string; error: string; details: readonly string[] };
 
 function SaveError({ failure }: { failure: StoreFailure | null }) {
   const { t } = useLocale();
-  if (failure === null) return null;
+  if (failure === null || isSafetyError(failure.code)) return null;
   const writeReason = /\((.+?)\)\. Your previous data is unchanged\./.exec(failure.error)?.[1] ?? '';
   const message = failure.code === 'in-use' ? t('ingredients.error.inUse')
     : failure.code === 'quota' ? t('ingredients.error.quota')
@@ -134,7 +135,7 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
+      <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('ingredients.newPriceFor', { name: ingredient.name })}</DialogTitle>
           <DialogDescription>
@@ -170,7 +171,7 @@ export function HistoryDialog({ ingredient, onCloseAutoFocus, onClose }: DialogP
   const newestFirst = [...ingredient.prices].reverse();
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="max-w-2xl">
+      <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} onCloseAutoFocus={onCloseAutoFocus} className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('ingredients.historyFor', { name: ingredient.name })}</DialogTitle>
           <DialogDescription>{t('ingredients.historyDescription')}</DialogDescription>
@@ -236,7 +237,7 @@ export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogPr
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
+      <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('ingredients.rename')}</DialogTitle>
           <DialogDescription>{t('ingredients.renameDescription')}</DialogDescription>
@@ -273,7 +274,7 @@ export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
+      <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('ingredients.deleteTitle', { name: ingredient.name })}</DialogTitle>
           <DialogDescription>{t('ingredients.deleteDescription')}</DialogDescription>

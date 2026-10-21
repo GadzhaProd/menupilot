@@ -1,3 +1,4 @@
+import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,12 +38,12 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
       { report: false },
     );
     if (result.ok) onDeleted();
-    else setError({ code: result.code, message: result.error });
+    else setError(isSafetyError(result.code) ? null : { code: result.code, message: result.error });
   }
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
+      <DialogContent data-draft-kind="recipe" data-draft-id={recipe.id} role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('recipe.deleteNamed', { name: recipe.name })}</DialogTitle>
           <DialogDescription>{t('recipe.deleteDescription', { kind: noun })}</DialogDescription>

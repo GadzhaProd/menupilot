@@ -170,9 +170,58 @@ describe('Scenarios recalculate as calc does', () => {
 
     await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
     const bunGroup = scenario('A').getByRole('group', { name: 'Hoeveelheid van Brioche burger bun' });
+    expect(within(bunGroup).getByText('In de huidige situatie: 1 st. netto per portie')).toBeTruthy();
     expect(within(bunGroup).getByText('Nieuwe nettohoeveelheid (st.)')).toBeTruthy();
     expect(within(bunGroup).getByLabelText('Nieuwe nettohoeveelheid van Brioche burger bun (st.)')).toBeTruthy();
     expect(within(bunGroup).getByLabelText('Eenheid van Brioche burger bun')).toBeTruthy();
+  });
+
+  it('keeps quantity labels in the selected unit and calculates kg and l correctly', async () => {
+    const u = user();
+    await open(`#/simulator/${BURGER}`);
+    await addScenario(u);
+    const beef = scenario('A').getByRole('group', { name: 'Quantity of Beef mince 80/20' });
+    await u.selectOptions(within(beef).getByLabelText('Unit of Beef mince 80/20'), 'kg');
+    expect(within(beef).getByLabelText('New net quantity of Beef mince 80/20 (kg)')).toBeTruthy();
+    await typeInto(u, within(beef).getByLabelText('New net quantity of Beef mince 80/20 (kg)'), '0.160');
+    const { result } = expected({ lineQtyMilli: { l1: 160_000 } });
+    expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(result.ingredientCostCents as bigint));
+
+  });
+
+  it('keeps ml/l labels in sync and calculates 0.160 l as 160 ml', async () => {
+    const u = user();
+    const liquidDoc = demoCopy();
+    liquidDoc.recipes.find((recipe) => recipe.id === BURGER)!.lines[4] = {
+      id: 'l5', ref: { kind: 'ingredient', id: 'ing_oil' }, netQtyMilli: 40_000, yieldBp: 10_000,
+    };
+    await open(`#/simulator/${BURGER}`, storageWith(liquidDoc));
+    await addScenario(u);
+    const oil = scenario('A').getByRole('group', { name: 'Quantity of Frying oil (10 l)' });
+    await u.selectOptions(within(oil).getByLabelText('Unit of Frying oil (10 l)'), 'l');
+    const oilQuantity = within(oil).getByLabelText('New net quantity of Frying oil (10 l) (l)');
+    await typeInto(u, oilQuantity, '0.160');
+    const baseline = createBaselineSnapshot(liquidDoc as never, BURGER, NOW);
+    const expectedOil = simulate(baseline, { lineQtyMilli: { l5: 160_000 } });
+    expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(expectedOil.ingredientCostCents as bigint));
+  });
+
+  it('converts a typed quantity exactly when its unit changes', async () => {
+    const u = user();
+    await open(`#/simulator/${BURGER}`);
+    await addScenario(u);
+    const beef = scenario('A').getByRole('group', { name: 'Quantity of Beef mince 80/20' });
+    const units = within(beef).getByLabelText('Unit of Beef mince 80/20');
+    await typeInto(u, within(beef).getByLabelText('New net quantity of Beef mince 80/20 (g)'), '160');
+    await u.selectOptions(units, 'kg');
+    expect(within(beef).getByLabelText('New net quantity of Beef mince 80/20 (kg)')).toHaveProperty('value', '0.16');
+    await u.selectOptions(units, 'g');
+    expect(within(beef).getByLabelText('New net quantity of Beef mince 80/20 (g)')).toHaveProperty('value', '160');
+    expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(expected({ lineQtyMilli: { l1: 160_000 } }).result.ingredientCostCents as bigint));
+    await typeInto(u, within(beef).getByLabelText('New net quantity of Beef mince 80/20 (g)'), '0.01');
+    await u.selectOptions(units, 'kg');
+    expect(within(beef).getByLabelText('New net quantity of Beef mince 80/20 (kg)')).toHaveProperty('value', '');
+    expect(within(beef).getByRole('status').textContent).toMatch(/cleared because it cannot be converted exactly/i);
   });
 
   it('a beef price back at €14 per kg lowers the cost by €0.54 (+€162.00 a month)', async () => {
@@ -216,12 +265,16 @@ describe('Scenarios recalculate as calc does', () => {
     expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(delta.ingredientCostDeltaCents as bigint));
   });
 
-  it('prep lines cannot be edited, and says why', async () => {
+  it('lets a dish quantity of prep change while explaining prep internals stay fixed', async () => {
     const u = user();
     await open(`#/simulator/${BURGER}`);
     await addScenario(u);
-    expect(scenario('A').getByText(/Not editable here/)).toBeTruthy();
-    expect(scenario('A').queryByLabelText(/New net quantity of Burger sauce/)).toBeNull();
+    expect(scenario('A').getByText(/prep’s internal lines stay unchanged/)).toBeTruthy();
+    expect(scenario('A').getByLabelText('New net quantity of Burger sauce (g)')).toBeTruthy();
+    expect(scenario('A').queryByLabelText(/New net quantity of Mayonnaise/)).toBeNull();
+    await typeInto(u, scenario('A').getByLabelText('New net quantity of Burger sauce (g)'), '60');
+    const { result } = expected({ lineQtyMilli: { l4: 60_000 } });
+    expect(cell(/Recipe-based ingredient cost/, 1)).toContain(formatEURFromCents(result.ingredientCostCents as bigint));
   });
 
   it('the best scenario by monthly contribution is named in words', async () => {
@@ -496,6 +549,14 @@ const burgerOf = (doc: ReturnType<typeof demoCopy>) => {
 };
 
 describe('Review fixes: Update baseline', () => {
+  it('keeps a prep quantity override when the scenario baseline is updated', async () => {
+    const u = user();
+    await open(`#/simulator/${BURGER}`, storageWith(savedScenarioDoc({ lineQtyMilli: { l4: 60_000 } }, raiseMayo)));
+    await u.click(scenario('A').getByRole('button', { name: 'Update baseline' }));
+    expect(scenario('A').getByLabelText('New net quantity of Burger sauce (g)')).toHaveProperty('value', '60');
+    expect(scenario('A').queryByText(/quantity change for Burger sauce/)).toBeNull();
+  });
+
   it('changes only the draft: nothing is written until Save, and a wrong entry is kept as typed', async () => {
     const u = user();
     const storage = storageWith(savedScenarioDoc({ menuPriceInclVatCents: 1383 }, raiseMayo));

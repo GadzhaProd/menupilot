@@ -1,3 +1,6 @@
+import { isSafetyError } from '@/ui/data/safetyErrors';
+import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
+import { downloadText } from '@/ui/data/downloadText';
 import { useLocale } from '@/ui/i18n';
 import { demoForLocale } from '@/ui/data/demo';
 import { useRef, useState, type ChangeEvent } from 'react';
@@ -36,24 +39,13 @@ function dialogText(pending: Pending, t: ReturnType<typeof useLocale>['t']) {
   return { title: t('data.confirmDemo'), description: t('data.confirmDemoDescription'), confirmLabel: t('data.reset') };
 }
 
-function downloadText(text: string, fileName: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  const link = window.document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  window.document.body.append(link);
-  link.click();
-  link.remove();
-  // Revoke later: revoking right after click() can cancel the download in Firefox.
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
 /** Back up, restore and reset the data. Everything lives in this browser, so a backup matters. */
 export function DataPage() {
   const { locale, t, plural } = useLocale();
   const document = useDocument();
   const { execute, exportBackup: readBackupText } = useCommands();
   const sessions = useSimulatorSessions();
+  const recipes = useRecipeDrafts();
   const dialog = useDialogState<Pending>();
   const fileInput = useRef<HTMLInputElement>(null);
   const openImport = useRef<HTMLButtonElement>(null);
@@ -114,8 +106,8 @@ export function DataPage() {
       : pending.kind === 'empty'
         ? execute((store) => store.resetToEmpty(), { report: false })
         : execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false });
-    if (!result.ok) return commandError(result.code, result.error, result.details);
-    sessions.clear();
+    if (!result.ok) return isSafetyError(result.code) ? null : commandError(result.code, result.error, result.details);
+    sessions.clear(); recipes.clearAll();
     dialog.close();
     setNotice({ tone: 'ok', text: pending.kind === 'import'
       ? t('data.importSuccess', { file: pending.fileName })

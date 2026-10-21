@@ -642,7 +642,7 @@ export const contentNl: HelpDocument = {
           title: 'Scenario B: een kleinere portie gehakt (160 g in plaats van 180 g)',
           steps: [
             { text: ['Klik nog eens op ', b('Scenario toevoegen'), '.'], result: ['Een tweede scenario, B, verschijnt. Het is gekozen en de kaart ervan staat links. Onder ', b('Kies een scenario om te vergelijken'), ' wissel je tussen A en B.'] },
-            { text: ['Klik in de kaart van Scenario B op de balk ', b('Hoeveelheden in het gerecht'), '.'], result: 'De balk opent en toont een veld voor elke ingrediëntregel van het gerecht. Een regel die een basisrecept is, kun je hier niet wijzigen.' },
+            { text: ['Klik in de kaart van Scenario B op de balk ', b('Hoeveelheden in het gerecht'), '.'], result: 'De balk opent en toont een veld voor elke regel in het gerecht, ook voor een gebruikt basisrecept. Je kunt die hoeveelheid hier wijzigen; de regels binnen het basisrecept blijven ongewijzigd.' },
             {
               text: ['Zoek ', b('Rundergehakt 80/20'), ' en typ 160 in ', b('Nieuwe nettohoeveelheid (g)'), '. Laat ', b('Eenheid'), ' op g staan.'],
               result: 'Velden die je leeg laat, zeggen “ongewijzigd”. Op de balk verschijnt een klein label “1 gewijzigd”. De bijdrage wordt € 7,49 (+€ 0,34).',

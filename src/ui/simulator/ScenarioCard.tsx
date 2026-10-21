@@ -12,7 +12,7 @@ import {
   dishLines, ingredientInfos, type IngredientInfo, type LineInfo, type Run, type ScenarioDelta,
 } from '@/ui/domain/simulator';
 import type { SimulateResult } from '@/ui/domain/types';
-import { centsToInput, formatQuantity, localizedUnit, parseMoneyField, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
+import { centsToInput, formatQuantity, formatQuantityLocale, localizedUnit, parseMoneyField, parseQuantityField, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
 import { Delta } from './format';
 import {
@@ -112,27 +112,36 @@ function LineRow({ line, draft, error, onChange }: {
   onChange: (next: { text: string; unit: EnteredUnit }) => void;
 }) {
   const { t, locale } = useLocale();
-  if (line.refKind === 'prep') {
-    return (
-      <li className="rounded-md border border-dashed p-2.5 text-xs text-muted-foreground">
-        <span className="text-sm font-medium text-foreground">{line.name}</span> ({t('simulator.prep')}) · {formatQuantity(line.netQtyMilli, line.unit)}
-        <br />{t('simulator.prepQuantity')}
-      </li>
-    );
-  }
+  const [unitCleared, setUnitCleared] = useState(false);
   const units = unitsFor(line.unit);
   const value = draft ?? { text: '', unit: units[0] ?? 'g' };
-  const baseUnitLabel = localizedUnit(line.unit, locale);
+  const enteredUnitLabel = localizedUnit(value.unit, locale);
+  function changeUnit(nextUnit: EnteredUnit) {
+    if (value.text.trim() === '') {
+      setUnitCleared(false);
+      onChange({ ...value, unit: nextUnit });
+      return;
+    }
+    const parsed = parseQuantityField(value.text, value.unit, '');
+    const converted = parsed.ok ? quantityInputInUnit(parsed.value.milli, nextUnit) : null;
+    if (converted === null) {
+      onChange({ text: '', unit: nextUnit });
+      setUnitCleared(true);
+      return;
+    }
+    setUnitCleared(false);
+    onChange({ text: converted, unit: nextUnit });
+  }
   return (
     <li>
       <div role="group" aria-label={t('simulator.quantityOf', { name: line.name })} className="space-y-1.5 rounded-md border p-2.5">
         <p className="text-sm font-medium">{line.name}</p>
-        <p className="text-xs text-muted-foreground">{t('simulator.inBaseline', { quantity: formatQuantity(line.netQtyMilli, line.unit) })}</p>
+        <p className="text-xs text-muted-foreground">{t('simulator.inBaseline', { quantity: formatQuantityLocale(line.netQtyMilli, line.unit, locale) })}</p>
         <div className="grid grid-cols-1 items-start gap-2">
-          <QuantityField label={t('simulator.newQuantity')} unit={baseUnitLabel}
-            aria-label={t('simulator.newQuantityOf', { name: line.name, unit: baseUnitLabel })}
+          <QuantityField label={t('simulator.newQuantity')} unit={enteredUnitLabel}
+            aria-label={t('simulator.newQuantityOf', { name: line.name, unit: enteredUnitLabel })}
             error={error ? t(error) : undefined} autoComplete="off" value={value.text}
-            placeholder={t('simulator.unchanged')} onValueChange={text => onChange({ ...value, text })}
+            placeholder={t('simulator.unchanged')} onValueChange={text => { setUnitCleared(false); onChange({ ...value, text }); }}
           />
           <FormField label={t('simulator.unit')}>
             {(control) => (
@@ -141,16 +150,29 @@ function LineRow({ line, draft, error, onChange }: {
                 aria-label={t('simulator.unitOf', { name: line.name })}
                 value={value.unit}
                 disabled={units.length < 2}
-                onChange={(event) => onChange({ ...value, unit: event.target.value as EnteredUnit })}
+                onChange={(event) => changeUnit(event.target.value as EnteredUnit)}
               >
                 {units.map((unit) => <option key={unit} value={unit}>{localizedUnit(unit, locale)}</option>)}
               </Select>
             )}
           </FormField>
+          {unitCleared ? <p role="status" className="text-xs text-muted-foreground">{t('simulator.unitChangeClearedHint')}</p> : null}
         </div>
       </div>
     </li>
   );
+}
+
+/** Reprint a parsed base-unit milli quantity in a selected unit without floating point. */
+function quantityInputInUnit(milli: number, unit: EnteredUnit): string | null {
+  const compact = unit === 'kg' || unit === 'l';
+  const divisor = compact ? 1_000_000n : 1_000n;
+  const quantum = compact ? 1_000n : 10n;
+  const value = BigInt(milli);
+  if (value % quantum !== 0n) return null;
+  const whole = value / divisor;
+  const fraction = ((value % divisor) / quantum).toString().padStart(compact ? 3 : 2, '0').replace(/0+$/, '');
+  return fraction === '' ? whole.toString() : `${whole}.${fraction}`;
 }
 
 /** One scenario: its name, the changes typed into it, and what they do right now. */

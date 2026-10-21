@@ -642,7 +642,7 @@ export const contentEn: HelpDocument = {
           title: 'Scenario B: a smaller portion of mince (160 g instead of 180 g)',
           steps: [
             { text: ['Click ', b('Add scenario'), ' again.'], result: ['A second scenario, B, appears. It is chosen, and its card is on the left. Under ', b('Choose a scenario to compare'), ' you can switch between A and B.'] },
-            { text: ['In the card of Scenario B click the bar ', b('Quantities in the dish'), '.'], result: 'The bar opens and shows a field for every ingredient line of the dish. A line that is a prep cannot be changed here.' },
+            { text: ['In the card of Scenario B click the bar ', b('Quantities in the dish'), '.'], result: 'The bar opens and shows a field for every line in the dish, including a prep used by it. You can change that amount here; the prep’s internal lines stay unchanged.' },
             {
               text: ['Find ', b('Beef mince 80/20'), ' and type 160 in ', b('New net quantity (g)'), '. Leave ', b('Unit'), ' set to g.'],
               result: 'Fields you leave empty say “unchanged”. A small mark “1 changed” appears on the bar. The contribution becomes €7.49 (+€0.34).',
