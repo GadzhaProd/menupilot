@@ -1,15 +1,20 @@
 import type { RecipeDraft } from '@/ui/forms/recipeForm';
 
-export type DraftField = keyof RecipeDraft;
-export interface DraftConflict { field: DraftField; local: RecipeDraft[DraftField]; latest: RecipeDraft[DraftField] }
+export type DraftField = Exclude<keyof RecipeDraft, 'outputQty' | 'outputUnit'>;
+type Output = Pick<RecipeDraft, 'outputQty' | 'outputUnit'>;
+export type DraftConflict =
+  | { field: DraftField; local: RecipeDraft[DraftField]; latest: RecipeDraft[DraftField] }
+  | { field: 'output'; local: Output; latest: Output };
 export interface CachedRecipeDraft { draft: RecipeDraft; baseline: RecipeDraft; conflicts: DraftConflict[] }
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const output = ({ outputQty, outputUnit }: RecipeDraft): Output => ({ outputQty, outputUnit });
 
-/** Lines are one field; quantities and units stay together when either changes. */
+/** Lines and prep output are indivisible fields, including their conflict choices. */
 export function mergeDraft(base: RecipeDraft, local: RecipeDraft, latest: RecipeDraft, pending: DraftConflict[] = []) {
   const draft = { ...latest };
   const conflicts: DraftConflict[] = [];
-  for (const field of Object.keys(base) as DraftField[]) {
+  for (const field of Object.keys(base) as (keyof RecipeDraft)[]) {
+    if (field === 'outputQty' || field === 'outputUnit') continue;
     const ours = local[field], theirs = latest[field];
     if (equal(ours, base[field])) continue;
     Object.assign(draft, { [field]: ours });
@@ -17,14 +22,11 @@ export function mergeDraft(base: RecipeDraft, local: RecipeDraft, latest: Recipe
       conflicts.push({ field, local: ours, latest: theirs });
     }
   }
-  // The output quantity and its unit form one value, never mix different unit systems.
-  if (local.outputQty !== base.outputQty || local.outputUnit !== base.outputUnit) {
-    draft.outputQty = local.outputQty; draft.outputUnit = local.outputUnit;
-    if ((latest.outputQty !== base.outputQty || latest.outputUnit !== base.outputUnit)
-      && (latest.outputQty !== local.outputQty || latest.outputUnit !== local.outputUnit)) {
-      for (const field of ['outputQty', 'outputUnit'] as const) {
-        if (!conflicts.some(c => c.field === field)) conflicts.push({ field, local: local[field], latest: latest[field] });
-      }
+  const ours = output(local), theirs = output(latest), original = output(base);
+  if (!equal(ours, original)) {
+    Object.assign(draft, ours);
+    if (!equal(theirs, ours) && (!equal(theirs, original) || pending.some(c => c.field === 'output'))) {
+      conflicts.push({ field: 'output', local: ours, latest: theirs });
     }
   }
   return { draft, baseline: latest, conflicts };

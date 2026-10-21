@@ -198,3 +198,24 @@ it('continues editing after confirmed memory recovery from cleared storage', asy
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
   expect(savedDocument(storage).recipes.find(r => r.id === 'dish_classic_burger')?.name).toBe('Surviving draft');
 });
+
+it.each(['Keep my value', 'Use latest value'])('resolves prep quantity and unit together with one choice: %s', async choice => {
+  const storage = storageWith(demoCopy());
+  remote(storage).saveRecipe({ id: 'standalone', kind: 'prep', name: 'Standalone prep', outputMilli: 1_000_000, outputUnit: 'g', lines: [] });
+  renderApp(storage); await go('#/recipe/standalone');
+  await userEvent.clear(screen.getByLabelText(/One batch makes/));
+  await userEvent.type(screen.getByLabelText(/One batch makes/), '2');
+  const other = remote(storage), prep = other.getDocument().recipes.find(r => r.id === 'standalone')!;
+  if (prep.kind !== 'prep') throw new Error('Expected prep');
+  other.saveRecipe({ ...prep, outputMilli: 3_000_000, outputUnit: 'ml' }); signal();
+  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  await go('#/help/dishes'); await go('#/recipe/standalone');
+  expect(screen.getAllByRole('button', { name: choice })).toHaveLength(1);
+  expect(screen.getByText('2 kg', { selector: 'pre' })).toBeTruthy();
+  expect(screen.getByText('3 l', { selector: 'pre' })).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: choice }));
+  expect(screen.getByRole('button', { name: 'Save changes' })).toHaveProperty('disabled', false);
+  await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(savedDocument(storage).recipes.find(r => r.id === 'standalone')).toMatchObject(choice === 'Keep my value'
+    ? { outputMilli: 2_000_000, outputUnit: 'g' } : { outputMilli: 3_000_000, outputUnit: 'ml' });
+});

@@ -25,7 +25,7 @@ import { useLocale } from '@/ui/i18n';
 import { Surface } from '@/components/ui/surface';
 import { InlineStatus } from '@/components/ui/inline-status';
 import { useRecipeDrafts } from './RecipeDraftProvider';
-import { mergeDraft, type DraftConflict, type DraftField } from './mergeDraft';
+import { mergeDraft, type DraftConflict } from './mergeDraft';
 import { isSafetyError } from '@/ui/data/safetyErrors';
 
 /** Stands in for the id of a recipe that is not saved yet, so its cost can still be calculated. */
@@ -197,18 +197,18 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     setSaved(false);
   }
 
-  const fieldLabels: Record<DraftField, string> = {
+  const fieldLabels: Record<DraftConflict['field'], string> = {
     kind: t('recipe.dish'), name: t('recipe.name'), menuPrice: t('recipe.menuPriceInput'),
     vatRateBp: t('recipe.vatRate'), portions: t('recipe.portions'), monthlyVolume: t('recipe.monthlyVolume'),
-    outputQty: t('recipe.oneBatch'), outputUnit: t('recipe.batchUnit'), lines: t('recipe.ingredientsAndPreps'),
+    output: t('recipe.oneBatch'), lines: t('recipe.ingredientsAndPreps'),
   };
-  const showValue = (value: DraftConflict['local']) => typeof value === 'string' ? value : value.map(line => {
+  const showValue = (value: DraftConflict['local']) => typeof value === 'string' ? value : 'outputQty' in value ? `${value.outputQty} ${localizedUnit(value.outputUnit, locale)}` : value.map(line => {
     const refId = line.ref.slice(line.ref.indexOf(':') + 1);
     const item = [...document.ingredients, ...document.recipes].find(item => item.id === refId);
     return `${item?.name ?? t('recipe.error.ref')} · ${line.qty} ${localizedUnit(line.unit, locale)} · ${line.yieldPct}%`;
   }).join('\n');
   function resolve(conflict: DraftConflict, latest: boolean) {
-    if (latest) setDraft(current => ({ ...current, [conflict.field]: conflict.latest }));
+    if (latest) setDraft(current => conflict.field === 'output' ? { ...current, ...conflict.latest } : { ...current, [conflict.field]: conflict.latest });
     setConflicts(current => current.filter(item => item.field !== conflict.field));
   }
   const heading = recipe?.name ?? t(kind === 'dish' ? 'recipe.newDish' : 'recipe.newPrep');
@@ -336,7 +336,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
           <p>{t('merge.description')}</p>
           {conflicts.map(conflict => <div key={conflict.field} className="space-y-2 border-t border-line pt-3">
             <h3 className="font-semibold">{fieldLabels[conflict.field]}</h3>
-            <p>{t('merge.mine')}</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-sm">{showValue(draft[conflict.field])}</pre>
+            <p>{t('merge.mine')}</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-sm">{showValue(conflict.field === 'output' ? { outputQty: draft.outputQty, outputUnit: draft.outputUnit } : draft[conflict.field])}</pre>
             <p>{t('merge.latest')}</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-sm">{showValue(conflict.latest)}</pre>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={() => resolve(conflict, false)}>{t('merge.keep')}</Button>
