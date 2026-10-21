@@ -86,7 +86,7 @@ This raises the project tooling minimum above Vite's minimum. No new dependencie
 ```sh
 npm ci
 npm start
-# Open http://127.0.0.1:4710/menupilot/ — stop with Ctrl+C
+# Open the complete private address printed above (#k=…) — stop with Ctrl+C
 ```
 
 The first local launch starts empty. Add an ingredient, or choose Data → Reset to
@@ -105,7 +105,7 @@ older than 5 seconds, or an orphaned `lock.guard` older than 30 seconds. A separ
 never displaced merely because it stops answering HTTP. The console always gives
 **Data folder**, **Lock file**, and one next step:
 
-- **Already running** (verified matching instance): open the printed address.
+- **Already running** (verified matching instance): run `npm run menupilot -- open-url`.
 - **Lock looks stale or MenuPilot is still starting**: stop the existing MenuPilot
   process, then run `npm start` again.
 - **Incomplete lock**: wait 5 seconds, then run `npm start` again.
@@ -122,10 +122,52 @@ After restarting the server, an open page preserves drafts and asks you to copy
 unsaved input before reloading. An interrupted write may have committed: reload
 the latest data before submitting a new command. There is no offline write queue.
 
-D1 is a preview: loopback-only binding, Host checks and separate UI/CLI tokens are
-implemented. Origin/CSP hardening (D2), automatic backups (D3), CLI (D4), approved
-proposals (D5), and installation/doctor (D6) remain. It does not isolate data from
-browser extensions with page access or other processes running as your user.
+Local security (D2): `npm start` prints a private, one-use address ending in
+`/menupilot/#k=…`. Open that complete address. The login script removes the fragment
+from the current browser-history entry before exchanging it for an HttpOnly,
+SameSite=Strict session cookie (Path `/menupilot/`). Without that cookie the page
+only explains how to sign in, in English and Dutch. The UI token is fetched from
+a separate same-origin JSON endpoint authorized by that cookie; it is never in HTML.
+
+For another browser, an expired link, or after a server restart, run:
+
+```sh
+npm run menupilot -- open-url
+```
+
+Use the same `MENUPILOT_DATA_DIR` as the server if you set one. This command prints
+the current one-use address; each successful exchange rotates it. Existing browser
+sessions stay valid until the server stops. The `launch-secret` and CLI `token`
+files are replaced with mode 0600. Do not share or capture the printed address:
+terminal scrollback is deliberately the delivery channel. A browser crash before
+JavaScript runs can retain the original address; consumed secrets cannot be reused.
+
+The server binds only to 127.0.0.1. Exact Host checks prevent DNS rebinding; all API
+reads require a token. Foreign and `null` Origins are rejected; POST requires the
+server's exact Origin, except CLI-token requests without Origin. CLI still cannot
+perform raw writes. CSP permits only same-origin scripts, forbids frames, forms
+and external connections; inline styles remain allowed for UI layout. Responses
+use nosniff and no-referrer; HTML, config and API use no-store. Only listed routes,
+methods and build files are served. JSON bodies are limited to 15,100,000 UTF-8
+bytes (5 million UTF-16 units can need 15 million bytes, plus command metadata).
+Header/body deadlines are 10/15 seconds, keep-alive 5 seconds, at most 32 concurrent
+connections and 100 requests per connection. Login bodies are limited to 1024 bytes.
+
+Diagnostics in `logs/server.log` contain only timestamps, fixed event names,
+levels and numeric HTTP status codes: no URLs, tokens, cookies, secrets, error
+payloads or documents. Rotation keeps three files total, at most 1 MiB each.
+`MENUPILOT_LOG_LEVEL=off|error|warn|info` controls logging (default `info`). The SQLite
+journal is separate: deleting an unused ingredient records its ID and price-entry
+count and saves the pre-change document in bounded version history.
+
+This protects against hostile websites, unauthenticated loopback clients and
+other OS users who cannot read the private files. It does **not** isolate data from
+a process running as your user (it can read 0600 files and the database), root,
+page-capable browser extensions or a compromised browser. Cookies do not isolate
+loopback ports: do not open untrusted local services in the same browser profile;
+a malicious local service can receive a cookie if you visit its matching path.
+HttpOnly does not provide human approval against an agent with your OS access.
+Automatic backups (D3), the broader CLI (D4), proposals (D5), and doctor (D6) remain.
 
 ## Testing
 

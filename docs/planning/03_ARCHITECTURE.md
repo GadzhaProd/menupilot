@@ -545,13 +545,39 @@ conflict. Для строгого повтора HTTP сохраняет вес�
 **HTTP и UI.** Разрешены GET document/version/history, POST history/read/write
 под `/api/`. Все требуют токен, Host — точный `127.0.0.1:port`. CLI-токен читает,
 но raw write требует UI-токен (будущая запись CLI только через D5). Ответы API и
-HTML — no-store. Конфиг с маркером режима вставляется до JS в JSON script;
-экранируются `<`, `>`, `&`, U+2028/U+2029. Статика — только allowlist файлов dist
-с разрешёнными расширениями, без symlink, произвольных путей и source maps.
-Запросы с телом — application/json; максимум 15 100 000 UTF-8 байтов согласован
-с 5 млн UTF-16 code units общей сериализации (до 3 байтов на code unit плюс
-оболочка). UI дополнительно оставляет прежний предел файла импорта 5 млн байтов.
-Origin/CSP/frame-ancestors и полная проверка безопасности — D2.
+HTML — no-store. D2 закрывает HTML приложения и `/menupilot/local-config.json`
+за HttpOnly SameSite=Strict cookie (Path=/menupilot/). Страница без cookie содержит
+инструкцию EN/NL. `npm start` и `npm run menupilot -- open-url` печатают приватный
+адрес `#k=…`: внешний login.js удаляет фрагмент через replaceState до обмена JSON
+POST `/menupilot/session` и затем делает location.replace без секрета. Успешный
+обмен атомарно заменяет launch-secret (0600); повтор старого секрета отклоняется.
+При рестарте cookie и UI/CLI токены меняются. CLI token остаётся файлом 0600.
+Конфиг UI загружается асинхронно по cookie; ошибка блокирует запуск, без fallback.
+
+Host строго 127.0.0.1:port; чужой и null Origin отклоняются для всех запросов.
+POST требует точный Origin сервера; исключение — CLI token без Origin (raw write
+всё равно запрещён). GET API требует token, но может не иметь Origin.
+Статика — allowlist dist без symlink и source maps; методы и маршруты перечислены.
+CSP: скрипты только self, default-src none, frame-ancestors none, base-uri/form-action
+none, connect-src self; inline styles допустимы для Radix. Также X-Frame-Options
+DENY, nosniff, no-referrer; HTML/API/config no-store. Нет inline scripts.
+JSON body ≤15 100 000 UTF-8 байтов: до 3 байтов на каждый из 5 млн UTF-16 units
+общей сериализации плюс metadata. Login body ≤1024 байт. Срок заголовков 10 с,
+тела 15 с, keep-alive 5 с, максимум 32 соединения и 100 запросов на соединение.
+
+Диагностика logs/server.log — только фиксированные события, время, уровень и
+числовой HTTP status; никаких URL, ошибок с пользовательским текстом, секретов,
+cookie или документа. Ротация: три файла всего по 1 MiB; MENUPILOT_LOG_LEVEL
+(off/error/warn/info, default info). SQLite journal отдельно фиксирует удалённые
+ID ингредиентов и число цен; полный предшествующий документ сохраняется в history
+в той же транзакции, с существующими пределами хранения.
+
+Граница: доступ без секрета закрыт и для других OS users; процессы того же
+пользователя могут читать 0600 и БД, root/расширения/скомпрометированный браузер
+не изолированы. Cookie не разделяют порты loopback: посещение вредоносного local
+service в том же профиле может раскрыть cookie. Терминал — намеренный канал
+доставки секрета; crash браузера до replaceState может оставить адрес в истории,
+но использованный секрет недействителен. Это не доказательство согласия человека.
 
 `HttpStorageAdapter` реализует тот же контракт, `beforeReplace` вызывается до
 продвижения CAS, история-предпросмотр не двигает CAS. Не более трёх сетевых попыток

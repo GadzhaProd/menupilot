@@ -1,5 +1,5 @@
 import { createHttpStorageAdapter } from '@/store/httpAdapter.js';
-import { readLocalConfig, LocalModeContext, type ConnectionState } from './localMode';
+import { readLocalConfig, loadLocalConfig, LocalModeContext, type LocalConfig, type ConnectionState } from './localMode';
 import { browserLocks } from './browserStorage';
 import type { HistoryEntry, BackupStatus } from '@/ui/domain/store';
 import type { StorageAdapter } from '@/ui/domain/storageAdapter';
@@ -114,13 +114,22 @@ async function openStore({ storage, demo, now, createId, adapter }: Omit<DataPro
 
 export function DataProvider(props: DataProviderProps) {
   const [connection, setConnection] = useState<ConnectionState>(null);
-  const [runtime] = useState(() => {
-    try { return { config: readLocalConfig(), error: null }; }
-    catch (error) { return { config: null, error: describe(error) }; }
+  const [runtime, setRuntime] = useState<{ config: LocalConfig | null; error: string | null; loading: boolean }>(() => {
+    if (document.querySelector('meta[name="menupilot-mode"]') && !document.getElementById('menupilot-local-config')) return { config: null, error: null, loading: true };
+    try { return { config: readLocalConfig(), error: null, loading: false }; }
+    catch (error) { return { config: null, error: describe(error), loading: false }; }
   });
+  useEffect(() => {
+    if (!runtime.loading) return;
+    let active = true;
+    void loadLocalConfig().then(config => { if (active) setRuntime({ config, error: null, loading: false }); },
+      error => { if (active) setRuntime({ config: null, error: describe(error), loading: false }); });
+    return () => { active = false; };
+  }, [runtime.loading]);
   const adapter = useMemo(() => runtime.config
     ? createHttpStorageAdapter({ token: runtime.config.token, onConnectionChange: setConnection })
     : props.adapter, [runtime.config, props.adapter]);
+  if (runtime.loading) return <p role="status">Loading MenuPilot… / MenuPilot laden…</p>;
   if (runtime.error) return <main role="alert" className="mx-auto max-w-3xl space-y-4 p-6">
     <h1 className="text-2xl font-semibold">MenuPilot</h1><p>{runtime.error}</p>
     <p lang="nl">Ongeldige configuratie van de lokale server. Start MenuPilot opnieuw en vernieuw deze pagina.</p>

@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { openSync, writeFileSync, closeSync, fsyncSync, renameSync } from 'node:fs';
+import { privateFile } from './session.js';
 import { canonicalDataDir, acquireLock } from './lock.js';
 import { createSqliteStorage } from './sqlite.js';
 import { serveLocal } from './http.js';
@@ -33,12 +33,9 @@ export async function start() {
     if (stopping) { await close(); return; }
     storage = createSqliteStorage(join(dir, 'menupilot.db'));
     const cliToken = randomBytes(32).toString('hex');
-    // Replace rather than truncate: a previously permissive token file cannot keep its mode.
-    const temporary = join(dir, `token.${lock.owner.instanceId}`), fd = openSync(temporary, 'wx', 0o600);
-    try { writeFileSync(fd, cliToken); fsyncSync(fd); } finally { closeSync(fd); }
-    renameSync(temporary, join(dir, 'token'));
+    privateFile(dir, 'token', cliToken);
     http = await serveLocal({ storage, dataDir: dir, distDir: join(root, 'dist'), port, cliToken, instanceId: lock.owner.instanceId });
     if (stopping) { await close(); return; }
-    console.log(`MenuPilot: ${http.address}/menupilot/\nData: ${dir}\nStop: Ctrl+C`);
+    console.log(`MenuPilot: ${http.openUrl}\nData: ${dir}\nStop: Ctrl+C`);
   } catch (error) { await close(); if (!stopping) throw error; }
 }

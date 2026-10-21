@@ -14,6 +14,13 @@ try {
     ['append-only transition', 'server/sqlite.js', "if (input.kind === 'save') assertValidTransition(current.document, document);", '', 'test/server/sqlite.test.js'],
     ['receipt deduplication', 'server/sqlite.js', "db.prepare('SELECT hash, receipt FROM ops WHERE id=?').get(input.opId)", 'undefined', 'test/server/sqlite.test.js'],
     ['lock ownership', 'server/lock.js', 'current?.instanceId !== owner.instanceId || current.pid !== owner.pid', 'false', 'test/server/lock.test.js'],
+    ['cookie gate', 'server/http.js', 'session.hasCookie(req, cookieName)', 'true', 'test/server/security.test.js'],
+    ['page cookie gate', 'server/http.js', 'const html = session.hasCookie(req, cookieName)', 'const html = true', 'test/server/security.test.js'],
+    ['Origin check', 'server/http.js', 'req.headers.origin !== undefined && req.headers.origin !== address', 'false', 'test/server/security.test.js'],
+    ['missing Origin check', 'server/http.js', "req.method !== 'GET' && req.headers.origin !== address && source !== 'cli'", 'false', 'test/server/security.test.js'],
+    ['one-time launch secret', 'server/session.js', 'rotate(); // Invalidate', '// rotate(); // Invalidate', 'test/server/security.test.js'],
+    ['frame protection', 'server/http.js', "frame-ancestors 'none'", "frame-ancestors 'self'", 'test/server/security.test.js'],
+    ['streaming body budget', 'server/http.js', 'size > maxBytes', 'false', 'test/server/http.test.js'],
     ['Host check', 'server/http.js', 'req.headers.host !== host', 'false', 'test/server/http.test.js'],
     ['token check', 'server/http.js', 'if (!source)', 'if (false)', 'test/server/http.test.js'],
   ];

@@ -19,6 +19,18 @@ export function readLocalConfig(): LocalConfig | null {
     return config as LocalConfig;
   } catch { throw new Error('Invalid local server configuration. Restart MenuPilot and reload this page.'); }
 }
+/** Cookie-authorized config is fetched only for server-marked HTML. */
+export async function loadLocalConfig(): Promise<LocalConfig | null> {
+  if (!document.querySelector('meta[name="menupilot-mode"]') || document.getElementById('menupilot-local-config')) return readLocalConfig();
+  try {
+    const response = await fetch('/menupilot/local-config.json', { credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error();
+    const config = await response.json() as Partial<LocalConfig>;
+    if (config.mode !== 'local' || config.apiVersion !== 1 || typeof config.token !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(config.token) || typeof config.dataDir !== 'string' || !config.dataDir.startsWith('/')) throw new Error();
+    return config as LocalConfig;
+  } catch { throw new Error('Invalid local server configuration. Open the address from npm run menupilot -- open-url.'); }
+}
 export type ConnectionState = 'offline' | 'session-expired' | null;
 export const LocalModeContext = createContext<{ dataDir: string; connection: ConnectionState } | null>(null);
 export const useLocalMode = () => useContext(LocalModeContext);
