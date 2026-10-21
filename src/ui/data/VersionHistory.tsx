@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { CommandButton } from '@/ui/data/CommandButton';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Surface } from '@/components/ui/surface';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { validateDocument } from '@/store/schema.js';
+import { parseBackup } from '@/store/serialization.js';
+import type { CommandResult } from './DataProvider';
 import type { MenuDocument } from '@/ui/domain/types';
 import { useCommands, useDataState, useDataSafety, useVersionHistory } from './DataProvider';
 import { useLocale } from '@/ui/i18n';
@@ -13,7 +15,7 @@ import type { HistoryEntry } from '@/ui/domain/store';
 import { isSafetyError } from './safetyErrors';
 
 function parse(raw: string): MenuDocument | null {
-  try { const doc: unknown = JSON.parse(raw); return validateDocument(doc).valid ? doc as MenuDocument : null; }
+  try { return parseBackup(raw).document; }
   catch { return null; }
 }
 function changes(a: readonly { readonly id: string }[], b: readonly { readonly id: string }[]) {
@@ -28,21 +30,26 @@ export function VersionHistory() {
   const { document } = useDataState();
   const { recoveryRaw } = useDataSafety();
   const { listHistory } = useVersionHistory();
-  const { execute } = useCommands();
+  const { execute, commandStatus } = useCommands();
   const recipes = useRecipeDrafts(), sessions = useSimulatorSessions();
   const dialog = useDialogState<{ entry: HistoryEntry; document: MenuDocument }>();
   const [error, setError] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
-  const result = useMemo(() => listHistory(), [listHistory, document, recoveryRaw]);
+  const [result, setResult] = useState<CommandResult<readonly HistoryEntry[]>>({ ok: true, value: [] });
+  useEffect(() => {
+    let active = true;
+    void listHistory().then(value => { if (active) setResult(value); });
+    return () => { active = false; };
+  }, [listHistory, document, recoveryRaw]);
   const entries = useMemo(() => result.ok ? result.value.map(entry => ({ entry, document: parse(entry.raw) })) : [], [result]);
   const stamp = (date: string) => new Date(date).toLocaleString(locale === 'nl' ? 'nl-NL' : 'en-GB');
   const counts = (doc: MenuDocument) => t('history.counts', {
     dishes: doc.recipes.filter(r => r.kind === 'dish').length, preps: doc.recipes.filter(r => r.kind === 'prep').length,
     ingredients: doc.ingredients.length, scenarios: doc.scenarios.length,
   });
-  function restore() {
+  async function restore() {
     if (!dialog.state) return;
-    const result = execute(store => store.restoreHistory(dialog.state!.entry.id), { report: false });
+    const result = (await execute(store => store.restoreHistory(dialog.state!.entry.id), { report: false }));
     if (!result.ok) { setError(isSafetyError(result.code) ? null : t(result.details.some(detail => detail.includes('must not be in the future')) ? 'history.futurePrices' : 'history.failed')); return; }
     recipes.clearAll(); sessions.clear(); dialog.close(); setRestored(true);
   }
@@ -60,7 +67,7 @@ export function VersionHistory() {
         <Button type="button" variant="outline" disabled={!snapshot} onClick={event => { if (snapshot) { setError(null); dialog.open({ entry, document: snapshot }, event); } }}>{t('history.preview')}</Button>
       </li>)}
     </ul>
-    {dialog.state && <Dialog open onOpenChange={open => { if (!open) dialog.close(); }}>
+    {dialog.state && <Dialog open onOpenChange={open => { if (!open && commandStatus !== 'saving') dialog.close(); }}>
       <DialogContent role="alertdialog" onCloseAutoFocus={dialog.onCloseAutoFocus}>
         <DialogHeader><DialogTitle>{t('history.confirmTitle')}</DialogTitle><DialogDescription>{t('history.confirmDescription')}</DialogDescription></DialogHeader>
         <p>{t('history.selected')}: {counts(dialog.state.document)}</p>
@@ -69,7 +76,7 @@ export function VersionHistory() {
           <p>{t('history.diff', { ingredients: changes(document.ingredients, dialog.state.document.ingredients), recipes: changes(document.recipes, dialog.state.document.recipes), scenarios: changes(document.scenarios, dialog.state.document.scenarios), settings: Number(JSON.stringify(document.settings) !== JSON.stringify(dialog.state.document.settings)) })}</p>
         </> : <p>{t('history.noCurrent')}</p>}
         {error && <p role="alert">{error}</p>}
-        <DialogFooter><DialogClose asChild><Button type="button" variant="outline">{t('data.cancel')}</Button></DialogClose><Button type="button" onClick={restore}>{t('history.restore')}</Button></DialogFooter>
+        <DialogFooter><DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('data.cancel')}</Button></DialogClose><CommandButton type="button" onClick={restore}>{t('history.restore')}</CommandButton></DialogFooter>
       </DialogContent>
     </Dialog>}
   </Surface>;

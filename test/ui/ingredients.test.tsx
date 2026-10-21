@@ -8,7 +8,7 @@ import {
 const user = () => userEvent.setup();
 
 async function openIngredients(storage = memoryStorage()) {
-  renderApp(storage);
+  (await renderApp(storage));
   await go('#/ingredients');
   await screen.findByRole('heading', { level: 1, name: 'Ingredients' });
   return storage;

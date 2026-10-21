@@ -27,6 +27,7 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 ## UI stack
 - UI stack: Vite + React 19 + strict TypeScript + Tailwind v4 + shadcn/ui. Core `src/calc/` and `src/store/` remains JS+JSDoc; screens in `src/ui/`, shadcn components in `src/components/ui/`, alias `@` → `src`.
 - Keep a thin TS adapter in `src/ui/domain/*.ts` for explicit readonly document, calc-result (including BigInt fields), and store-method types. `npm run typecheck` is `tsc --noEmit` and required in CI.
+- All store commands and DataProvider `execute` return Promises. Await them; show pending/success/failure, prevent duplicate submits, and keep drafts until success. Persistence belongs to StorageAdapter; screens and domain operations never access its transport. Storage/backup schema, document identity, and monotonically increasing write revision are separate; import/restore never rewind revision.
 - Store is the sole source of truth. Call store methods outside reducers; on success dispatch `documentReplaced`, on failure show the error and keep the displayed document unchanged. Reducers are pure. Form drafts are component-local; calc results are derived with `useMemo`, never stored or serialized. JSON/localStorage contain only document, baseline, and safe-integer overrides. Format money with existing formatters; never convert BigInt to Number.
 
 ## Data integrity

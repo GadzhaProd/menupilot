@@ -1,3 +1,5 @@
+import { useCommands } from '@/ui/data/DataProvider';
+import { CommandButton } from '@/ui/data/CommandButton';
 import { MoneyField, QuantityField } from '@/components/numeric-field';
 import { useLocale, useFormatters } from '@/ui/i18n';
 import { useRef, useState, type ReactNode } from 'react';
@@ -180,6 +182,7 @@ export function ScenarioCard({
   draft, index, run, delta, ownBaseline, sharedVolume, stale, dirty, problem, attempt,
   onRename, onFields, onSave, onDelete, onUpdateBaseline, onDismissNotes,
 }: ScenarioCardProps) {
+  const { commandStatus } = useCommands();
   const { t, plural } = useLocale(); const f = useFormatters();
   const euro = (v: number | bigint | null) => v === null ? '—' : f.money(v);
   const signedEuro = (v: bigint) => `${v > 0n ? '+' : ''}${f.money(v)}`;
@@ -197,7 +200,7 @@ export function ScenarioCard({
 
   return (
     <section ref={root} aria-label={t('simulator.scenario', { letter })} data-scenario={draft.key}>
-      <Card className="gap-4">
+      <fieldset disabled={commandStatus === 'saving'} className="contents"><Card className="gap-4">
         <CardHeader className="gap-3">
           <div className="flex items-start gap-3">
             <FormField label={t('simulator.name')} error={nameError ? t(nameError) : undefined} className="flex-1">
@@ -322,9 +325,9 @@ export function ScenarioCard({
         </CardContent>
 
         <CardFooter className="flex flex-wrap items-center gap-2">
-          <Button onClick={onSave} disabled={!dirty && draft.id !== null}>
+          <CommandButton onClick={onSave} disabled={!dirty && draft.id !== null}>
             <SaveIcon aria-hidden="true" /> {t(draft.id === null ? 'simulator.save' : 'simulator.saveChanges')}
-          </Button>
+          </CommandButton>
           <Button variant="ghost" onClick={onDelete}>
             <Trash2Icon aria-hidden="true" /> {t(draft.id === null ? 'simulator.remove' : 'simulator.delete')}
           </Button>
@@ -336,7 +339,7 @@ export function ScenarioCard({
             <p role="alert" className="basis-full rounded-md border border-destructive/40 bg-destructive/5 p-2 text-sm text-destructive">{problem}</p>
           ) : null}
         </CardFooter>
-      </Card>
+      </Card></fieldset>
     </section>
   );
 }

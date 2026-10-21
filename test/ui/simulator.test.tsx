@@ -25,7 +25,7 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); });
 
 async function open(hash: string, storage = memoryStorage()) {
-  const view = renderApp(storage);
+  const view = (await renderApp(storage));
   await go(hash);
   await screen.findByRole('heading', { level: 1 });
   return { storage, view };
@@ -403,7 +403,7 @@ describe('Saving scenarios', () => {
 
     // Close and open the app again on the same storage.
     view.unmount();
-    renderApp(storage);
+    (await renderApp(storage));
     await go(`#/simulator/${BURGER}`);
     await screen.findByRole('heading', { level: 1, name: 'Simulator: Classic Burger' });
     expect(scenario('A').getByLabelText('Scenario name')).toHaveProperty('value', 'Raise the price');
@@ -622,7 +622,7 @@ describe('Review fixes: sales estimate saved with the scenario', () => {
     expect(dish && 'monthlyVolume' in dish ? dish.monthlyVolume : null).toBe(300); // the real estimate is untouched
 
     view.unmount();
-    renderApp(storage);
+    (await renderApp(storage));
     await go(`#/simulator/${BURGER}`);
     await screen.findByRole('heading', { level: 1, name: 'Simulator: Classic Burger' });
     expect(cell(/Sales per month/, 0)).toBe('300');

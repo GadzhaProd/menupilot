@@ -1,3 +1,4 @@
+import { CommandButton } from '@/ui/data/CommandButton';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ export function DataSafetyNotice() {
   const { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged } = useDataSafety();
   const sessions = useSimulatorSessions();
   const recipes = useRecipeDrafts();
-  const { exportBackup, execute } = useCommands();
+  const { exportBackup, execute, commandStatus } = useCommands();
   const { historyWarning, backupStatus, backupError, remindLater, recordExport } = useVersionHistory();
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [memoryError, setMemoryError] = useState<string | null>(null);
@@ -31,15 +32,17 @@ export function DataSafetyNotice() {
     return () => { unregister(); unsubscribe(); };
   }, [registerDraftSource, draftsChanged, recipes]);
   useEffect(() => {
-    if (!safety) { setDialog(null); return; }
+    if (!safety && commandStatus !== 'saving') { setDialog(null); return; }
     const find = () => setDialog(document.querySelector('[role="dialog"], [role="alertdialog"]'));
     find();
     const observer = new MutationObserver(find);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, [safety]);
+  }, [safety, commandStatus]);
   const backupAlert = backupError && <p role="alert" className="rounded-md border border-amber-500/50 p-3">{backupError}</p>;
+  const commandNotice = commandStatus !== 'idle' && commandStatus !== 'conflict' && <p role="status" className="text-sm text-muted-foreground">{t(commandStatus === 'saving' ? 'commands.saving' : commandStatus === 'saved' ? 'commands.saved' : 'commands.error')}</p>;
   if (!safety) return <>
+    {dialog ? createPortal(commandNotice, dialog) : commandNotice}
     {backupAlert}
     {historyWarning && <p role="status" className="rounded-md border border-amber-500/50 p-3">{t('history.unavailable')}</p>}
     {backupStatus.due && <p role="status" className="rounded-md border border-line p-3 text-sm">{t('backup.reminder')} <a className="underline" href="#/data">{t('data.export')}</a> <Button type="button" variant="outline" onClick={remindLater}>{t('backup.later')}</Button></p>}
@@ -50,8 +53,8 @@ export function DataSafetyNotice() {
   const notice = <div role="status" className="space-y-2 rounded-md border border-amber-500/50 bg-card p-3 text-sm">
     <p>{text}</p>
     {backupAlert}
-    {safety === 'storage-cleared' && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => {
-      const backup = exportBackup();
+    {safety === 'storage-cleared' && <Button type="button" variant="outline" className="whitespace-normal" onClick={async () => {
+      const backup = (await exportBackup());
       if (!backup.ok) { setDownloadError(true); return; }
       try { downloadText(backup.value, 'menupilot-memory-backup.json'); recordExport(); setDownloadError(false); }
       catch { setDownloadError(true); }
@@ -64,17 +67,17 @@ export function DataSafetyNotice() {
     }}>{safety === 'write-busy' ? t('safety.activate') : t('safety.latest')}</Button>}
   </div>;
   return <>{dialog ? createPortal(notice, dialog) : notice}
-    <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
+    <Dialog open={memoryOpen} onOpenChange={open => { if (commandStatus !== 'saving') setMemoryOpen(open); }}>
       <DialogContent role="alertdialog">
         <DialogHeader><DialogTitle>{t('safety.saveMemory')}</DialogTitle><DialogDescription>{t('safety.memoryConfirm')}</DialogDescription></DialogHeader>
         {memoryError && <p role="alert">{memoryError}</p>}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
-          <Button type="button" onClick={() => {
-            const result = execute(store => store.saveMemoryAsNew(), { report: false });
+          <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
+          <CommandButton type="button" onClick={async () => {
+            const result = (await execute(store => store.saveMemoryAsNew(), { report: false }));
             if (result.ok) setMemoryOpen(false);
             else setMemoryError(result.error);
-          }}>{t('safety.memorySave')}</Button>
+          }}>{t('safety.memorySave')}</CommandButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

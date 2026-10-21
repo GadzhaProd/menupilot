@@ -17,7 +17,7 @@ describe('C+ dashboard', () => {
   });
   it('translates the question, comparison and figures without translating dish names', async () => {
     const user = userEvent.setup();
-    renderApp();
+    (await renderApp());
     await user.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
     expect(screen.getByRole('heading', { name: 'Wat is er veranderd aan je menu?' })).toBeTruthy();
     expect(screen.getByText('Grootste stijging per portie')).toBeTruthy();
@@ -28,7 +28,7 @@ describe('C+ dashboard', () => {
 });
 
 it('shows actual excluded reasons in Dutch, names missing volume and highlights the largest increase', async () => {
-  const user = userEvent.setup(); renderApp();
+  const user = userEvent.setup(); (await renderApp());
   await user.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
   const table = screen.getByRole('table', { name: 'Vergelijking van gerechtkosten' });
   expect(within(table).getByRole('link', { name: 'Classic Burger' }).closest('tr')?.className).toContain('bg-panel');

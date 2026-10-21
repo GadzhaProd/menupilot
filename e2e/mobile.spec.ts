@@ -66,3 +66,21 @@ test('primary mobile screens transition without error or horizontal scrolling', 
     await noOverflow(page);
   }
 });
+
+test('Dutch mobile saving state preserves the new ingredient draft at 375px', async ({ page }) => {
+  const { holdWriter } = await import('./fixtures');
+  await page.getByRole('button', { name: 'NL – Nederlands' }).click();
+  await page.goto('#/ingredients');
+  await page.getByRole('button', { name: 'Ingrediënt toevoegen', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Naam', { exact: true }).fill('Zout');
+  const release = await holdWriter(page);
+  await dialog.getByRole('button', { name: 'Ingrediënt toevoegen', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Opslaan…', exact: true })).toBeDisabled();
+  await expect(dialog.getByLabel('Naam', { exact: true })).toHaveValue('Zout');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.keyboard.press('Escape'); await expect(dialog).toBeVisible();
+  await release();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('status').filter({ hasText: /^Opgeslagen$/ })).toBeVisible();
+});

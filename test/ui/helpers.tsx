@@ -27,7 +27,7 @@ export function memoryStorage(initial: Record<string, string> = {}) {
   return storage satisfies StorageLike;
 }
 
-export function renderApp(
+export async function renderApp(
   storage: StorageLike | null = memoryStorage(),
   { strict = false, children }: { strict?: boolean; children?: ReactNode } = {},
 ) {
@@ -36,7 +36,9 @@ export function renderApp(
       {children ?? <App />}
     </DataProvider>
   );
-  return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
+  let result!: ReturnType<typeof render>;
+  await act(async () => { result = render(strict ? <StrictMode>{tree}</StrictMode> : tree); });
+  return result;
 }
 
 /** A copy of the demo document that is easy to edit in a test. */
@@ -73,5 +75,6 @@ export function storageWith(doc: Doc) {
 }
 
 export function savedDocument(storage: ReturnType<typeof memoryStorage>) {
-  return JSON.parse(storage.data.get(STORAGE_KEY) ?? 'null') as Doc;
+  const value = JSON.parse(storage.data.get(STORAGE_KEY) ?? 'null');
+  return (value?.version === 2 ? value.document : value) as Doc;
 }

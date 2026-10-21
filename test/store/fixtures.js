@@ -119,3 +119,8 @@ export function makeScenario(doc, recipeId, overrides = {}, id = 'sc1') {
     overrides,
   };
 }
+
+export function encoded(doc) {
+  return JSON.stringify({ version: 2, schemaVersion: 2, documentId: 'fixture', revision: 1, document: doc });
+}
+export function decoded(raw) { const value = JSON.parse(raw); return value?.version === 2 ? value.document : value; }

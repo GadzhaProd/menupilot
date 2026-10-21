@@ -1,3 +1,4 @@
+import { CommandButton } from '@/ui/data/CommandButton';
 import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { FormField } from '@/components/form-field';
@@ -52,7 +53,7 @@ function SaveError({ failure }: { failure: StoreFailure | null }) {
 export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) {
   const { t } = useLocale();
   const copy = useMemo(() => validationCopy(t), [t]);
-  const { execute } = useCommands();
+  const { execute, commandStatus } = useCommands();
   const [draft, setDraft] = useState<IngredientDraft>({ name: '', packSize: '', packSizeUnit: 'kg', packPrice: '' });
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<StoreFailure | null>(null);
@@ -62,23 +63,23 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
   const checked = useMemo(() => validateNewIngredient(draft, copy), [draft, copy]);
   const errors = attempt > 0 && !checked.ok ? checked.errors : {};
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     setAttempt((count) => count + 1);
     if (!checked.ok) return;
-    const result = execute((store) => store.addIngredient(checked.value), { report: false });
+    const result = (await execute((store) => store.addIngredient(checked.value), { report: false }));
     if (result.ok) onClose();
     else setSaveError(result);
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('ingredients.add')}</DialogTitle>
           <DialogDescription>{t('ingredients.addDescription')}</DialogDescription>
         </DialogHeader>
-        <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4">
+        <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4"><fieldset disabled={commandStatus === 'saving'} className="contents">
           <FormField label={t('ingredients.name')} error={errors.name}>
             {(control) => (
               <Input
@@ -93,10 +94,10 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
           <PriceFields draft={draft} onChange={(next) => setDraft({ ...draft, ...next })} errors={errors} base={null} />
           <SaveError failure={saveError} />
           <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
-            <Button type="submit">{t('ingredients.add')}</Button>
+            <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
+            <CommandButton type="submit">{t('ingredients.add')}</CommandButton>
           </DialogFooter>
-        </form>
+        </fieldset></form>
       </DialogContent>
     </Dialog>
   );
@@ -108,7 +109,7 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
   const { t, locale } = useLocale();
   const f = useFormatters();
   const copy = useMemo(() => validationCopy(t), [t]);
-  const { execute } = useCommands();
+  const { execute, commandStatus } = useCommands();
   const current = selectPriceAtDate(ingredient.prices);
   const [draft, setDraft] = useState<PriceDraft>(() => {
     // Prices change more often than pack sizes: start from the last pack size.
@@ -123,18 +124,18 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
   const checked = useMemo(() => validatePrice(draft, ingredient.unit, copy), [draft, ingredient.unit, copy]);
   const errors = attempt > 0 && !checked.ok ? checked.errors : {};
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     setAttempt((count) => count + 1);
     if (!checked.ok) return;
     const { packPriceCents, packSizeMilli } = checked.value;
-    const result = execute((store) => store.addPrice(ingredient.id, { packPriceCents, packSizeMilli }), { report: false });
+    const result = (await execute((store) => store.addPrice(ingredient.id, { packPriceCents, packSizeMilli }), { report: false }));
     if (result.ok) onClose();
     else setSaveError(result);
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('ingredients.newPriceFor', { name: ingredient.name })}</DialogTitle>
@@ -144,14 +145,14 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
               : t('ingredients.noPriceYet')}
           </DialogDescription>
         </DialogHeader>
-        <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4">
+        <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4"><fieldset disabled={commandStatus === 'saving'} className="contents">
           <PriceFields draft={draft} onChange={setDraft} errors={errors} base={ingredient.unit} />
           <SaveError failure={saveError} />
           <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
-            <Button type="submit">{t('ingredients.savePrice')}</Button>
+            <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
+            <CommandButton type="submit">{t('ingredients.savePrice')}</CommandButton>
           </DialogFooter>
-        </form>
+        </fieldset></form>
       </DialogContent>
     </Dialog>
   );
@@ -166,11 +167,12 @@ function defaultUnit(ingredient: Ingredient): EnteredUnit {
 /* ---- Price history ---- */
 
 export function HistoryDialog({ ingredient, onCloseAutoFocus, onClose }: DialogProps & { ingredient: Ingredient }) {
+  const { commandStatus } = useCommands();
   const { t, locale } = useLocale();
   const f = useFormatters();
   const newestFirst = [...ingredient.prices].reverse();
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} onCloseAutoFocus={onCloseAutoFocus} className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('ingredients.historyFor', { name: ingredient.name })}</DialogTitle>
@@ -204,7 +206,7 @@ export function HistoryDialog({ ingredient, onCloseAutoFocus, onClose }: DialogP
           </Table>
         )}
         <DialogFooter>
-          <DialogClose asChild><Button type="button">{t('common.close')}</Button></DialogClose>
+          <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button">{t('common.close')}</Button></DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -216,7 +218,7 @@ export function HistoryDialog({ ingredient, onCloseAutoFocus, onClose }: DialogP
 export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogProps & { ingredient: Ingredient }) {
   const { t } = useLocale();
   const copy = useMemo(() => validationCopy(t), [t]);
-  const { execute } = useCommands();
+  const { execute, commandStatus } = useCommands();
   const [name, setName] = useState(ingredient.name);
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<StoreFailure | null>(null);
@@ -226,32 +228,32 @@ export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogPr
   const checked = validateName(name, copy);
   const error = attempt > 0 && !checked.ok ? checked.error : undefined;
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     setAttempt((count) => count + 1);
     if (!checked.ok) return;
-    const result = execute((store) => store.updateIngredient(ingredient.id, { name: checked.value }), { report: false });
+    const result = (await execute((store) => store.updateIngredient(ingredient.id, { name: checked.value }), { report: false }));
     if (result.ok) onClose();
     else setSaveError(result);
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('ingredients.rename')}</DialogTitle>
           <DialogDescription>{t('ingredients.renameDescription')}</DialogDescription>
         </DialogHeader>
-        <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4">
+        <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4"><fieldset disabled={commandStatus === 'saving'} className="contents">
           <FormField label={t('ingredients.name')} error={error}>
             {(control) => <Input {...control} autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} />}
           </FormField>
           <SaveError failure={saveError} />
           <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
-            <Button type="submit">{t('ingredients.rename')}</Button>
+            <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
+            <CommandButton type="submit">{t('ingredients.rename')}</CommandButton>
           </DialogFooter>
-        </form>
+        </fieldset></form>
       </DialogContent>
     </Dialog>
   );
@@ -261,19 +263,19 @@ export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogPr
 
 export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }: DialogProps & { ingredient: Ingredient }) {
   const { t } = useLocale();
-  const { execute } = useCommands();
+  const { execute, commandStatus } = useCommands();
   const document = useDocument();
   const [saveError, setSaveError] = useState<StoreFailure | null>(null);
   const users = saveError === null ? [] : recipesUsing(document, 'ingredient', ingredient.id);
 
-  function confirm() {
-    const result = execute((store) => store.deleteIngredient(ingredient.id), { report: false });
+  async function confirm() {
+    const result = (await execute((store) => store.deleteIngredient(ingredient.id), { report: false }));
     if (result.ok) onClose();
     else setSaveError(result);
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('ingredients.deleteTitle', { name: ingredient.name })}</DialogTitle>
@@ -293,8 +295,8 @@ export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }
           </div>
         ) : null}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
-          <Button type="button" variant="destructive" onClick={confirm}>{t('ingredients.deleteConfirm')}</Button>
+          <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
+          <CommandButton type="button" variant="destructive" onClick={confirm}>{t('ingredients.deleteConfirm')}</CommandButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

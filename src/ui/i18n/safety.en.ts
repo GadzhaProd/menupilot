@@ -1,4 +1,8 @@
 export const safetyEn = {
+  "commands.loading": "Loading data…",
+  "commands.saving": "Saving…",
+  "commands.saved": "Saved",
+  "commands.error": "Not saved. Your draft is kept.",
   "backup.later": "Remind me later",
   "backup.recordFailed": "The download was requested, but we could not record the Export date. The backup reminder has not been reset. Check browser storage and try Export again.",
   "backup.deferFailed": "We could not postpone the reminder. Check browser storage and try again.",

@@ -197,7 +197,7 @@ test('backup export, demo reset, valid import and invalid files preserve data sa
   const backupPath = testInfo.outputPath(download.suggestedFilename());
   await download.saveAs(backupPath);
   const backup = await readFile(backupPath);
-  expect(JSON.parse(backup.toString()).recipes.some((recipe: { name: string }) => recipe.name === 'Backup burger')).toBe(true);
+  expect(JSON.parse(backup.toString()).document.recipes.some((recipe: { name: string }) => recipe.name === 'Backup burger')).toBe(true);
 
   await page.getByRole('button', { name: 'Reset to demo data', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Reset to demo data', exact: true }).click();
@@ -209,7 +209,7 @@ test('backup export, demo reset, valid import and invalid files preserve data sa
   await screen(page, 'Data');
   await page.getByLabel('Backup file', { exact: true }).setInputFiles({ name: download.suggestedFilename(), mimeType: 'application/json', buffer: backup });
   await page.getByRole('alertdialog').getByRole('button', { name: 'Replace with backup', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('was imported');
+  await expect(page.getByRole('status').filter({ hasText: 'was imported' })).toBeVisible();
   await page.getByRole('link', { name: 'Recipes', exact: true }).click();
   await screen(page, 'Recipes');
   await expect(page.getByRole('link', { name: 'Backup burger', exact: true })).toBeVisible();
@@ -325,7 +325,7 @@ test('two tabs preserve a price history through a stale rename conflict and retr
   await rename.getByRole('button', { name: 'Rename', exact: true }).click();
   await expect(rename).toHaveCount(0);
 
-  const saved = await second.evaluate(() => JSON.parse(localStorage.getItem('menupilot:v1')!));
+  const saved = await second.evaluate(() => JSON.parse(localStorage.getItem('menupilot:v1')!).document);
   const mince = saved.ingredients.find((ingredient: { name: string }) => ingredient.name === 'House mince');
   expect(mince).toBeTruthy();
   expect(mince.prices.map((entry: { packPriceCents: number }) => entry.packPriceCents)).toEqual([1400, 1700, 1800]);
@@ -367,7 +367,7 @@ test('a recipe draft survives Help and another tab update without overwriting it
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Saved after conflict');
   await page.getByRole('button', { name: 'Save dish', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Saved after conflict', exact: true })).toBeVisible();
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('menupilot:v1')!));
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('menupilot:v1')!).document);
   expect(saved.ingredients.find((ingredient: { name: string }) => ingredient.name === 'Beef mince 80/20').prices.at(-1).packPriceCents).toBe(1800);
   expect(saved.recipes.some((recipe: { name: string }) => recipe.name === 'Saved after conflict')).toBe(true);
 });
@@ -414,7 +414,7 @@ async function exerciseRecovery(page: import('@playwright/test').Page, testInfo:
   await backupDownload.saveAs(backupPath);
   const original = await readFile(backupPath, 'utf8');
   const backupDocument = JSON.parse(original);
-  backupDocument.recipes.find((recipe: { name: string }) => recipe.name === 'Classic Burger').name = 'Restored Burger';
+  backupDocument.document.recipes.find((recipe: { name: string }) => recipe.name === 'Classic Burger').name = 'Restored Burger';
   const validBackup = Buffer.from(JSON.stringify(backupDocument, null, 2));
   const damaged = '{"version":1,\n\u0000 damaged bytes';
   await page.evaluate((raw) => localStorage.setItem('menupilot:v1', raw), damaged);
@@ -481,4 +481,28 @@ test('version history restores previous data as a new revision and archives the 
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('First saved burger');
   const versions = await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('menupilot:history:')).map(k => JSON.parse(localStorage.getItem(k)!).raw));
   expect(versions.some(raw => raw.includes('Second saved burger'))).toBe(true);
+});
+
+test('queued price save keeps the dialog and commits once after the writer is released', async ({ page }) => {
+  const { holdWriter } = await import('./fixtures');
+  await page.goto('#/ingredients');
+  await page.getByRole('button', { name: 'New price for Beef mince 80/20', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel(/Pack price/).fill('18.75');
+  const release = await holdWriter(page);
+  await dialog.getByRole('button', { name: 'Save price', exact: true }).click();
+  const saving = dialog.getByRole('button', { name: 'Saving…', exact: true });
+  await expect(saving).toBeDisabled();
+  await expect(dialog.getByLabel(/Pack price/)).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  await saving.dispatchEvent('click');
+  expect(await page.evaluate(() => localStorage.getItem('menupilot:v1'))).toBeNull();
+  await release();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible();
+  const envelope = await page.evaluate(() => JSON.parse(localStorage.getItem('menupilot:v1')!));
+  expect(envelope.revision).toBe(1);
+  expect(envelope.document.ingredients[0].prices).toHaveLength(3);
+  expect(envelope.document.ingredients[0].prices.at(-1).packPriceCents).toBe(1875);
 });

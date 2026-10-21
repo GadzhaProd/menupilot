@@ -69,7 +69,7 @@ describe('language of the guide', () => {
   });
 
   it('the page starts in English on an English screen, and in Dutch on a Dutch screen', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help');
     expect((await h1()).textContent).toBe(HELP_CONTENT.en.title);
     expect(document.querySelector('article')?.getAttribute('lang')).toBe('en');
@@ -83,7 +83,7 @@ describe('language of the guide', () => {
   });
 
   it('shows no note about missing translations in any language', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help');
     await h1();
     expect(screen.queryByRole('note')).toBeNull();
@@ -94,7 +94,7 @@ describe('language of the guide', () => {
   });
 
   it('offers English, Dutch and Russian, and the chosen one is pressed', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help');
     await h1();
     const group = guideLanguages();
@@ -105,7 +105,7 @@ describe('language of the guide', () => {
 
   it('switching the language changes the page and is remembered, without touching the data or the screen', async () => {
     const storage = memoryStorage();
-    renderApp(storage);
+    (await renderApp(storage));
     await go('#/help');
     expect((await h1()).textContent).toBe(HELP_CONTENT.en.title);
 
@@ -125,7 +125,7 @@ describe('language of the guide', () => {
 
   it('remembers the choice for the next visit, and the choice wins over the screen language', async () => {
     window.localStorage.setItem(HELP_LANGUAGE_KEY, 'ru');
-    renderApp();
+    (await renderApp());
     await go('#/help');
     expect((await h1()).textContent).toBe(HELP_CONTENT.ru.title);
     await switchScreenTo('NL – Nederlands');
@@ -133,7 +133,7 @@ describe('language of the guide', () => {
   });
 
   it('pictures come from the set of the screen: English for English and Russian, Dutch for Dutch', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/ingredients');
     await screen.findByRole('heading', { level: 2, name: /Ingredients and their prices/ });
     for (const picture of screen.getAllByRole('img')) expect(picture.getAttribute('src')).toMatch(/^\/help\/en\/.+\.jpg$/);
@@ -151,7 +151,7 @@ describe('language of the guide', () => {
 
 describe('the guide page', () => {
   it('shows a contents list with one link per section, and every section with a heading', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help');
     const contents = await screen.findByRole('navigation', { name: 'Contents' });
     const links = within(contents).getAllByRole('link');
@@ -163,14 +163,14 @@ describe('the guide page', () => {
   });
 
   it('the main menu has a Help item that opens it', async () => {
-    renderApp();
+    (await renderApp());
     await userEvent.click(screen.getByRole('link', { name: 'Help' }));
     expect(await h1()).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Help' }).getAttribute('aria-current')).toBe('page');
   });
 
   it('a section address scrolls to that section and focuses its heading', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/dishes');
     const heading = await screen.findByRole('heading', { level: 2, name: /Dishes: recipe, price and cost/ });
     await waitFor(() => expect(document.activeElement).toBe(heading));
@@ -178,7 +178,7 @@ describe('the guide page', () => {
   });
 
   it('every section id works as an address', async () => {
-    renderApp();
+    (await renderApp());
     for (const [index, id] of HELP_SECTION_IDS.entries()) {
       await go(`#/help/${id}`);
       const heading = await screen.findByRole('heading', { level: 2, name: new RegExp(`^${index + 1}\\. `) });
@@ -187,7 +187,7 @@ describe('the guide page', () => {
   }, 30_000);
 
   it('an unknown section shows the start of the guide instead of failing', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/no-such-section');
     const title = await h1();
     expect(title.textContent).toBe(HELP_CONTENT.en.title);
@@ -196,7 +196,7 @@ describe('the guide page', () => {
   });
 
   it('clicking the contents link of the section already in the address scrolls there again', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/glossary');
     await screen.findByRole('heading', { level: 2, name: /Words explained simply/ });
     scrolled.length = 0;
@@ -207,7 +207,7 @@ describe('the guide page', () => {
   });
 
   it('clicking a contents link moves to that section', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help');
     const contents = await screen.findByRole('navigation', { name: 'Contents' });
     await userEvent.click(within(contents).getByRole('link', { name: /Your data and backups/ }));
@@ -217,7 +217,7 @@ describe('the guide page', () => {
   });
 
   it('links inside the text go to other sections', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/about');
     const section = (await screen.findByRole('heading', { level: 2, name: /What MenuPilot is/ })).closest('section') as HTMLElement;
     const toData = within(section).getAllByRole('link', { name: new RegExp(`ection ${sectionNumber('data')}$`) });
@@ -226,7 +226,7 @@ describe('the guide page', () => {
   });
 
   it('shows numbered steps, pictures with alt text that load lazily, and the print button works', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/ingredients');
     await screen.findByRole('heading', { level: 2, name: /Ingredients and their prices/ });
     const steps = screen.getAllByRole('list').filter((list) => list.tagName === 'OL');
@@ -243,7 +243,7 @@ describe('the guide page', () => {
   });
 
   it('shows the Back to top button only after scrolling, and it goes to the start', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/data');
     await screen.findByRole('heading', { level: 2, name: /Your data and backups/ });
     expect(screen.queryByRole('button', { name: 'Up to the top' })).toBeNull();
@@ -258,7 +258,7 @@ describe('the guide page', () => {
 
   it('stays readable while the saved data cannot be opened', async () => {
     const storage = storageWith({ ...demoCopy(), version: 99 } as never);
-    renderApp(storage);
+    (await renderApp(storage));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Your data could not be opened');
     await go('#/help/data');
     expect((await h1()).textContent).toBe(HELP_CONTENT.en.title);
@@ -269,7 +269,7 @@ describe('the guide page', () => {
 
 describe('guide layout and wording rules', () => {
   it('shows the words "What you will see:" before each result, in both languages', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/ingredients');
     const section = (await screen.findByRole('heading', { level: 2, name: /Ingredients and their prices/ })).closest('section') as HTMLElement;
     const results = within(section).getAllByText('What you will see:');
@@ -290,7 +290,7 @@ describe('guide layout and wording rules', () => {
   });
 
   it('every section ends with a Back to contents link that goes to the start', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/about');
     await screen.findByRole('heading', { level: 2, name: /What MenuPilot is/ });
     const links = screen.getAllByRole('link', { name: 'Back to contents' });
@@ -302,7 +302,7 @@ describe('guide layout and wording rules', () => {
   });
 
   it('every picture has an Open larger link to the full file, in a new tab, reachable by keyboard', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/help/data');
     await screen.findByRole('heading', { level: 2, name: /Your data and backups/ });
     const pictures = screen.getAllByRole('img');
@@ -328,7 +328,7 @@ describe('unsaved simulator drafts and the guide', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(NOW));
     try {
-      renderApp();
+      (await renderApp());
       await go('#/simulator/dish_classic_burger');
       await userEvent.click(await screen.findByRole('button', { name: /Add scenario/ }));
       const menuPrice = await screen.findByLabelText('Menu price (incl. VAT)');
@@ -351,7 +351,7 @@ describe('unsaved simulator drafts and the guide', () => {
 
 describe('"Help for this page" links', () => {
   async function linkOn(hash: string, expected: string, heading: string | RegExp) {
-    renderApp();
+    (await renderApp());
     await go(hash);
     await screen.findByRole('heading', { level: 1, name: heading });
     expect(screen.getByRole('link', { name: 'Help for this page' }).getAttribute('href')).toBe(expected);
@@ -370,7 +370,7 @@ describe('"Help for this page" links', () => {
   it('Data', () => linkOn('#/data', '#/help/data', 'Data'));
 
   it('uses readable foreground accent colors for links, also in the Dutch guide', async () => {
-    renderApp();
+    (await renderApp());
     await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
     await go('#/help');
     await screen.findByRole('article');
@@ -386,14 +386,14 @@ describe('"Help for this page" links', () => {
 
   it('follows the interface language when the guide is in Russian', async () => {
     window.localStorage.setItem(HELP_LANGUAGE_KEY, 'ru');
-    renderApp();
+    (await renderApp());
     await go('#/ingredients');
     await screen.findByRole('heading', { level: 1, name: 'Ingredients' });
     expect(screen.getByRole('link', { name: 'Help for this page' }).getAttribute('href')).toBe('#/help/ingredients');
   });
 
   it('opens the right section when clicked', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/ingredients');
     await userEvent.click(await screen.findByRole('link', { name: 'Help for this page' }));
     const heading = await screen.findByRole('heading', { level: 2, name: /Ingredients and their prices/ });

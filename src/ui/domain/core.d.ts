@@ -127,32 +127,35 @@ declare module '@/store/store.js' {
 
   /** Every command returns the new, deep-frozen document. */
   export interface Store {
-    load(options?: { beforeReplace?: (document: T.MenuDocument) => void }): T.MenuDocument;
-    getRevision(): string | null | undefined;
+    load(options?: { recovery?: boolean; beforeReplace?: (document: T.MenuDocument) => void }): Promise<T.MenuDocument>;
+    getRevision(): number;
+    getDocumentId(): string | null;
+    getRaw(): string | null | undefined;
     getDocument(): T.MenuDocument;
     readRaw(): string | null;
-    save(doc: T.MenuDocument): T.MenuDocument;
-    addIngredient(input: T.IngredientInput): { id: string; document: T.MenuDocument };
-    updateIngredient(id: string, changes: { name?: string; unit?: T.BaseUnit }): T.MenuDocument;
-    addPrice(ingredientId: string, price: T.PriceInput): T.MenuDocument;
-    deleteIngredient(id: string): T.MenuDocument;
-    saveRecipe(recipe: T.RecipeInput): { id: string; document: T.MenuDocument };
-    deleteRecipe(id: string, options?: { deleteScenarios?: boolean }): T.MenuDocument;
-    saveScenario(scenario: T.ScenarioInput): { id: string; document: T.MenuDocument };
-    deleteScenario(id: string): T.MenuDocument;
-    updateSettings(settings: { defaultVatRateBp: number }): T.MenuDocument;
-    exportJSON(): string;
-    importJSON(text: string): T.MenuDocument;
-    resetToDemo(demo?: unknown): T.MenuDocument;
+    save(doc: T.MenuDocument): Promise<T.MenuDocument>;
+    addIngredient(input: T.IngredientInput): Promise<{ id: string; document: T.MenuDocument }>;
+    updateIngredient(id: string, changes: { name?: string; unit?: T.BaseUnit }): Promise<T.MenuDocument>;
+    addPrice(ingredientId: string, price: T.PriceInput): Promise<T.MenuDocument>;
+    deleteIngredient(id: string): Promise<T.MenuDocument>;
+    saveRecipe(recipe: T.RecipeInput): Promise<{ id: string; document: T.MenuDocument }>;
+    deleteRecipe(id: string, options?: { deleteScenarios?: boolean }): Promise<T.MenuDocument>;
+    saveScenario(scenario: T.ScenarioInput): Promise<{ id: string; document: T.MenuDocument }>;
+    deleteScenario(id: string): Promise<T.MenuDocument>;
+    updateSettings(settings: { defaultVatRateBp: number }): Promise<T.MenuDocument>;
+    exportJSON(): Promise<string>;
+    importJSON(text: string): Promise<T.MenuDocument>;
+    resetToDemo(demo?: unknown): Promise<T.MenuDocument>;
     /** Replace everything with an empty document. */
-    resetToEmpty(): T.MenuDocument;
+    resetToEmpty(): Promise<T.MenuDocument>;
   }
-
   export function createStore(
     storage: StorageLike,
     options: {
       /** The parsed data/demo.json. */
       demo: unknown;
+      adapter?: import('@/ui/domain/storageAdapter').StorageAdapter;
+      locks?: LockManager | null;
       now?: () => Date | number | string;
       createId?: (prefix: string) => string;
     },

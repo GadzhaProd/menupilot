@@ -4,7 +4,7 @@ import { expect, it } from 'vitest';
 import { go, renderApp } from './helpers';
 
 it('does not rank different volumes, including a scenario with 1000 sales against 300 baseline sales', async () => {
-  const user = userEvent.setup(); renderApp();
+  const user = userEvent.setup(); (await renderApp());
   await go('#/simulator/dish_classic_burger');
   await user.click(screen.getByRole('button', { name: 'Add scenario' }));
   const volume = screen.getByLabelText('Own sales per month (optional)');
@@ -25,7 +25,7 @@ it('does not rank different volumes, including a scenario with 1000 sales agains
 });
 
 it('keeps the shared estimate field labelled without repeating its visible heading', async () => {
-  renderApp(); await go('#/simulator/dish_classic_burger');
+  (await renderApp()); await go('#/simulator/dish_classic_burger');
   const input = screen.getByLabelText('Expected sales per month (your estimate)');
   expect(input.closest('details')?.querySelector('summary')?.textContent).toBe('Expected sales per month (your estimate)');
   expect(input.closest('details')?.querySelector('label')?.parentElement?.className).toContain('sr-only');

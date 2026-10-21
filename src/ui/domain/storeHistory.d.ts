@@ -6,12 +6,12 @@ export interface BackupStatus { readonly startedAt: string | null; readonly last
 declare module '@/store/store.js' {
   interface StorageLike { removeItem?(key: string): void }
   interface Store {
-    listHistory(): readonly HistoryEntry[];
+    listHistory(): Promise<readonly HistoryEntry[]>;
     getHistoryWarning(): boolean;
-    restoreHistory(id: string): MenuDocument;
-    saveMemoryAsNew(): MenuDocument;
+    restoreHistory(id: string): Promise<MenuDocument>;
+    saveMemoryAsNew(): Promise<MenuDocument>;
     getBackupStatus(): BackupStatus;
-    recordExport(): void;
-    remindLater(): void;
+    recordExport(): Promise<void>;
+    remindLater(): Promise<void>;
   }
 }

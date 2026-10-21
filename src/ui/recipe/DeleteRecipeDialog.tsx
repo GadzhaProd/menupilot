@@ -1,3 +1,4 @@
+import { CommandButton } from '@/ui/data/CommandButton';
 import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -25,24 +26,24 @@ interface DeleteRecipeDialogProps {
  */
 export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDeleted }: DeleteRecipeDialogProps) {
   const { t, locale, plural } = useLocale();
-  const { execute } = useCommands();
+  const { execute, commandStatus } = useCommands();
   const document = useDocument();
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const scenarios = document.scenarios.filter((scenario) => scenario.recipeId === recipe.id);
   const users = error === null || recipe.kind !== 'prep' ? [] : recipesUsing(document, 'prep', recipe.id);
   const noun = recipe.kind === 'dish' ? t('recipe.dish') : t('recipe.prep');
 
-  function confirm() {
-    const result = execute(
+  async function confirm() {
+    const result = (await execute(
       (store) => store.deleteRecipe(recipe.id, scenarios.length > 0 ? { deleteScenarios: true } : {}),
       { report: false },
-    );
+    ));
     if (result.ok) onDeleted();
     else setError(isSafetyError(result.code) ? null : { code: result.code, message: result.error });
   }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent data-draft-kind="recipe" data-draft-id={recipe.id} role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('recipe.deleteNamed', { name: recipe.name })}</DialogTitle>
@@ -72,12 +73,12 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
           </div>
         ) : null}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">{t('common.cancel')}</Button></DialogClose>
-          <Button type="button" variant="destructive" onClick={confirm}>
+          <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('common.cancel')}</Button></DialogClose>
+          <CommandButton type="button" variant="destructive" onClick={confirm}>
             {scenarios.length > 0 && recipe.kind === 'dish'
               ? t(scenarios.length === 1 ? 'recipe.deleteDishScenariosOne' : 'recipe.deleteDishScenariosOther', { count: scenarios.length })
               : t(recipe.kind === 'dish' ? 'recipe.deleteDish' : 'recipe.deletePrep')}
-          </Button>
+          </CommandButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,5 +1,9 @@
 import type { safetyEn } from './safety.en';
 export const safetyNl = {
+  "commands.loading": "Gegevens laden…",
+  "commands.saving": "Opslaan…",
+  "commands.saved": "Opgeslagen",
+  "commands.error": "Niet opgeslagen. Je concept blijft bewaard.",
   "backup.later": "Herinner me later",
   "backup.recordFailed": "De download is aangevraagd, maar we konden de exportdatum niet opslaan. De herinnering is niet opnieuw ingesteld. Controleer de browseropslag en exporteer opnieuw.",
   "backup.deferFailed": "We konden de herinnering niet uitstellen. Controleer de browseropslag en probeer opnieuw.",
