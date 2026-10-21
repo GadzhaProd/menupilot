@@ -12,11 +12,20 @@ export interface Conflict {
   readonly documentId: string | null;
   readonly document?: MenuDocument;
 }
-export type WriteResult = StoredDocument | Conflict;
+export interface OperationReceipt {
+  readonly opId: string;
+  readonly documentId: string;
+  readonly revision: number;
+  readonly changed: boolean;
+}
+/** The record is current; the optional receipt is the ORIGINAL operation outcome. */
+export type WriteResult = (StoredDocument & { readonly receipt?: OperationReceipt }) | Conflict;
 /** Inputs are validated by the common store. Server implementations validate at their boundary too.
  * load establishes the expected dataset identity; transports send it with expectedRevision.
  * The adapter/server owns identity. Revisions increase within a documentId.
  * Replaying opId returns latest committed state without applying the operation again.
+ * SQLite/HTTP also return the original receipt (its revision may be older).
+ * Receipt deduplication precedes rejecting stale CAS so lost responses can be retried.
  */
 export interface StorageAdapter {
   load(options?: { beforeReplace?: (document: MenuDocument) => void }): Promise<StoredDocument>;
