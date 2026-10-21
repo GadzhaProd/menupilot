@@ -121,14 +121,20 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
    * Validate, write, and only then publish `candidate` as the current document.
    * `checkFuture` also rejects price records from the future (used for save and import).
    */
-  function persist(candidate, { checkFuture = false, ownData = true, requireHistory = false } = {}) {
+  function persist(candidate, { checkFuture = false, ownData = true, requireHistory = false, preservedHistoryId = undefined } = {}) {
     assertValidDocument(candidate, checkFuture ? { now: isoNow() } : undefined);
     const text = JSON.stringify(candidate);
     const actualRaw = readRaw();
     if (expectedRaw !== undefined && (actualRaw !== expectedRaw || storage.getItem(REVISION_KEY) !== expectedRevision)) {
       throw new StoreError('conflict', 'Another tab changed the saved data. Load the latest data, review your draft and save again.');
     }
-    const snapshot = history.archive(actualRaw);
+    if (text === actualRaw) {
+      expectedRaw = text;
+      expectedRevision = storage.getItem(REVISION_KEY);
+      current ??= deepFreeze(JSON.parse(text));
+      return current;
+    }
+    const snapshot = history.archive(actualRaw, preservedHistoryId);
     if (requireHistory && !snapshot.available) {
       throw new StoreError(snapshot.error ? writeError(snapshot.error).code : 'quota', `A copy of the current data could not be stored${snapshot.error?.message ? ` (${snapshot.error.message})` : ''}. Replacement was cancelled. Export a backup and free browser storage before trying again.`);
     }
@@ -146,7 +152,7 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
         if (error instanceof StoreError) throw error;
         const failure = writeError(error);
         if (failure.code === 'quota') {
-          try { if (history.evictOldest(snapshot.protectedKey)) continue; }
+          try { if (history.evictOldest(snapshot.protectedKey, preservedHistoryId)) continue; }
           catch (evictionError) { if (evictionError instanceof StoreError) throw evictionError; }
         }
         throw failure;
@@ -216,7 +222,7 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     restoreHistory(id) {
       const entry = history.list().find(item => item.id === id);
       if (!entry) throw new StoreError('not-found', 'This version is no longer available.');
-      return persist(parseDocumentText(entry.raw, 'The saved version', { now: isoNow() }), { requireHistory: true });
+      return persist(parseDocumentText(entry.raw, 'The saved version', { now: isoNow() }), { requireHistory: true, preservedHistoryId: id });
     },
     /** Explicit recovery of the memory document only if storage is still empty. */
     saveMemoryAsNew() {

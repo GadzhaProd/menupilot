@@ -29,23 +29,27 @@ export function createHistory(storage, isoNow) {
   function list() {
     return slots().filter(s => s.entry).sort((a,b) => b.entry.order - a.entry.order).map(s => s.entry);
   }
-  function archive(raw) {
+  function archive(raw, preservedId) {
     if (raw === null) return { available: true, protectedKey: null };
     try {
       const all = slots();
       const ordered = all.filter(s => s.text).sort((a,b) => (a.entry?.order ?? 0) - (b.entry?.order ?? 0));
+      const newest = ordered.at(-1);
+      if (newest?.entry?.raw === raw) return { available: true, protectedKey: newest.key };
+      const eligible = ordered.filter(s => s.entry?.id !== preservedId);
       const order = Math.max(0, ...all.map(s => s.entry?.order ?? 0)) + 1;
-      const target = all.find(s => !s.text) ?? ordered[0];
+      const target = all.find(s => !s.text) ?? eligible[0];
       const entry = { id: crypto.randomUUID(), order, savedAt: isoNow(), raw };
       const text = JSON.stringify(entry);
       const size = bytes(target.key, text);
       if (size > HISTORY_LIMIT || !Number.isSafeInteger(order)) return { available: false, protectedKey: null };
       let total = all.reduce((sum,s) => sum+s.size, 0) - target.size;
       // Retention and quota eviction remove only automatic snapshots, oldest first.
-      const victims = ordered.filter(s => s.key !== target.key);
+      const victims = eligible.filter(s => s.key !== target.key);
       while (total + size > HISTORY_LIMIT && victims.length) {
         const victim = victims.shift(); remove(victim.key); total -= victim.size;
       }
+      if (total + size > HISTORY_LIMIT) return { available: false, protectedKey: null };
       for (;;) {
         try { storage.setItem(target.key, text); return { available: true, protectedKey: target.key }; }
         catch (error) {
@@ -60,8 +64,8 @@ export function createHistory(storage, isoNow) {
       return { available: false, protectedKey: null, error };
     }
   }
-  function evictOldest(protectedKey) {
-    const oldest = slots().filter(s => s.text && s.key !== protectedKey)
+  function evictOldest(protectedKey, preservedId) {
+    const oldest = slots().filter(s => s.text && s.key !== protectedKey && s.entry?.id !== preservedId)
       .sort((a,b) => (a.entry?.order ?? 0) - (b.entry?.order ?? 0))[0];
     if (!oldest) return false;
     remove(oldest.key); return true;

@@ -112,8 +112,9 @@ test('storage quota evicts oldest snapshots, but never the just-archived current
 });
 
 test('destructive replacements refuse when no previous snapshot can be stored', () => {
-  for (const action of [s => s.resetToEmpty(), s => s.resetToDemo(), s => s.importJSON(JSON.stringify(smallDocument()))]) {
+  for (const action of [s => s.resetToEmpty(), s => s.resetToDemo(), s => s.importJSON(JSON.stringify(smallDocument())), s => s.restoreHistory(s.listHistory()[0].id)]) {
     const backing = memoryStorage({ [STORAGE_KEY]: JSON.stringify(smallDocument()) });
+    open(backing).updateIngredient('i1', { name: 'Own changed data' });
     const s = open({ ...backing, setItem(k,v) { if (k.startsWith('menupilot:history:')) throw quotaError(); backing.setItem(k,v); } });
     const before = backing.getItem(STORAGE_KEY);
     assert.throws(() => action(s), { code: 'quota' });
@@ -128,4 +129,54 @@ test('a snapshot exceeding one MiB warns while the ordinary document save still 
   s.updateIngredient('i1', { name: 'Saved without snapshot' });
   assert.equal(s.getHistoryWarning(), true); assert.equal(s.listHistory().length, 0);
   assert.equal(JSON.parse(storage.getItem(STORAGE_KEY)).ingredients[0].name, 'Saved without snapshot');
+});
+
+test('identical saves do not write, archive, or evict genuine versions', () => {
+  const backing = memoryStorage({ [STORAGE_KEY]: JSON.stringify(smallDocument()) });
+  let writes = 0;
+  const s = open({ ...backing, setItem(k,v) { writes++; backing.setItem(k,v); } });
+  s.updateIngredient('i1', { name: 'Actual change' });
+  const history = s.listHistory(), before = writes, document = s.getDocument();
+  for (let i = 0; i < 10; i++) s.save(document);
+  assert.equal(writes, before);
+  assert.deepEqual(s.listHistory(), history);
+});
+
+test('retry after failed main write does not duplicate the newest snapshot', () => {
+  const backing = memoryStorage({ [STORAGE_KEY]: JSON.stringify(smallDocument()) });
+  let fail = true;
+  const s = open({ ...backing, setItem(k,v) { if (fail && k === STORAGE_KEY) throw new Error('failed'); backing.setItem(k,v); } });
+  assert.throws(() => s.updateIngredient('i1', { name: 'Changed' }));
+  const history = s.listHistory(); fail = false;
+  s.updateIngredient('i1', { name: 'Changed' });
+  assert.deepEqual(s.listHistory(), history);
+});
+
+test('restoring the oldest of a full history preserves that snapshot on main-write failure and quota eviction', () => {
+  for (const failure of [new Error('failed'), quotaError()]) {
+    const backing = memoryStorage({ [STORAGE_KEY]: JSON.stringify(smallDocument()) });
+    let fail = false;
+    const s = open({ ...backing, setItem(k,v) { if (fail && k === STORAGE_KEY) throw failure; backing.setItem(k,v); } });
+    for (let i = 0; i < 10; i++) s.updateIngredient('i1', { name: `Version ${i}` });
+    const oldest = s.listHistory().at(-1), current = backing.getItem(STORAGE_KEY);
+    fail = true;
+    assert.throws(() => s.restoreHistory(oldest.id));
+    assert.equal(backing.getItem(STORAGE_KEY), current);
+    assert.ok(s.listHistory().some(e => e.id === oldest.id && e.raw === oldest.raw));
+    assert.ok(s.listHistory().some(e => e.raw === current));
+    fail = false; s.restoreHistory(oldest.id);
+    assert.equal(backing.getItem(STORAGE_KEY), oldest.raw);
+  }
+});
+
+test('archive quota never evicts the version being restored', () => {
+  const backing = memoryStorage({ [STORAGE_KEY]: JSON.stringify(smallDocument()) });
+  let failHistory = false;
+  const s = open({ ...backing, setItem(k,v) { if (failHistory && k.startsWith('menupilot:history:')) throw quotaError(); backing.setItem(k,v); } });
+  for (let i = 0; i < 10; i++) s.updateIngredient('i1', { name: `Version ${i}` });
+  const oldest = s.listHistory().at(-1), current = backing.getItem(STORAGE_KEY);
+  failHistory = true;
+  assert.throws(() => s.restoreHistory(oldest.id), { code: 'quota' });
+  assert.equal(backing.getItem(STORAGE_KEY), current);
+  assert.ok(s.listHistory().some(e => e.id === oldest.id));
 });
