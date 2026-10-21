@@ -1,3 +1,4 @@
+import type { HistoryEntry, BackupStatus } from './storeHistory';
 import { coordinateStorage } from './browserStorage';
 import { LocaleProvider, useLocale } from '@/ui/i18n';
 import { ThemeProvider } from '@/ui/theme/ThemeProvider';
@@ -29,6 +30,11 @@ export type DraftTarget = { kind: 'ingredient' | 'recipe'; id: string };
 interface DataContextValue {
   state: DataState;
   safety: string | null;
+  removedTargets: readonly DraftTarget[];
+  historyWarning: boolean;
+  backupStatus: BackupStatus;
+  listHistory(): CommandResult<readonly HistoryEntry[]>;
+  recordExport(): void;
   reloadLatest(): Promise<void>;
   activateEditing(): Promise<void>;
   registerDraftSource(source: () => boolean, targets?: () => readonly DraftTarget[]): () => void;
@@ -107,6 +113,9 @@ function DocumentProvider(props: DataProviderProps) {
   const { t } = useLocale();
   const [coordinator] = useState(() => coordinateStorage(props.storage));
   const [loaded] = useState(() => openStore({ ...props, storage: coordinator.storage }));
+  const [removedTargets, setRemovedTargets] = useState<readonly DraftTarget[]>([]);
+  const [historyWarning, setHistoryWarning] = useState(false);
+  const [backupStatus, setBackupStatus] = useState<BackupStatus>(() => loaded.store?.getBackupStatus() ?? { startedAt: null, lastExportAt: null, due: false });
   const [safety, setSafety] = useState<string | null>(null);
   const draftSources = useRef(new Set<() => boolean>());
   const draftTargets = useRef(new Map<() => boolean, () => readonly DraftTarget[]>());
@@ -144,7 +153,9 @@ function DocumentProvider(props: DataProviderProps) {
           }
         });
         draftTargets.current.forEach((getTargets, source) => { if (source()) targets.push(...getTargets()); });
-        if (targets.some(target => !(target.kind === 'recipe' ? next.recipes : next.ingredients).some(item => item.id === target.id))) {
+        const missing = targets.filter(target => !(target.kind === 'recipe' ? next.recipes : next.ingredients).some(item => item.id === target.id));
+        if (missing.length) {
+          setRemovedTargets(missing);
           throw new Error('draft-target-removed');
         }
       } });
@@ -220,6 +231,8 @@ function DocumentProvider(props: DataProviderProps) {
       const value = command(store);
       lastRaw.current = store.getRevision() ?? null;
       setSafety(null);
+      setHistoryWarning(store.getHistoryWarning());
+      setBackupStatus(store.getBackupStatus());
       dispatch({ type: 'documentReplaced', document: 'document' in value ? value.document : value });
       return { ok: true, value };
     } catch (error) {
@@ -257,10 +270,25 @@ function DocumentProvider(props: DataProviderProps) {
     }
   }, [state.document]);
 
+  const listHistory = useCallback((): CommandResult<readonly HistoryEntry[]> => {
+    try { return { ok: true, value: store?.listHistory() ?? [] }; }
+    catch { return { ok: false, code: 'read-failed', error: t('history.unavailable'), details: [] }; }
+  }, [store, t]);
+  const recordExport = useCallback(() => {
+    try { store?.recordExport(); if (store) setBackupStatus(store.getBackupStatus()); }
+    catch { /* Export succeeded even if its reminder timestamp could not be stored. */ }
+  }, [store]);
+  useEffect(() => {
+    const refresh = () => { if (store) setBackupStatus(store.getBackupStatus()); };
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('storage', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener('storage', refresh); };
+  }, [store]);
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
-  const value = useMemo(() => ({ state, execute, exportBackup, dismissError, safety, reloadLatest,
+  const value = useMemo(() => ({ removedTargets, historyWarning, backupStatus, listHistory, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest,
     activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode }),
-  [state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
+  [removedTargets, historyWarning, backupStatus, listHistory, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -295,6 +323,11 @@ export function useCommands(): Pick<DataContextValue, 'execute' | 'exportBackup'
 
 /** Recovery and cross-tab controls; form command signatures remain synchronous. */
 export function useDataSafety() {
-  const { safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode } = useData();
-  return { safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode };
+  const { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode } = useData();
+  return { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode };
+}
+
+export function useVersionHistory() {
+  const { historyWarning, backupStatus, listHistory, recordExport } = useData();
+  return { historyWarning, backupStatus, listHistory, recordExport };
 }

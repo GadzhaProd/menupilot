@@ -163,3 +163,38 @@ it('requires a choice for the same changed field and keeps it through navigation
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
   expect(savedDocument(storage).recipes.find(r => r.id === recipe.id)?.name).toBe('Remote name');
 });
+
+it('discards a parked draft for a remotely deleted recipe, then loads latest', async () => {
+  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/recipe/dish_classic_burger');
+  await userEvent.type(screen.getByLabelText('Name'), ' draft'); await go('#/help/dishes');
+  remote(storage).deleteRecipe('dish_classic_burger', { deleteScenarios: true }); signal();
+  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  expect(screen.getByText(/cached recipe draft/)).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: 'Discard cached drafts' }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Load latest data' })).toBeNull());
+  await go('#/recipes');
+  expect(screen.queryByRole('link', { name: 'Classic Burger' })).toBeNull();
+});
+
+it('can save the memory copy after clearing, but never overwrites a later remote save', async () => {
+  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/ingredients');
+  storage.data.delete(STORAGE_KEY); signal();
+  await userEvent.click(screen.getByRole('button', { name: 'Save this copy as new data' }));
+  const dialog = screen.getByRole('alertdialog');
+  remote(storage).resetToEmpty();
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm and save' }));
+  expect(savedDocument(storage).ingredients).toEqual([]);
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+});
+
+it('continues editing after confirmed memory recovery from cleared storage', async () => {
+  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/recipe/dish_classic_burger');
+  await userEvent.clear(screen.getByLabelText('Name')); await userEvent.type(screen.getByLabelText('Name'), 'Surviving draft');
+  storage.data.delete(STORAGE_KEY); signal();
+  await userEvent.click(screen.getByRole('button', { name: 'Save this copy as new data' }));
+  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Confirm and save' }));
+  expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Surviving draft');
+  expect(screen.queryByText(/The saved data was removed/)).toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(savedDocument(storage).recipes.find(r => r.id === 'dish_classic_burger')?.name).toBe('Surviving draft');
+});

@@ -43,6 +43,7 @@ MenuPilot keeps ingredients with their price history, builds dish and prep (sub-
 - **Ingredient cost is theoretical.** "Recipe-based ingredient cost" is what the recipe should cost, not what was actually used (waste and over-portioning are not measured).
 - **Scenarios are not forecasts.** They are calculations on the numbers you type, including your own monthly sales estimate. MenuPilot does not predict demand.
 - **Your data lives in your browser.** There is no server and no account. Clearing browser data, or using private mode, can erase it. Export a backup regularly.
+- **Previous versions:** Data and recovery keep up to 10 versions within 1 MiB; restoring creates a new revision. A seven-day Export reminder starts with your own changes. Clearing the browser deletes this history too; only a backup file kept elsewhere protects against that loss.
 
 ## How MenuPilot differs
 

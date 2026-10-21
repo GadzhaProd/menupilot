@@ -5,15 +5,19 @@ import { useLocale } from '@/ui/i18n';
 import { useSimulatorSessions } from '@/ui/simulator/session';
 import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
 import { downloadText } from './downloadText';
-import { useCommands, useDataSafety } from './DataProvider';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useCommands, useDataSafety, useVersionHistory } from './DataProvider';
 
 /** Keep the action reachable inside a modal's focus trap as well as on a page. */
 export function DataSafetyNotice() {
   const { t } = useLocale();
-  const { safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged } = useDataSafety();
+  const { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged } = useDataSafety();
   const sessions = useSimulatorSessions();
   const recipes = useRecipeDrafts();
-  const { exportBackup } = useCommands();
+  const { exportBackup, execute } = useCommands();
+  const { historyWarning, backupStatus, recordExport } = useVersionHistory();
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState(false);
   const [dialog, setDialog] = useState<Element | null>(null);
   useEffect(() => {
@@ -34,21 +38,42 @@ export function DataSafetyNotice() {
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [safety]);
-  if (!safety) return null;
-  const text = safety === 'storage-cleared' ? t('safety.cleared') : safety === 'draft-target-removed' ? t('safety.removed') : safety === 'conflict' ? t('safety.changed') : safety === 'write-busy' ? t('safety.busy')
+  if (!safety) return <>
+    {historyWarning && <p role="status" className="rounded-md border border-amber-500/50 p-3">{t('history.unavailable')}</p>}
+    {backupStatus.due && <p role="status" className="rounded-md border border-line p-3 text-sm">{t('backup.reminder')} <a className="underline" href="#/data">{t('data.export')}</a></p>}
+  </>;
+  const cachedRemoved = safety === 'draft-target-removed' ? removedTargets.filter(target => target.kind === 'recipe' && recipes.read(target.id) && ![...document.querySelectorAll<HTMLElement>('[data-draft-kind=recipe]')].some(element => element.dataset.draftId === target.id)) : [];
+  const text = safety === 'storage-cleared' ? t('safety.cleared') : safety === 'draft-target-removed' ? t(cachedRemoved.length ? 'safety.cachedRemoved' : 'safety.removed') : safety === 'conflict' ? t('safety.changed') : safety === 'write-busy' ? t('safety.busy')
     : safety === 'write-unavailable' ? t('safety.unavailable') : t('safety.readFailed');
   const notice = <div role="status" className="space-y-2 rounded-md border border-amber-500/50 bg-card p-3 text-sm">
     <p>{text}</p>
     {safety === 'storage-cleared' && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => {
       const backup = exportBackup();
       if (!backup.ok) { setDownloadError(true); return; }
-      try { downloadText(backup.value, 'menupilot-memory-backup.json'); setDownloadError(false); }
+      try { downloadText(backup.value, 'menupilot-memory-backup.json'); recordExport(); setDownloadError(false); }
       catch { setDownloadError(true); }
     }}>{t('safety.downloadMemory')}</Button>}
+    {cachedRemoved.length > 0 && <Button type="button" variant="outline" onClick={() => { cachedRemoved.forEach(target => recipes.clear(target.id)); void reloadLatest(); }}>{t('safety.discardCached')}</Button>}
+    {safety === 'storage-cleared' && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => { setMemoryError(null); setMemoryOpen(true); }}>{t('safety.saveMemory')}</Button>}
     {downloadError && <p role="alert">{t('data.downloadFail', { error: t('error.generic') })}</p>}
-    {safety !== 'write-unavailable' && safety !== 'storage-cleared' && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => {
+    {safety !== 'write-unavailable' && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => {
       void (safety === 'write-busy' ? activateEditing() : reloadLatest());
     }}>{safety === 'write-busy' ? t('safety.activate') : t('safety.latest')}</Button>}
   </div>;
-  return dialog ? createPortal(notice, dialog) : notice;
+  return <>{dialog ? createPortal(notice, dialog) : notice}
+    <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
+      <DialogContent role="alertdialog">
+        <DialogHeader><DialogTitle>{t('safety.saveMemory')}</DialogTitle><DialogDescription>{t('safety.memoryConfirm')}</DialogDescription></DialogHeader>
+        {memoryError && <p role="alert">{memoryError}</p>}
+        <DialogFooter>
+          <DialogClose asChild><Button type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
+          <Button type="button" onClick={() => {
+            const result = execute(store => store.saveMemoryAsNew(), { report: false });
+            if (result.ok) setMemoryOpen(false);
+            else setMemoryError(result.error);
+          }}>{t('safety.memorySave')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>;
 }
