@@ -135,3 +135,31 @@ it('clears an obsolete conflict after cancelling when storage returned to the or
   await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   await waitFor(() => expect(screen.queryByText(/Your draft is still here/)).toBeNull());
 });
+
+it.each([false, true])('merges an untouched remote price into a renamed recipe (parked=%s)', async parked => {
+  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/recipe/dish_classic_burger');
+  await userEvent.clear(screen.getByLabelText('Name')); await userEvent.type(screen.getByLabelText('Name'), 'Local name');
+  if (parked) await go('#/help/dishes');
+  const other = remote(storage), recipe = other.getDocument().recipes.find(r => r.id === 'dish_classic_burger')!;
+  if (recipe.kind !== 'dish') throw new Error('Expected a dish');
+  other.saveRecipe({ ...recipe, menuPriceInclVatCents: 2599 }); signal();
+  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  if (parked) await go('#/recipe/dish_classic_burger');
+  expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Local name');
+  await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(savedDocument(storage).recipes.find(r => r.id === recipe.id)).toMatchObject({ name: 'Local name', menuPriceInclVatCents: 2599 });
+});
+
+it('requires a choice for the same changed field and keeps it through navigation', async () => {
+  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/recipe/dish_classic_burger');
+  await userEvent.clear(screen.getByLabelText('Name')); await userEvent.type(screen.getByLabelText('Name'), 'Local name');
+  const other = remote(storage), recipe = other.getDocument().recipes.find(r => r.id === 'dish_classic_burger')!;
+  other.saveRecipe({ ...recipe, name: 'Remote name' }); signal();
+  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  await go('#/help/dishes'); await go('#/recipe/dish_classic_burger');
+  expect(screen.getByRole('button', { name: 'Save changes' })).toHaveProperty('disabled', true);
+  expect(screen.getByText(/Remote name/, { selector: 'pre' })).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: 'Use latest value' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(savedDocument(storage).recipes.find(r => r.id === recipe.id)?.name).toBe('Remote name');
+});

@@ -1,5 +1,11 @@
 import type { safetyEn } from './safety.en';
 export const safetyNl = {
+  "merge.title": "Gewijzigde velden controleren",
+  "merge.description": "Beide tabbladen hebben deze velden gewijzigd. Kies welke waarde je wilt bewaren voordat je opslaat.",
+  "merge.mine": "Jouw concept",
+  "merge.latest": "Nieuwste opgeslagen waarde",
+  "merge.keep": "Mijn waarde behouden",
+  "merge.useLatest": "Nieuwste waarde gebruiken",
   'safety.cleared': 'De opgeslagen gegevens zijn in een ander tabblad verwijderd. Dit tabblad heeft nog de laatste kopie. Download die voordat je dit tabblad sluit of vernieuwt.',
   'safety.downloadMemory': 'Kopie uit dit tabblad downloaden',
   'safety.removed': 'Een ander tabblad heeft een item verwijderd terwijl dit formulier openstond. Je concept is er nog. Kopieer wat je wilt bewaren, sluit het formulier en laad daarna de nieuwste gegevens.',

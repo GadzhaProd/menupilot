@@ -1,4 +1,10 @@
 export const safetyEn = {
+  "merge.title": "Review changed fields",
+  "merge.description": "Both tabs changed these fields. Choose which value to keep before saving.",
+  "merge.mine": "Your draft",
+  "merge.latest": "Latest saved value",
+  "merge.keep": "Keep my value",
+  "merge.useLatest": "Use latest value",
   'safety.cleared': 'The saved data was removed in another tab. This tab still has its last copy. Download it before closing or reloading this tab.',
   'safety.downloadMemory': 'Download the copy from this tab',
   'safety.removed': 'Another tab removed an item while this form was open. Your draft is still here. Copy anything you need, close the form, then load the latest data.',
