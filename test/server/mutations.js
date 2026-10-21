@@ -56,6 +56,8 @@ try {
     ['absolute expiry', 'server/session.js', 'now() - record.createdAt < SESSION_ABSOLUTE_MS &&', '', 'test/server/review.test.js'],
     ['idle expiry', 'server/session.js', 'now() - record.lastUsed < SESSION_IDLE_MS', 'true', 'test/server/review.test.js'],
     ['CLI revocation flag', 'server/cli.js', "args[1] === '--revoke-sessions'", 'false', 'test/server/review.test.js'],
+    ['CLI Dashboard monthly impact', 'server/cliRead.js', 'monthlyImpactCents(current?.monthlyContributionCents ?? null, previous?.monthlyContributionCents ?? null)', 'monthlyImpactCents(previous?.monthlyContributionCents ?? null, current?.monthlyContributionCents ?? null)', 'test/server/cli.test.js'],
+    ['CLI scenario delta direction', 'server/cliRead.js', 'a - b;', 'b - a;', 'test/server/cli.test.js'],
     ['distinct session tokens', 'server/session.js', "const token = randomBytes(32).toString('hex'), cookie", "const token = 'a'.repeat(64), cookie", 'test/server/review.test.js'],
     ['link rotation', 'server/http.js', 'session.rotate(body.revokeSessions === true)', 'session.key', 'test/server/review.test.js'],
     ['session revocation', 'server/session.js', 'if (revokeSessions) sessions.clear();', '', 'test/server/review.test.js'],
