@@ -34,5 +34,5 @@ export async function loadLocalConfig(): Promise<LocalConfig | null> {
   } catch { throw new Error('Invalid local server configuration. Open the address from npm run menupilot -- open-url.'); }
 }
 export type ConnectionState = 'offline' | 'session-expired' | null;
-export const LocalModeContext = createContext<{ dataDir: string; connection: ConnectionState } | null>(null);
+export const LocalModeContext = createContext<{ dataDir: string; token?: string; connection: ConnectionState } | null>(null);
 export const useLocalMode = () => useContext(LocalModeContext);

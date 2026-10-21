@@ -1,3 +1,4 @@
+import { LocalBackupStatus } from '@/ui/data/LocalBackupStatus';
 import { useLocalMode } from '@/ui/data/localMode';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { MenuIcon } from 'lucide-react';
@@ -63,6 +64,7 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
         {local && <div className="mx-auto max-w-7xl px-4 pb-2 text-xs text-muted-foreground break-all" data-testid="local-mode">
           {locale === 'nl' ? 'Lokale modus · gegevens: ' : 'Local mode · data: '}{local.dataDir}
         </div>}
+        {local && <LocalBackupStatus />}
       </header>
       <main id="main" ref={mainRef} tabIndex={-1} className="shell-main space-y-6">
         {local?.connection && <p role="status" className="rounded-md border p-3 text-sm">
