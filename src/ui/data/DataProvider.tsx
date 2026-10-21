@@ -34,6 +34,10 @@ interface DataContextValue {
   removedTargets: readonly DraftTarget[];
   historyWarning: boolean;
   backupStatus: BackupStatus;
+  readHistory(id: string): Promise<CommandResult<MenuDocument>>;
+  previewImport(text: string): Promise<CommandResult<MenuDocument>>;
+  migrationSource(): string | null;
+  confirmMigrationDownload(raw: string): Promise<boolean>;
   listHistory(): Promise<CommandResult<readonly HistoryEntry[]>>;
   recordExport(): Promise<void>;
   remindLater(): Promise<void>;
@@ -97,10 +101,10 @@ async function openStore({ storage, demo, now, createId, adapter }: Omit<DataPro
     const locks = browserLocks(storage);
     store = createStore(storage!, { demo, adapter, locks, ...(now && { now }), ...(createId && { createId }) });
     const document = await store.load({ recovery: true });
-    raw = store.getRaw() ?? null;
+    raw = store.browserRecovery?.getRaw() ?? null;
     return { store, raw, loadCode: null, state: { document, loadError: null, commandError: null } };
   } catch (error) {
-    raw = store?.getRaw() ?? null;
+    raw = store?.browserRecovery?.getRaw() ?? null;
     return { store, raw, loadCode: error instanceof StoreError ? error.code : 'read-failed',
       state: { document: null, commandError: null, loadError: describe(error) } };
   }
@@ -130,7 +134,18 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
   const { children, loaded } = props;
   const { t } = useLocale();
   const pending = useRef(false);
+  const routeEpoch = useRef(0);
+  useEffect(() => {
+    const changed = () => { routeEpoch.current++; setCommandStatus(status => status === 'saving' ? status : 'idle'); };
+    window.addEventListener('hashchange', changed);
+    return () => window.removeEventListener('hashchange', changed);
+  }, []);
   const [commandStatus, setCommandStatus] = useState<DataContextValue['commandStatus']>('idle');
+  useEffect(() => {
+    if (commandStatus !== 'saved') return;
+    const timer = setTimeout(() => setCommandStatus('idle'), 3000);
+    return () => clearTimeout(timer);
+  }, [commandStatus]);
   const [removedTargets, setRemovedTargets] = useState<readonly DraftTarget[]>([]);
   const [historyWarning, setHistoryWarning] = useState(false);
   const [backupError, setBackupError] = useState<string | null>(null);
@@ -161,7 +176,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     if (!store || pending.current) return;
     pending.current = true;
     try {
-      if (store.readRaw() === null && lastRaw.current !== null) { setSafety('storage-cleared'); return; }
+      if (store.browserRecovery && store.browserRecovery.readRaw() === null && lastRaw.current !== null) { setSafety('storage-cleared'); return; }
       const document = await store.load({ beforeReplace: next => {
         // Only a draft's own entity can unmount its editor. Unrelated deletions are safe.
         const targets: DraftTarget[] = [];
@@ -178,7 +193,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
           throw new Error('draft-target-removed');
         }
       } });
-      lastRaw.current = store.getRaw() ?? null;
+      lastRaw.current = store.browserRecovery?.getRaw() ?? null;
       dispatch({ type: 'documentReplaced', document });
       setSafety(null);
       await activateEditing();
@@ -199,10 +214,10 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     async function changed(event?: StorageEvent) {
       if (event && (event.key !== null && event.key !== STORAGE_KEY)) return;
       if (event?.storageArea && event.storageArea !== props.storage) return;
-      if (!store || state.loadError || pending.current) return;
+      if (!store?.browserRecovery || state.loadError || pending.current) return;
       try {
         const hasDrafts = [...draftSources.current].some(source => source()) || !!document.querySelector('form, [role="dialog"], [role="alertdialog"]');
-        const raw = store.readRaw();
+        const raw = store.browserRecovery?.readRaw();
         if (raw === lastRaw.current) {
           if (!hasDrafts) setSafety(current => current && ['conflict', 'draft-target-removed', 'write-busy'].includes(current) ? null : current);
           return;
@@ -215,7 +230,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
           pending.current = true;
           try {
             const document = await store.load();
-            lastRaw.current = store.getRaw() ?? null;
+            lastRaw.current = store.browserRecovery?.getRaw() ?? null;
             dispatch({ type: 'documentReplaced', document });
             setSafety(null);
           } finally { pending.current = false; }
@@ -251,27 +266,28 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     command: (store: Store) => Promise<R>,
     { report = true }: ExecuteOptions = {},
   ): Promise<CommandResult<R>> => {
-    if (pending.current) return { ok: false, code: 'write-busy', error: t('commands.saving'), details: [] };
+    if (pending.current) return { ok: false, code: 'write-busy', error: t('commands.busy'), details: [] };
     pending.current = true;
+    const startedAtRoute = routeEpoch.current;
     setCommandStatus('saving');
     try {
       if (store === null) {
         throw new StoreError('not-loaded', 'Data is not loaded, so nothing can be changed.');
       }
       const value = await command(store);
-      lastRaw.current = store.getRaw() ?? null;
+      lastRaw.current = store.browserRecovery?.getRaw() ?? null;
       setSafety(null);
       setHistoryWarning(store.getHistoryWarning());
       setBackupStatus(store.getBackupStatus());
       dispatch({ type: 'documentReplaced', document: 'document' in value ? value.document : value });
-      setCommandStatus('saved');
+      setCommandStatus(routeEpoch.current === startedAtRoute ? 'saved' : 'idle');
       return { ok: true, value };
     } catch (error) {
       const code = error instanceof StoreError ? String(error.code) : 'unexpected';
-      const special = ['conflict', 'write-busy', 'write-unavailable'].includes(code);
+      const special = ['conflict', 'write-busy', 'write-unavailable', 'migration-backup-required'].includes(code);
       const message = code === 'conflict' ? t('safety.changed')
         : code === 'write-busy' ? t('safety.busy')
-          : code === 'write-unavailable' ? t('safety.unavailable') : describe(error);
+          : code === 'write-unavailable' ? t('safety.unavailable') : code === 'migration-backup-required' ? t('migration.required') : describe(error);
       setCommandStatus(code === 'conflict' ? 'conflict' : 'error');
       if (special) setSafety(code);
       if (report && !special) {
@@ -306,6 +322,19 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     try { return { ok: true, value: await store?.listHistory() ?? [] }; }
     catch { return { ok: false, code: 'read-failed', error: t('history.unavailable'), details: [] }; }
   }, [store, t]);
+  const readHistory = useCallback(async (id: string): Promise<CommandResult<MenuDocument>> => {
+    try { return { ok: true, value: (await store!.readHistory(id)).document }; }
+    catch { return { ok: false, code: 'invalid', error: t('history.invalid'), details: [] }; }
+  }, [store, t]);
+  const previewImport = useCallback(async (text: string): Promise<CommandResult<MenuDocument>> => {
+    try { return { ok: true, value: store!.previewImport(text) }; }
+    catch (error) { return { ok: false, code: error instanceof StoreError ? error.code : 'invalid', error: describe(error), details: [] }; }
+  }, [store]);
+  const migrationSource = useCallback(() => store?.browserRecovery?.migrationSource() ?? null, [store]);
+  const confirmMigrationDownload = useCallback(async (raw: string) => {
+    try { store?.browserRecovery?.confirmMigrationDownload(raw); setSafety(null); setCommandStatus('idle'); return true; }
+    catch { setSafety('conflict'); return false; }
+  }, [store]);
   const recordExport = useCallback(async () => {
     try { await store?.recordExport(); if (store) setBackupStatus(store.getBackupStatus()); setBackupError(null); }
     catch { setBackupError(t('backup.recordFailed')); }
@@ -322,9 +351,9 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener('storage', refresh); };
   }, [store]);
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
-  const value = useMemo(() => ({ commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest,
+  const value = useMemo(() => ({ commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest,
     activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode }),
-  [commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
+  [commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -352,18 +381,18 @@ export function useDocument(): MenuDocument {
 }
 
 /** Stable command runner and error dismissal. */
-export function useCommands(): Pick<DataContextValue, 'execute' | 'exportBackup' | 'dismissError' | 'commandStatus'> {
-  const { execute, exportBackup, dismissError, commandStatus } = useData();
-  return { execute, exportBackup, dismissError, commandStatus };
+export function useCommands(): Pick<DataContextValue, 'execute' | 'exportBackup' | 'dismissError' | 'commandStatus' | 'previewImport'> {
+  const { execute, exportBackup, dismissError, commandStatus, previewImport } = useData();
+  return { execute, exportBackup, dismissError, commandStatus, previewImport };
 }
 
 /** Recovery and cross-tab controls. */
 export function useDataSafety() {
-  const { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode } = useData();
-  return { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode };
+  const { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, migrationSource, confirmMigrationDownload } = useData();
+  return { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, migrationSource, confirmMigrationDownload };
 }
 
 export function useVersionHistory() {
-  const { historyWarning, backupStatus, backupError, remindLater, listHistory, recordExport } = useData();
-  return { historyWarning, backupStatus, backupError, remindLater, listHistory, recordExport };
+  const { historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, recordExport } = useData();
+  return { historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, recordExport };
 }

@@ -1,4 +1,6 @@
 import { createBrowserStorageAdapter, STORAGE_KEY } from './browserAdapter.js';
+import { newId } from './ids.js';
+import { parseBackup, serializeBackup } from './serialization.js';
 import { instantNotAfter, isObject } from './check.js';
 import { shiftDemoDates } from './demo.js';
 import { StoreError } from './errors.js';
@@ -76,6 +78,11 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
   let inFlight = false;
   let opened = false;
   function publish(result) {
+    if (result.conflict) {
+      const error = new StoreError('conflict', 'Another tab changed the saved data. Load the latest data and try again.');
+      error.latest = result;
+      throw error;
+    }
     revision = result.revision;
     documentId = result.documentId;
     current = deepFreeze(structuredClone(result.document));
@@ -91,7 +98,7 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
 
   async function persist(candidate, options) {
     assertValidDocument(candidate, options?.checkFuture ? { now: isoNow() } : undefined);
-    return publish(await persistence.save(candidate, revision, options));
+    return publish(await persistence.save(candidate, revision, newId()));
   }
 
   function change(mutate) {
@@ -122,21 +129,22 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
   const commands = {
     /** Load saved data (first run: the demo, not yet written). Never overwrites bad data. */
     async load(options) {
-      try { return publish(await persistence.load(options)); }
+      try { return publish(await (options?.recovery && persistence.browserRecovery ? persistence.browserRecovery.loadForRecovery() : persistence.load(options))); }
       finally { opened = true; }
     },
     getDocument: loaded,
     getRevision: () => revision,
     getDocumentId: () => documentId,
-    getRaw: persistence.getRaw ?? (() => undefined),
-    readRaw: persistence.readRaw ?? (() => null),
+    browserRecovery: persistence.browserRecovery,
+    previewImport: text => parseBackup(text, 'The imported file', { now: isoNow() }).document,
+    readHistory: persistence.history.read,
     listHistory: persistence.history.list,
-    getBackupStatus: persistence.getBackupStatus ?? (() => ({ startedAt: null, lastExportAt: null, due: false })),
-    recordExport: persistence.recordExport ?? (async () => {}),
-    remindLater: persistence.remindLater ?? (async () => {}),
-    getHistoryWarning: persistence.getHistoryWarning ?? (() => false),
-    async restoreHistory(id) { return publish(await persistence.history.restore(id, revision)); },
-    async saveMemoryAsNew() { return publish(await persistence.saveMemoryAsNew(loaded())); },
+    getBackupStatus: persistence.browserMetadata?.getBackupStatus ?? (() => ({ startedAt: null, lastExportAt: null, due: false })),
+    recordExport: persistence.browserMetadata?.recordExport ?? (async () => {}),
+    remindLater: persistence.browserMetadata?.remindLater ?? (async () => {}),
+    getHistoryWarning: persistence.browserMetadata?.getHistoryWarning ?? (() => false),
+    async restoreHistory(id) { return publish(await persistence.history.restore(id, revision, newId())); },
+    async saveMemoryAsNew() { return publish(await persistence.saveMemoryAsNew(loaded(), newId())); },
 
     /** Replace the whole document (validated, then written). */
     save(doc) {
@@ -242,27 +250,28 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
       return change((draft) => { draft.settings.defaultVatRateBp = defaultVatRateBp; });
     },
 
-    async exportJSON() { loaded(); return persistence.exportBackup(); },
+    async exportJSON() { return serializeBackup({ document: loaded(), documentId, revision }, true); },
 
     async importJSON(text) {
-      return publish(await persistence.importBackup(text, revision));
+      const imported = parseBackup(text, 'The imported file', { now: isoNow() });
+      return publish(await persistence.importDocument(imported, revision, newId()));
     },
 
     /** Optional translated demo; validated before shifting/writing, never mutates the caller. */
     async resetToDemo(source = demo) {
       if (!opened) await commands.load();
-      return persist(demoDocument(source), { ownData: false, requireHistory: true, force: true, documentId: crypto.randomUUID() });
+      return publish(await persistence.reset(demoDocument(source), revision, newId(), 'demo'));
     },
 
     /** Replace all data with an empty document (nothing is kept). Like resetToDemo, atomic. */
     async resetToEmpty() {
       if (!opened) await commands.load();
-      return persist(emptyDocument(), { requireHistory: true, force: true, documentId: crypto.randomUUID() });
+      return publish(await persistence.reset(emptyDocument(), revision, newId(), 'empty'));
     },
   };
   // Reject overlapping commands before executing domain operations. A double click
   // cannot append two prices, even before React renders the pending state.
-  const reads = new Set(['getDocument', 'getRevision', 'getDocumentId', 'getRaw', 'readRaw', 'getBackupStatus', 'getHistoryWarning', 'listHistory', 'exportJSON']);
+  const reads = new Set(['getDocument', 'getRevision', 'getDocumentId', 'browserRecovery', 'previewImport', 'readHistory', 'recordExport', 'remindLater', 'getBackupStatus', 'getHistoryWarning', 'listHistory', 'exportJSON']);
   return Object.fromEntries(Object.entries(commands).map(([name, command]) => [name, reads.has(name) ? command : async (...args) => {
     if (inFlight) throw new StoreError('write-busy', 'A command is already in progress. Wait for it to finish.');
     inFlight = true;

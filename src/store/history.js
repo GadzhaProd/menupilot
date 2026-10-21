@@ -1,3 +1,4 @@
+import { newId } from './ids.js';
 import { StoreError } from './errors.js';
 
 export const HISTORY_PREFIX = 'menupilot:history:';
@@ -39,7 +40,7 @@ export function createHistory(storage, isoNow) {
       const eligible = ordered.filter(s => s.entry?.id !== preservedId);
       const order = Math.max(0, ...all.map(s => s.entry?.order ?? 0)) + 1;
       const target = all.find(s => !s.text) ?? eligible[0];
-      const entry = { id: crypto.randomUUID(), order, savedAt: isoNow(), raw };
+      const entry = { id: newId(), order, savedAt: isoNow(), raw };
       const text = JSON.stringify(entry);
       const size = bytes(target.key, text);
       if (size > HISTORY_LIMIT || !Number.isSafeInteger(order)) return { available: false, protectedKey: null };

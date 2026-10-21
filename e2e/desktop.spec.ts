@@ -414,7 +414,7 @@ async function exerciseRecovery(page: import('@playwright/test').Page, testInfo:
   await backupDownload.saveAs(backupPath);
   const original = await readFile(backupPath, 'utf8');
   const backupDocument = JSON.parse(original);
-  backupDocument.document.recipes.find((recipe: { name: string }) => recipe.name === 'Classic Burger').name = 'Restored Burger';
+  backupDocument.recipes.find((recipe: { name: string }) => recipe.name === 'Classic Burger').name = 'Restored Burger';
   const validBackup = Buffer.from(JSON.stringify(backupDocument, null, 2));
   const damaged = '{"version":1,\n\u0000 damaged bytes';
   await page.evaluate((raw) => localStorage.setItem('menupilot:v1', raw), damaged);

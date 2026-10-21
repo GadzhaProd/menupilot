@@ -49,6 +49,7 @@ it('a successful write is published even if subsequent storage reads fail', asyn
   const backing = memoryStorage();
   let readsBlocked = false;
   const storage = {
+    isolated: true,
     getItem(key: string) { if (readsBlocked) throw new Error('reading is blocked'); return backing.getItem(key); },
     setItem(key: string, value: string) { backing.setItem(key, value); if (key === STORAGE_KEY) readsBlocked = true; },
   };

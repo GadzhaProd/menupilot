@@ -1,10 +1,10 @@
 // Frozen v1 client from the pre-step-2a base. Compatibility test fixture; do not modernize.
-import { createBackupStatus } from '../../src/store/backup.js';
-import { createHistory } from '../../src/store/history.js';
-import { instantNotAfter, isObject } from '../../src/store/check.js';
-import { shiftDemoDates } from '../../src/store/demo.js';
-import { StoreError } from '../../src/store/errors.js';
-import { FORMAT_VERSION, assertValidDocument, emptyDocument } from '../../src/store/schema.js';
+import { createBackupStatus } from './legacyV1/backup.js';
+import { createHistory } from './legacyV1/history.js';
+import { instantNotAfter, isObject } from './legacyV1/check.js';
+import { shiftDemoDates } from './legacyV1/demo.js';
+import { StoreError } from './legacyV1/errors.js';
+import { FORMAT_VERSION, assertValidDocument, emptyDocument } from './legacyV1/schema.js';
 
 export { StoreError };
 export const STORAGE_KEY = 'menupilot:v1';

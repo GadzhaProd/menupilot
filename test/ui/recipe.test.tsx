@@ -438,6 +438,7 @@ describe('Form errors', () => {
     await u.type(screen.getByLabelText('Name'), 'Pasta');
     await u.type(screen.getByLabelText(/Menu price/), '12');
     await fillLine(u, 1, 'ingredient:ing_tomato', '200');
+    storage.setItem('menupilot:premigration-v1', storage.getItem(STORAGE_KEY)!);
     storage.failOnSet = new Error('disk is full');
     await u.click(screen.getByRole('button', { name: 'Save dish' }));
 

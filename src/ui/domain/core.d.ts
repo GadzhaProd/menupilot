@@ -114,6 +114,7 @@ declare module '@/store/store.js' {
   export const STORAGE_KEY: string;
 
   export class StoreError extends Error {
+    readonly latest?: import('./storageAdapter').Conflict;
     readonly code: T.StoreErrorCode;
     /** Every validation message when code is "invalid". */
     readonly details: readonly string[];
@@ -121,6 +122,7 @@ declare module '@/store/store.js' {
   }
 
   export interface StorageLike {
+    readonly isolated?: boolean;
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
   }
@@ -130,9 +132,9 @@ declare module '@/store/store.js' {
     load(options?: { recovery?: boolean; beforeReplace?: (document: T.MenuDocument) => void }): Promise<T.MenuDocument>;
     getRevision(): number;
     getDocumentId(): string | null;
-    getRaw(): string | null | undefined;
+    browserRecovery?: import('./storageAdapter').BrowserRecovery;
+    previewImport(text: string): T.MenuDocument;
     getDocument(): T.MenuDocument;
-    readRaw(): string | null;
     save(doc: T.MenuDocument): Promise<T.MenuDocument>;
     addIngredient(input: T.IngredientInput): Promise<{ id: string; document: T.MenuDocument }>;
     updateIngredient(id: string, changes: { name?: string; unit?: T.BaseUnit }): Promise<T.MenuDocument>;

@@ -14,6 +14,7 @@ export const NOW = '2026-10-18T12:00:00.000Z';
 export function memoryStorage(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
   const storage = {
+    isolated: true as const,
     data,
     failOnSet: null as Error | null,
     setCalls: 0,
@@ -74,7 +75,7 @@ export function storageWith(doc: Doc) {
   return memoryStorage({ [STORAGE_KEY]: JSON.stringify(doc) });
 }
 
-export function savedDocument(storage: ReturnType<typeof memoryStorage>) {
+export function savedDocument(storage: Pick<ReturnType<typeof memoryStorage>, 'data'>) {
   const value = JSON.parse(storage.data.get(STORAGE_KEY) ?? 'null');
   return (value?.version === 2 ? value.document : value) as Doc;
 }

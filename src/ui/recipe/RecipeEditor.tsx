@@ -43,6 +43,8 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const document = useDocument();
   const { execute, commandStatus } = useCommands();
   const draftCache = useRecipeDrafts();
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const draftKey = recipe?.id ?? `new:${kind}`;
   const source = recipe ?? document;
   const sourceSnapshot = useMemo(() => JSON.stringify(source) ?? '', [source]);
@@ -168,6 +170,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     }
     const { id: _unsaved, ...input } = built.recipe;
     const toSave = recipe ? { ...input, id: recipe.id } : input;
+    const startedAtHash = window.location.hash;
     const result = (await execute((store) => store.saveRecipe(toSave), { report: false }));
     if (!result.ok) {
       // The draft stays exactly as typed; the saved data is unchanged.
@@ -177,7 +180,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     draftCache.clear(draftKey);
     setSaveError(null);
     if (!recipe) {
-      window.location.hash = hrefFor({ name: 'recipe', id: result.value.id });
+      if (mounted.current && window.location.hash === startedAtHash) window.location.hash = hrefFor({ name: 'recipe', id: result.value.id });
       return;
     }
     const stored = result.value.document.recipes.find((entry) => entry.id === recipe.id);

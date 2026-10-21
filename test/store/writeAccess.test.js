@@ -6,7 +6,7 @@ import { memoryStorage, readDemo, DEMO_NOW } from './fixtures.js';
 
 function locks() {
   let tail = Promise.resolve();
-  return { request(name, callback) {
+  return { request(name, options, callback) {
     assert.equal(name, WRITE_LOCK);
     const job = tail.then(() => callback({}));
     tail = job.catch(() => {});

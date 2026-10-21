@@ -70,7 +70,7 @@ test('broken JSON: error, storage untouched, nothing can overwrite it', async ()
   (await assertStoreError(async () => (await store.load()), 'corrupt-json', /not valid JSON/));
   (await assertStoreError(async () => (await store.addIngredient({ name: 'X', unit: 'g' })), 'not-loaded'));
   assert.equal(storage.data.get(STORAGE_KEY), '{"version": 1, ');
-  assert.equal(store.readRaw(), '{"version": 1, ');
+  assert.equal(store.browserRecovery.readRaw(), '{"version": 1, ');
 });
 
 test('unsupported version and invalid stored data: error, storage untouched', async () => {

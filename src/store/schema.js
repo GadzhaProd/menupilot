@@ -5,6 +5,7 @@ import { StoreError } from './errors.js';
 import { checkCatalog, validateIngredient, validateRecipe } from './entities.js';
 import { checkScenarios, validateScenario } from './scenario.js';
 
+// Domain schema version; independent of the storage/backup envelope schemaVersion.
 export const FORMAT_VERSION = 1;
 
 /** Price records may be this far ahead of the supplied clock (device clock drift). */

@@ -6,24 +6,24 @@ import { demo, go, memoryStorage, renderApp, STORAGE_KEY, savedDocument } from '
 
 function lockQueue() {
   let tail = Promise.resolve();
-  return { request: vi.fn((_name: string, callback: () => Promise<void>) => {
+  return { request: vi.fn((_name: string, _options: LockOptions, callback: () => Promise<void>) => {
     const next = tail.then(callback); tail = next.catch(() => {}); return next;
   }) };
 }
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-it('uses Web Locks only for native storage', () => {
+it('requires Web Locks unless storage is explicitly isolated', () => {
   expect(browserLocks(memoryStorage())).toBeUndefined();
-  const storage = memoryStorage();
+  const storage = { ...memoryStorage(), isolated: false };
   vi.spyOn(window, 'localStorage', 'get').mockReturnValue(storage as never);
   vi.stubGlobal('navigator', { language: 'en' });
   expect(browserLocks(storage)).toBeNull();
 });
 it.each(['busy', 'unavailable'])('keeps the draft while the writer is %s', async mode => {
-  const storage = memoryStorage({ [STORAGE_KEY]: JSON.stringify(demo) });
+  const storage = { ...memoryStorage({ [STORAGE_KEY]: JSON.stringify(demo) }), isolated: false };
   vi.spyOn(window, 'localStorage', 'get').mockReturnValue(storage as never);
   const locks = lockQueue();
   let release: () => void = () => {};
-  if (mode === 'busy') void locks.request('menupilot:document-writer', () => new Promise<void>(resolve => { release = resolve; }));
+  if (mode === 'busy') void locks.request('menupilot:document-writer', {}, () => new Promise<void>(resolve => { release = resolve; }));
   vi.stubGlobal('navigator', { language: 'en', locks: mode === 'busy' ? locks : undefined });
   await renderApp(storage); await go('#/ingredients');
   const row = screen.getByText('Beef mince 80/20', { selector: 'td' }).closest('tr')!;

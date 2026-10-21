@@ -88,14 +88,15 @@ for (const form of ['ingredient', 'price', 'recipe', 'scenario', 'data'] as cons
       const adapter = createBrowserStorageAdapter(storage, { initialDocument: demo as MenuDocument, now: () => NOW });
       let release!: () => void;
       const gate = new Promise<void>(resolve => { release = resolve; });
-      const original = adapter.save;
+      const original = form === 'data' ? adapter.importDocument : adapter.save;
       let calls = 0;
       let error: 'write-failed' | 'conflict' | null = outcome === 'success' ? null : outcome;
-      adapter.save = async (...args) => {
+      const delayed: typeof adapter.save & typeof adapter.importDocument = async (...args: any[]) => {
         calls++; await gate;
         if (error) throw new StoreError(error, 'The change could not be saved (offline). Your previous data is unchanged.');
-        return original(...args);
+        return (original as (...args: any[]) => ReturnType<typeof adapter.save>)(...args);
       };
+      if (form === 'data') adapter.importDocument = delayed; else adapter.save = delayed;
       await act(async () => { render(<StrictMode><DataProvider storage={storage} adapter={adapter} demo={demo} now={() => NOW}><App /></DataProvider></StrictMode>); });
       const ready = await prepare(form);
       const before = storage.getItem(STORAGE_KEY);
@@ -105,7 +106,10 @@ for (const form of ['ingredient', 'price', 'recipe', 'scenario', 'data'] as cons
       expect(ready.button.getAttribute('aria-busy')).toBe('true');
       expect(ready.button.textContent).toContain('Saving…');
       expect(storage.getItem(STORAGE_KEY)).toBe(before);
-      if (ready.value !== null) expect(ready.draft()).toHaveProperty('value', ready.value);
+      if (ready.value !== null) {
+        expect(ready.draft()).toHaveProperty('value', ready.value);
+        expect(ready.draft().matches(':disabled')).toBe(true);
+      }
       await userEvent.keyboard('{Escape}');
       if (form === 'ingredient' || form === 'price') expect(screen.getByRole('dialog')).toBeTruthy();
       if (form === 'data') expect(screen.getByRole('alertdialog')).toBeTruthy();
@@ -115,7 +119,10 @@ for (const form of ['ingredient', 'price', 'recipe', 'scenario', 'data'] as cons
         if (ready.value !== null) expect(ready.draft()).toHaveProperty('value', ready.value);
         else expect(ready.draft()).toBeTruthy();
         if (outcome === 'conflict') expect(screen.getByText(/Another tab changed/)).toBeTruthy();
-        else expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+        else {
+          expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+          expect(screen.getByText('The command was not completed.')).toBeTruthy();
+        }
         expect(ready.button).toHaveProperty('disabled', false);
         error = null;
         await userEvent.click(ready.button);

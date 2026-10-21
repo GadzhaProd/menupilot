@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 export function memoryStorage(initial = {}) {
   const data = new Map(Object.entries(initial));
   return {
+    isolated: true,
     data,
     failOnSet: null,
     getItem(key) {

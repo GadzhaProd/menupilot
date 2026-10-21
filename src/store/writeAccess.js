@@ -1,10 +1,22 @@
 import { StoreError } from './errors.js';
-
-// Same name as v1 leases: old and new tabs cannot enter a critical section together.
 export const WRITE_LOCK = 'menupilot:document-writer';
+export const WRITE_WAIT_MS = 5000;
 
-/** One lock per complete CAS/history/write transaction; never a timer or a spinlock. */
-export async function withWriteLock(locks, work) {
+/** Abort only acquisition, never an already-running transaction. */
+export async function withWriteLock(locks, work, timeoutMs = WRITE_WAIT_MS) {
   if (locks === null) throw new StoreError('write-unavailable', 'Safe saving is unavailable in this browser.');
-  return locks ? locks.request(WRITE_LOCK, work) : work();
+  if (!locks) return work(); // Explicitly isolated in-memory adapter.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await locks.request(WRITE_LOCK, { signal: controller.signal }, () => {
+      clearTimeout(timer);
+      return work();
+    });
+  } catch (error) {
+    if (controller.signal.aborted && error?.name === 'AbortError') {
+      throw new StoreError('write-busy', 'Another tab is still saving. Nothing was changed. You can close this dialog or try saving again.');
+    }
+    throw error;
+  } finally { clearTimeout(timer); }
 }

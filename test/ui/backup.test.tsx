@@ -1,3 +1,4 @@
+import { STORAGE_KEY } from '@/ui/domain/store';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -86,7 +87,7 @@ describe('Data page', () => {
     await waitFor(() => expect(downloads).toHaveLength(1));
     const [file] = downloads;
     expect(file?.name).toMatch(/^menupilot-backup-\d{4}-\d{2}-\d{2}\.json$/);
-    const parsed = JSON.parse(file?.text ?? '').document as MenuDocument;
+    const parsed = JSON.parse(file?.text ?? '') as MenuDocument;
     expect(parsed.ingredients.length).toBe(demoCopy().ingredients.length);
     expect(parsed.recipes.length).toBe(demoCopy().recipes.length);
     expect(screen.getAllByRole('status').map(node => node.textContent).join(' ')).toMatch(/Backup saved as menupilot-backup-/);
@@ -220,6 +221,7 @@ describe('Data page', () => {
   it('a failed write keeps the data and shows the reason in the dialog', async () => {
     const storage = storageWith(sauceDoc());
     await openData(storage);
+    storage.setItem('menupilot:premigration-v1', storage.getItem(STORAGE_KEY)!);
     storage.failOnSet = new Error('disk is full');
     await userEvent.click(screen.getByRole('button', { name: 'Start with empty data' }));
     await userEvent.click(within(await dialog()).getByRole('button', { name: 'Start with empty data' }));

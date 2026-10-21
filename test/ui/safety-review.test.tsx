@@ -74,7 +74,7 @@ it('retains the memory copy after external storage clearing and can download it'
   URL.createObjectURL = value => { blob = value as Blob; return 'blob:memory'; }; URL.revokeObjectURL = () => {};
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   await userEvent.click(screen.getByRole('button', { name: 'Download the copy from this tab' }));
-  expect(JSON.parse(await blob!.text()).document).toEqual(doc);
+  expect(JSON.parse(await blob!.text())).toEqual(doc);
   expect(storage.getItem(STORAGE_KEY)).toBeNull();
 });
 

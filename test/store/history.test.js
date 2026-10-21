@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore, STORAGE_KEY } from '../../src/store/store.js';
 import { memoryStorage, smallDocument, quotaError, DEMO_NOW } from './fixtures.js';
+const rawHistory = storage => [...storage.data].filter(([key]) => key.startsWith('menupilot:history:')).map(([,raw]) => JSON.parse(raw));
 const open = async storage => { const s = createStore(storage, { demo: smallDocument(), now: () => DEMO_NOW }); (await s.load()); return s; };
 
 test('archives checked previous bytes before each write and restores through CAS', async () => {
@@ -10,7 +11,7 @@ test('archives checked previous bytes before each write and restores through CAS
   const s = (await open(storage)), stale = (await open(storage)), before = storage.getItem(STORAGE_KEY);
   (await s.updateIngredient('i1', { name: 'Changed' }));
   const entries = (await s.listHistory());
-  assert.equal(entries.length, 1); assert.equal(entries[0].raw, before);
+  assert.equal(entries.length, 1); assert.equal(rawHistory(storage).find(e => e.id === entries[0].id).raw, before);
   (await s.restoreHistory(entries[0].id));
   assert.equal(s.getDocument().ingredients[0].name, 'i1');
   assert.equal((await s.listHistory()).length, 2);
@@ -21,7 +22,7 @@ test('retains at most ten versions and one MiB including UTF-16 keys and values'
   const storage = memoryStorage(); const s = (await open(storage));
   for (let i = 0; i < 15; i++) (await s.updateIngredient('i1', { name: `Name ${i}` }));
   assert.equal((await s.listHistory()).length, 10);
-  assert.equal(decoded((await s.listHistory()).at(-1).raw).ingredients[0].name, 'Name 4');
+  assert.equal((await s.readHistory((await s.listHistory()).at(-1).id)).document.ingredients[0].name, 'Name 4');
   const bytes = [...storage.data].filter(([k]) => k.startsWith('menupilot:history:')).reduce((n, [k,v]) => n + 2*(k.length+v.length), 0);
   assert.ok(bytes <= 1024*1024);
 });
@@ -42,7 +43,7 @@ test('a failed main write leaves its previous snapshot; conflicts create none', 
   const backing = memoryStorage({ [STORAGE_KEY]: JSON.stringify(smallDocument()) });
   const s = (await open({ ...backing, setItem(k,v) { if (k === STORAGE_KEY) throw quotaError(); backing.setItem(k,v); } }));
   (await assert.rejects(async () => (await s.updateIngredient('i1', { name: 'Not saved' })), { code: 'quota' }));
-  assert.equal((await s.listHistory())[0].raw, backing.getItem(STORAGE_KEY));
+  assert.deepEqual((await s.readHistory((await s.listHistory())[0].id)).document, decoded(backing.getItem(STORAGE_KEY)));
   const stale = (await open(backing)); (await (await open(backing)).resetToEmpty());
   const history = (await stale.listHistory());
   (await assert.rejects(async () => (await stale.resetToEmpty()), { code: 'conflict' }));
@@ -57,7 +58,7 @@ test('corrupt main data can restore a valid snapshot but an invalid snapshot is 
   (await assert.rejects(async () => (await recovery.load())));
   (await recovery.restoreHistory(entry.id));
   assert.deepEqual(recovery.getDocument(), smallDocument());
-  const damaged = (await recovery.listHistory()).find(e => e.raw === '{bad');
+  const damaged = rawHistory(storage).find(e => e.raw === '{bad');
   const before = storage.getItem(STORAGE_KEY);
   (await assert.rejects(async () => (await recovery.restoreHistory(damaged.id))));
   assert.equal(storage.getItem(STORAGE_KEY), before);
@@ -108,7 +109,7 @@ test('storage quota evicts oldest snapshots, but never the just-archived current
   budget = size + 100;
   const previous = backing.getItem(STORAGE_KEY);
   (await s.updateIngredient('i1', { name: 'Third' }));
-  assert.equal((await s.listHistory())[0].raw, previous);
+  assert.ok(rawHistory(backing).some(e => e.raw === previous));
   assert.ok((await s.listHistory()).length <= 2);
 });
 
@@ -159,12 +160,12 @@ test('restoring the oldest of a full history preserves that snapshot on main-wri
     let fail = false;
     const s = (await open({ ...backing, setItem(k,v) { if (fail && k === STORAGE_KEY) throw failure; backing.setItem(k,v); } }));
     for (let i = 0; i < 10; i++) (await s.updateIngredient('i1', { name: `Version ${i}` }));
-    const oldest = (await s.listHistory()).at(-1), current = backing.getItem(STORAGE_KEY);
+    const oldest = rawHistory(backing).sort((a,b) => a.order-b.order)[0], current = backing.getItem(STORAGE_KEY);
     fail = true;
     (await assert.rejects(async () => (await s.restoreHistory(oldest.id))));
     assert.equal(backing.getItem(STORAGE_KEY), current);
-    assert.ok((await s.listHistory()).some(e => e.id === oldest.id && e.raw === oldest.raw));
-    assert.ok((await s.listHistory()).some(e => e.raw === current));
+    assert.ok(rawHistory(backing).some(e => e.id === oldest.id && e.raw === oldest.raw));
+    assert.ok(rawHistory(backing).some(e => e.raw === current));
     fail = false; (await s.restoreHistory(oldest.id));
     assert.deepEqual(decoded(backing.getItem(STORAGE_KEY)), decoded(oldest.raw));
   }
@@ -186,7 +187,7 @@ test('archive quota never evicts the version being restored', async () => {
   let failHistory = false;
   const s = (await open({ ...backing, setItem(k,v) { if (failHistory && k.startsWith('menupilot:history:')) throw quotaError(); backing.setItem(k,v); } }));
   for (let i = 0; i < 10; i++) (await s.updateIngredient('i1', { name: `Version ${i}` }));
-  const oldest = (await s.listHistory()).at(-1), current = backing.getItem(STORAGE_KEY);
+  const oldest = rawHistory(backing).sort((a,b) => a.order-b.order)[0], current = backing.getItem(STORAGE_KEY);
   failHistory = true;
   (await assert.rejects(async () => (await s.restoreHistory(oldest.id)), { code: 'quota' }));
   assert.equal(backing.getItem(STORAGE_KEY), current);

@@ -1,9 +1,13 @@
 import type { safetyEn } from './safety.en';
 export const safetyNl = {
+  "migration.confirm": "Ik heb het originele bestand opgeslagen — migratie toestaan",
+  "migration.download": "Originele v1-gegevens downloaden",
+  "migration.required": "De oorspronkelijke v1-gegevens konden niet in deze browser worden bewaard. Download het originele bestand, controleer of het is opgeslagen, bevestig hieronder en probeer uw wijziging opnieuw. Uw huidige gegevens zijn ongewijzigd.",
+  "commands.busy": "Gegevens worden vernieuwd of een andere opdracht is bezig. Probeer het zo opnieuw.",
   "commands.loading": "Gegevens laden…",
   "commands.saving": "Opslaan…",
   "commands.saved": "Opgeslagen",
-  "commands.error": "Niet opgeslagen. Je concept blijft bewaard.",
+  "commands.error": "De opdracht is niet uitgevoerd.",
   "backup.later": "Herinner me later",
   "backup.recordFailed": "De download is aangevraagd, maar we konden de exportdatum niet opslaan. De herinnering is niet opnieuw ingesteld. Controleer de browseropslag en exporteer opnieuw.",
   "backup.deferFailed": "We konden de herinnering niet uitstellen. Controleer de browseropslag en probeer opnieuw.",
@@ -46,7 +50,7 @@ export const safetyNl = {
   'safety.removed': 'Een ander tabblad heeft een item verwijderd terwijl dit formulier openstond. Je concept is er nog. Kopieer wat je wilt bewaren, sluit het formulier en laad daarna de nieuwste gegevens.',
   'safety.changed': 'Een ander tabblad heeft de opgeslagen gegevens gewijzigd. Je concept is er nog. Laad de nieuwste gegevens, controleer je concept en sla opnieuw op.',
   'safety.latest': 'Nieuwste gegevens laden',
-  'safety.busy': 'Dit tabblad wacht op toestemming om op te slaan. Je concept is er nog. Activeer bewerken en sla daarna opnieuw op.',
+  "safety.busy": "Een ander tabblad is nog aan het opslaan. Er is niets gewijzigd. U kunt dit venster sluiten of opnieuw opslaan.",
   'safety.activate': 'Bewerken in dit tabblad activeren',
   'safety.unavailable': 'Deze browser kan opslaan tussen tabbladen niet veilig afstemmen. Je gegevens en concepten zijn ongewijzigd. Gebruik een ondersteunde browser via HTTPS of localhost om op te slaan.',
   'safety.readFailed': 'De nieuwste gegevens konden niet worden gelezen. Je concept en de getoonde gegevens zijn ongewijzigd.',

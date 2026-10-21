@@ -9,7 +9,6 @@ import { Surface } from '@/components/ui/surface';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCommands, useDataSafety } from '@/ui/data/DataProvider';
 import { demoForLocale } from '@/ui/data/demo';
-import { parseBackup } from '@/store/serialization.js';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useLocale } from '@/ui/i18n';
 import { downloadText } from '@/ui/data/downloadText';
@@ -20,7 +19,7 @@ type Pending = { kind: 'import'; text: string; fileName: string } | { kind: 'dem
 export function RecoveryPage() {
   const { t, locale } = useLocale();
   const { recoveryRaw, loadCode } = useDataSafety();
-  const { execute, commandStatus } = useCommands();
+  const { execute, commandStatus, previewImport } = useCommands();
   const recipes = useRecipeDrafts();
   const sessions = useSimulatorSessions();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -47,8 +46,7 @@ export function RecoveryPage() {
     let text: string;
     try { text = await file.text(); }
     catch { setError(t('data.fileUnreadable', { file: file.name })); return; }
-    try { parseBackup(text, 'The imported file', { now: new Date().toISOString() }); }
-    catch { setError(t('recovery.invalidBackup')); return; }
+    if (!(await previewImport(text)).ok) { setError(t('recovery.invalidBackup')); return; }
     setError(null);
     dialog.open({ kind: 'import', text, fileName: file.name }, { currentTarget: importButton.current ?? input });
   }

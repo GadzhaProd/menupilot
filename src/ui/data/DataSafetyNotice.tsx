@@ -12,13 +12,14 @@ import { useCommands, useDataSafety, useVersionHistory } from './DataProvider';
 /** Keep the action reachable inside a modal's focus trap as well as on a page. */
 export function DataSafetyNotice() {
   const { t } = useLocale();
-  const { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged } = useDataSafety();
+  const { safety, removedTargets, reloadLatest, activateEditing, registerDraftSource, draftsChanged, migrationSource, confirmMigrationDownload } = useDataSafety();
   const sessions = useSimulatorSessions();
   const recipes = useRecipeDrafts();
   const { exportBackup, execute, commandStatus } = useCommands();
   const { historyWarning, backupStatus, backupError, remindLater, recordExport } = useVersionHistory();
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [memoryError, setMemoryError] = useState<string | null>(null);
+  const [migrationDownload, setMigrationDownload] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState(false);
   const [dialog, setDialog] = useState<Element | null>(null);
   useEffect(() => {
@@ -48,11 +49,22 @@ export function DataSafetyNotice() {
     {backupStatus.due && <p role="status" className="rounded-md border border-line p-3 text-sm">{t('backup.reminder')} <a className="underline" href="#/data">{t('data.export')}</a> <Button type="button" variant="outline" onClick={remindLater}>{t('backup.later')}</Button></p>}
   </>;
   const cachedRemoved = safety === 'draft-target-removed' ? removedTargets.filter(target => target.kind === 'recipe' && recipes.read(target.id) && ![...document.querySelectorAll<HTMLElement>('[data-draft-kind=recipe]')].some(element => element.dataset.draftId === target.id)) : [];
-  const text = safety === 'storage-cleared' ? t('safety.cleared') : safety === 'draft-target-removed' ? t(cachedRemoved.length ? 'safety.cachedRemoved' : 'safety.removed') : safety === 'conflict' ? t('safety.changed') : safety === 'write-busy' ? t('safety.busy')
+  const text = safety === 'migration-backup-required' ? t('migration.required') : safety === 'storage-cleared' ? t('safety.cleared') : safety === 'draft-target-removed' ? t(cachedRemoved.length ? 'safety.cachedRemoved' : 'safety.removed') : safety === 'conflict' ? t('safety.changed') : safety === 'write-busy' ? t('safety.busy')
     : safety === 'write-unavailable' ? t('safety.unavailable') : t('safety.readFailed');
   const notice = <div role="status" className="space-y-2 rounded-md border border-amber-500/50 bg-card p-3 text-sm">
     <p>{text}</p>
     {backupAlert}
+    {safety === 'migration-backup-required' && <>
+      <Button type="button" variant="outline" className="whitespace-normal" onClick={() => {
+        const raw = migrationSource();
+        if (raw === null) return;
+        try { downloadText(raw, 'menupilot-original-v1.json'); setMigrationDownload(raw); setDownloadError(false); }
+        catch { setDownloadError(true); }
+      }}>{t('migration.download')}</Button>
+      {migrationDownload !== null && <Button type="button" variant="outline" className="whitespace-normal" onClick={async () => {
+        if (await confirmMigrationDownload(migrationDownload)) setMigrationDownload(null);
+      }}>{t('migration.confirm')}</Button>}
+    </>}
     {safety === 'storage-cleared' && <Button type="button" variant="outline" className="whitespace-normal" onClick={async () => {
       const backup = (await exportBackup());
       if (!backup.ok) { setDownloadError(true); return; }
@@ -62,7 +74,7 @@ export function DataSafetyNotice() {
     {cachedRemoved.length > 0 && <Button type="button" variant="outline" onClick={() => { cachedRemoved.forEach(target => recipes.clear(target.id)); void reloadLatest(); }}>{t('safety.discardCached')}</Button>}
     {safety === 'storage-cleared' && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => { setMemoryError(null); setMemoryOpen(true); }}>{t('safety.saveMemory')}</Button>}
     {downloadError && <p role="alert">{t('data.downloadFail', { error: t('error.generic') })}</p>}
-    {safety !== 'write-unavailable' && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => {
+    {!['write-unavailable', 'migration-backup-required'].includes(safety) && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => {
       void (safety === 'write-busy' ? activateEditing() : reloadLatest());
     }}>{safety === 'write-busy' ? t('safety.activate') : t('safety.latest')}</Button>}
   </div>;

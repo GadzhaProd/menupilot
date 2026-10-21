@@ -4,8 +4,10 @@ import { StoreError } from './errors.js';
 import { assertValidDocument } from './schema.js';
 import { parseBackup, serializeBackup } from './serialization.js';
 import { withWriteLock } from './writeAccess.js';
+import { newId } from './ids.js';
 
-export const STORAGE_KEY = 'menupilot:v1'; // Keep the key: old clients must see version:2 and refuse it.
+export const STORAGE_KEY = 'menupilot:v1'; // Old clients must see version:2 and refuse it.
+export const PREMIGRATION_KEY = 'menupilot:premigration-v1';
 const REVISION_KEY = 'menupilot:revision';
 export function writeError(error) {
   if (error instanceof StoreError) return error;
@@ -14,28 +16,19 @@ export function writeError(error) {
     ? 'Browser storage is full, so the change was not saved. Export a backup and free some space.'
     : `The change could not be saved (${error?.message ?? 'unknown error'}). Your previous data is unchanged.`);
 }
+const publicRecord = ({ operationIds, ...record }) => structuredClone(record);
 
-/**
- * Async StorageAdapter. Inject locks for native localStorage; null means fail closed.
- * Omitted locks is only for isolated, in-memory storage (synchronous critical section).
- * load never writes: a legacy upgrade is committed with the first explicit command.
- */
-function nativeLocks(storage) {
-  try { if (typeof window !== 'undefined' && storage === window.localStorage) return globalThis.navigator?.locks ?? null; }
-  catch { /* load will report inaccessible storage */ }
-  return undefined;
-}
-
-export function createBrowserStorageAdapter(storage, { initialDocument, now = () => new Date(), locks = nativeLocks(storage) } = {}) {
+/** Browser policy and recovery capabilities are deliberately separate from StorageAdapter. */
+export function createBrowserStorageAdapter(storage, { initialDocument, now = () => new Date(),
+  isolated = storage?.isolated === true, locks = isolated ? undefined : globalThis.navigator?.locks ?? null, lockTimeoutMs } = {}) {
   if (typeof storage?.getItem !== 'function' || typeof storage?.setItem !== 'function') {
     throw new StoreError('bad-options', 'BrowserStorageAdapter needs storage with getItem and setItem.');
   }
   assertValidDocument(initialDocument);
   const isoNow = () => new Date(now()).toISOString();
   const history = createHistory(storage, isoNow), backup = createBackupStatus(storage, isoNow);
-  let expectedRaw, expectedMarker, current = null, historyWarning = false;
-  const initialId = crypto.randomUUID();
-  const locked = work => withWriteLock(locks, work);
+  let expectedRaw, expectedMarker, current = null, historyWarning = false, downloadedSource;
+  const locked = work => withWriteLock(locks, work, lockTimeoutMs);
   function readRaw() {
     try { return storage.getItem(STORAGE_KEY); }
     catch (error) { throw new StoreError('read-failed', `Browser storage could not be read (${error?.message ?? 'unknown error'}).`); }
@@ -45,117 +38,127 @@ export function createBrowserStorageAdapter(storage, { initialDocument, now = ()
     catch (error) { throw new StoreError('read-failed', `Revision could not be read (${error?.message ?? 'unknown error'}).`); }
   }
   function markerNumber(marker) {
-    // Pre-v2 markers were UUIDs. A v2 counter never rolls back, including failed commits.
-    if (marker === null || !/^\d+$/.test(marker)) return 0;
+    if (marker === null || !/^\d+$/.test(marker)) return 0; // v1 UUID marker
     const n = Number(marker);
     if (!Number.isSafeInteger(n)) throw new StoreError('invalid', 'The saved revision counter is invalid.');
     return n;
   }
-  function capture() {
-    const raw = readRaw(), marker = readMarker();
-    if (expectedRaw === undefined) { expectedRaw = raw; expectedMarker = marker; }
-    return { raw, marker };
-  }
   function decode(raw) {
-    const result = raw === null ? { document: structuredClone(initialDocument), revision: 0, schemaVersion: 2, documentId: initialId }
-      : parseBackup(raw);
-    return { ...result, documentId: result.documentId ?? initialId };
+    return raw === null ? { document: structuredClone(initialDocument), revision: 0, schemaVersion: 2, documentId: null } : parseBackup(raw);
   }
-  function commit(document, expectedRevision, options = {}) {
-    if (expectedRaw === undefined) throw new StoreError('not-loaded', 'Load the saved data before writing.');
-    assertValidDocument(document, options.checkFuture ? { now: isoNow() } : undefined);
-    const { raw, marker } = capture();
-    if (expectedRevision !== (current?.revision ?? 0) || raw !== expectedRaw || marker !== expectedMarker) {
-      throw new StoreError('conflict', 'Another tab changed the saved data. Load the latest data, review your draft and save again.');
+  function conflict(raw, marker) {
+    let latest;
+    try { latest = decode(raw); } catch { /* Damaged bytes are available only through browser recovery. */ }
+    return { conflict: true, revision: latest?.revision ?? markerNumber(marker), documentId: latest?.documentId ?? null,
+      ...(latest && { document: structuredClone(latest.document) }) };
+  }
+  function protectMigration(raw) {
+    if (downloadedSource === raw) return;
+    try {
+      if (storage.getItem(PREMIGRATION_KEY) !== raw) storage.setItem(PREMIGRATION_KEY, raw);
+    } catch {
+      throw new StoreError('migration-backup-required', 'The original v1 data could not be backed up in this browser. Download the original file and confirm it is saved, then retry your change. Nothing has been changed.');
     }
-    const documentId = options.documentId ?? current?.documentId ?? initialId;
-    if (!options.force && current?.schemaVersion === 2 && raw !== null
-      && JSON.stringify(document) === JSON.stringify(current.document) && documentId === current.documentId) return structuredClone(current);
-    const snapshot = history.archive(raw, options.preservedHistoryId);
-    // Migration is a destructive format change; always retain the exact v1 source first.
-    if ((options.requireHistory || current?.schemaVersion === 1) && !snapshot.available) {
-      throw new StoreError(snapshot.error ? writeError(snapshot.error).code : 'quota', `The change could not be saved: a copy of the current data could not be stored${snapshot.error?.message ? ` (${snapshot.error.message})` : ''}. Your previous data is unchanged. Replacement was cancelled. Export a backup and free browser storage before trying again.`);
+  }
+  function commit(document, expectedRevision, opId, policy = {}) {
+    if (expectedRaw === undefined) throw new StoreError('not-loaded', 'Load the saved data before writing.');
+    if (typeof opId !== 'string' || !opId || opId.length > 200) throw new StoreError('invalid', 'A valid operation ID is required.');
+    const raw = readRaw(), marker = readMarker();
+    // Receipts are atomic with the document, so a lost response can be retried after reopening.
+    let persisted;
+    try { persisted = raw === expectedRaw ? current : decode(raw); } catch { /* Recovery replacement may intentionally replace damaged data. */ }
+    if (persisted?.operationIds?.includes(opId)) {
+      expectedRaw = raw; expectedMarker = marker; current = persisted;
+      return publicRecord(current); // Replay returns the latest committed state, without another write.
+    }
+    if (expectedRevision !== (current?.revision ?? 0) || raw !== expectedRaw || marker !== expectedMarker) return conflict(raw, marker);
+    const documentId = policy.newIdentity ? newId() : current?.documentId ?? newId();
+    if (!policy.requireHistory && !policy.newIdentity && current?.documentId && JSON.stringify(document) === JSON.stringify(current.document)) return publicRecord(current);
+    const migration = current?.schemaVersion === 1;
+    if (migration) protectMigration(raw);
+    const snapshot = history.archive(raw, policy.preservedHistoryId);
+    if (policy.requireHistory && !migration && !snapshot.available) {
+      throw new StoreError(snapshot.error ? writeError(snapshot.error).code : 'quota', 'A copy of the current data could not be stored. Replacement was cancelled. Export a backup and free browser storage before trying again.');
     }
     const revision = Math.max(current?.revision ?? 0, markerNumber(marker)) + 1;
     if (!Number.isSafeInteger(revision)) throw new StoreError('invalid', 'The revision counter is exhausted. Export a backup.');
-    const next = { document: structuredClone(document), schemaVersion: 2, documentId, revision };
+    const next = { document: structuredClone(document), schemaVersion: 2, documentId, revision,
+      operationIds: [...(current?.operationIds ?? []), opId].slice(-128) };
     const text = serializeBackup(next);
     for (;;) {
       try {
-        storage.setItem(REVISION_KEY, String(revision));
-        expectedMarker = String(revision);
-        storage.setItem(STORAGE_KEY, text);
-        break;
+        storage.setItem(REVISION_KEY, String(revision)); expectedMarker = String(revision);
+        storage.setItem(STORAGE_KEY, text); break;
       } catch (error) {
         const failure = writeError(error);
         if (failure.code === 'quota') {
-          try { if (history.evictOldest(snapshot.protectedKey, options.preservedHistoryId)) continue; }
-          catch { /* Preserve the primary failure. */ }
+          try { if (history.evictOldest(snapshot.protectedKey, policy.preservedHistoryId)) continue; } catch { /* Primary error wins. */ }
         }
         throw failure;
       }
     }
-    expectedRaw = text; current = next; historyWarning = !snapshot.available;
-    try { backup.saved(options.ownData !== false); } catch { /* advisory metadata */ }
-    return structuredClone(next);
+    expectedRaw = text; current = next; historyWarning = !snapshot.available; downloadedSource = undefined;
+    try { backup.saved(policy.ownData !== false); } catch { /* Advisory metadata. */ }
+    return publicRecord(next);
+  }
+  function transaction(document, expectedRevision, opId, policy) {
+    const candidate = structuredClone(document);
+    return locked(() => commit(candidate, expectedRevision, opId, policy));
   }
   const adapter = {
-    async load({ beforeReplace = () => {}, recovery = false } = {}) {
-      const { raw, marker } = capture();
-      let next;
-      try { next = decode(raw); }
-      catch (error) {
-        // Explicitly starting recovery is distinct from a failed live reload.
-        // This also supports a supplied adapter reused by a new recovery store.
-        if (recovery) { expectedRaw = raw; expectedMarker = marker; current = null; }
-        throw error;
-      }
+    async load({ beforeReplace = () => {} } = {}) {
+      const raw = readRaw(), marker = readMarker();
+      if (expectedRaw === undefined) { expectedRaw = raw; expectedMarker = marker; }
+      const next = decode(raw);
       beforeReplace(structuredClone(next.document));
       expectedRaw = raw; expectedMarker = marker; current = next;
-      return structuredClone(next);
+      return publicRecord(next);
     },
-    async save(document, expectedRevision, options) {
-      const candidate = structuredClone(document);
-      return locked(() => commit(candidate, expectedRevision, options));
-    },
+    save: (document, expectedRevision, opId = newId()) => transaction(document, expectedRevision, opId),
+    importDocument: (record, expectedRevision, opId = newId()) => transaction(record.document, expectedRevision, opId,
+      { requireHistory: true, newIdentity: !record.documentId || record.documentId !== current?.documentId }),
+    reset: (document, expectedRevision, opId = newId(), kind = 'empty') => transaction(document, expectedRevision, opId,
+      { requireHistory: true, newIdentity: true, ownData: kind !== 'demo' }),
     history: {
-      async list() { return history.list(); },
+      async list() { return history.list().map(({ raw, ...metadata }) => metadata); },
       async read(id) {
         const entry = history.list().find(item => item.id === id);
         if (!entry) throw new StoreError('not-found', 'This version is no longer available.');
-        return parseBackup(entry.raw, 'The saved version', { now: isoNow() });
+        return publicRecord(parseBackup(entry.raw, 'The saved version'));
       },
-      async restore(id, expectedRevision) {
+      async restore(id, expectedRevision, opId = newId()) {
         return locked(() => {
           const entry = history.list().find(item => item.id === id);
           if (!entry) throw new StoreError('not-found', 'This version is no longer available.');
           const snapshot = parseBackup(entry.raw, 'The saved version', { now: isoNow() });
-          return commit(snapshot.document, expectedRevision, { force: true, requireHistory: true, preservedHistoryId: id });
+          return commit(snapshot.document, expectedRevision, opId, { requireHistory: true, preservedHistoryId: id });
         });
       },
     },
-    async exportBackup() {
-      if (!current) throw new StoreError('not-loaded', 'Data is not loaded.');
-      return serializeBackup(current, true);
-    },
-    async importBackup(text, expectedRevision) {
-      const imported = parseBackup(text, 'The imported file', { now: isoNow() });
-      return adapter.save(imported.document, expectedRevision, { force: true, requireHistory: true,
-        documentId: imported.documentId ?? crypto.randomUUID() });
-    },
-    async saveMemoryAsNew(document) {
+    async saveMemoryAsNew(document, opId = newId()) {
       return locked(() => {
-        if (readRaw() !== null) throw new StoreError('conflict', 'Another tab has saved data. Load the latest data first.');
-        expectedRaw = null; expectedMarker = readMarker();
-        return commit(document, current?.revision ?? 0, { force: true, documentId: crypto.randomUUID() });
+        const raw = readRaw();
+        if (raw !== null) return conflict(raw, readMarker());
+        expectedRaw = raw; expectedMarker = readMarker();
+        return commit(document, current?.revision ?? 0, opId, { newIdentity: true });
       });
     },
-    readRaw,
-    getRaw: () => expectedRaw,
-    getHistoryWarning: () => historyWarning,
-    getBackupStatus: backup.get,
-    recordExport: async () => locked(backup.exported),
-    remindLater: async () => locked(backup.remindLater),
+    browserRecovery: {
+      readRaw, getRaw: () => expectedRaw,
+      async loadForRecovery() {
+        try { return await adapter.load(); }
+        catch (error) { expectedRaw = readRaw(); expectedMarker = readMarker(); current = null; throw error; }
+      },
+      migrationSource() { return current?.schemaVersion === 1 ? expectedRaw : null; },
+      confirmMigrationDownload(raw) {
+        if (typeof raw !== 'string' || raw !== expectedRaw || raw !== readRaw()) throw new StoreError('conflict', 'The original data changed. Download the latest original first.');
+        downloadedSource = raw;
+      },
+    },
+    browserMetadata: {
+      getHistoryWarning: () => historyWarning, getBackupStatus: backup.get,
+      recordExport: async () => locked(backup.exported), remindLater: async () => locked(backup.remindLater),
+    },
   };
   return adapter;
 }
