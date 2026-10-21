@@ -5,13 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
+import { DatabaseSync } from 'node:sqlite';
 
 async function freePort() {
   const probe = createServer(); await new Promise<void>(r => probe.listen(0, '127.0.0.1', r));
   const port = (probe.address() as { port: number }).port; await new Promise<void>(r => probe.close(() => r())); return port;
 }
 async function launch(dir: string, port: number) {
-  const child = spawn(process.execPath, ['server/start.js'], { env: { ...process.env, MENUPILOT_DATA_DIR: dir, MENUPILOT_PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['server/start.js'], { env: { ...process.env, MENUPILOT_DATA_DIR: dir, MENUPILOT_PORT: String(port), MENUPILOT_BACKUP_DIR: join(dir, 'external-unavailable') }, stdio: ['ignore', 'pipe', 'pipe'] });
   await new Promise<void>((resolve, reject) => {
     let output = ''; const timer = setTimeout(() => reject(new Error('Startup timeout: ' + output)), 30000);
     child.stdout.on('data', b => { output += b; if (output.includes('MenuPilot: http')) { clearTimeout(timer); resolve(); } });
@@ -48,6 +49,9 @@ test('local price history survives restart; session warning preserves a draft; b
     await page.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
     await expect(page.getByTestId('local-mode')).toContainText('Local mode · data:');
     expect(page.url()).not.toContain('k=');
+    await expect(page.getByTestId('backup-status')).toContainText('Last backup: none yet');
+    await expect(page.getByTestId('backup-status')).toContainText('External copy failed');
+    await expect(page.getByTestId('backup-status')).toContainText('does not prove it has synced');
     const token = await page.evaluate(() => sessionStorage.getItem('menupilot.local.token.v1'));
     const config = { token: token! };
     expect((await page.request.get(`${origin}/menupilot/local-config.json`)).status()).toBe(401);
@@ -84,7 +88,14 @@ test('local price history survives restart; session warning preserves a draft; b
     // An unfinished editor must survive polling a restarted server.
     await page.getByRole('button', { name: 'New price for Local flour', exact: true }).click();
     await page.getByRole('dialog').getByLabel(/Pack price/).fill('4.00');
-    await stop(child); child = await launch(dir, port);
+    await stop(child);
+    // Persist a detected clock jump and a damaged snapshot while the writer is stopped.
+    const db = new DatabaseSync(join(dir, 'menupilot.db'));
+    db.prepare("INSERT INTO meta(key,value) VALUES('backupClockWarning','1') ON CONFLICT(key) DO UPDATE SET value='1'").run();
+    db.close();
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'backups', `${Date.now()}-${crypto.randomUUID()}.sqlite`), 'damaged snapshot');
+    child = await launch(dir, port);
     await expect(page.getByText('The local server restarted. Copy any unsaved drafts, then reload this page.')).toBeVisible();
     await expect(page.getByRole('dialog').getByLabel(/Pack price/)).toHaveValue('4.00');
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -94,7 +105,19 @@ test('local price history survives restart; session warning preserves a draft; b
     await expect(page.getByRole('dialog').getByRole('row')).toHaveCount(3);
     await expect(page.getByRole('dialog').getByText('€3.50', { exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page.getByTestId('backup-status')).toContainText('Last backup:');
+    await expect(page.getByTestId('backup-status')).not.toContainText('Last backup: none yet');
+    await expect(page.getByTestId('backup-status')).toContainText('Automatic backup deletion is paused');
+    await expect(page.getByTestId('backup-status')).toContainText('Damaged backups');
     await page.screenshot({ path: info.outputPath('local.png'), fullPage: true });
+    await page.getByRole('button', { name: 'NL – Nederlands' }).click();
+    await expect(page.getByTestId('backup-status')).toContainText('Laatste reservekopie:');
+    await expect(page.getByTestId('backup-status')).toContainText('Externe kopie mislukt');
+    await expect(page.getByTestId('backup-status')).toContainText('bewijst niet');
+    await expect(page.getByTestId('backup-status')).toContainText('Automatisch verwijderen');
+    await expect(page.getByTestId('backup-status')).toContainText('Beschadigde reservekopieën');
+    await page.screenshot({ path: info.outputPath('local-backups-nl.png'), fullPage: true });
+    await page.getByRole('button', { name: 'EN – English' }).click();
     await navigate(page, 'Data');
     const imported = { version: 1, settings: { defaultVatRateBp: 900 }, ingredients: [{ id: 'imported', name: 'Browser export', unit: 'g', prices: [] }], recipes: [], scenarios: [] };
     await page.locator('input[type="file"]').setInputFiles({ name: 'browser-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });

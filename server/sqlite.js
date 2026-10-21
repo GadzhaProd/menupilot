@@ -8,7 +8,7 @@ import { assertValidTransition } from '../src/store/transitions.js';
 import { parseBackup, serializeBackup } from '../src/store/serialization.js';
 import { createRemoteAdapter } from '../src/store/remoteAdapter.js';
 
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 export const BUDGETS = { history: { count: 32, bytes: 64 * 1024 * 1024 },
   ops: { count: 4096, bytes: 4 * 1024 * 1024 }, journal: { count: 10000, bytes: 4 * 1024 * 1024 } };
 function canonical(value) {
@@ -37,12 +37,13 @@ function assertReset(document, kind) {
 
 
 /** Owned by one server process. Each adapter has its own last accepted CAS identity. */
-export function createSqliteStorage(path, { initialDocument = emptyDocument(), now = () => new Date() } = {}) {
+export function createSqliteStorage(path, { initialDocument = emptyDocument(), now = () => new Date(), migrationApproved = false } = {}) {
   assertValidDocument(initialDocument);
   const db = new DatabaseSync(path);
   try {
     const version = db.prepare('PRAGMA user_version').get().user_version;
-    if (version !== 0 && version !== DB_VERSION) throw new StoreError('unsupported-version', 'This database needs a newer MenuPilot.');
+    if (version === 1 && !migrationApproved) throw new StoreError('migration-backup-required', 'A verified pre-migration backup is required. Start MenuPilot normally.');
+    if (version !== 0 && version !== 1 && version !== DB_VERSION) throw new StoreError('unsupported-version', 'This database needs a newer MenuPilot.');
     db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000; PRAGMA wal_autocheckpoint=1000;');
     db.exec(`BEGIN IMMEDIATE;
       CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -51,7 +52,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
       CREATE TABLE IF NOT EXISTS ops (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL, hash TEXT NOT NULL, receipt TEXT NOT NULL, bytes INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS journal (seq INTEGER PRIMARY KEY AUTOINCREMENT, entry TEXT NOT NULL, bytes INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS plans (id TEXT PRIMARY KEY, expiresAt TEXT NOT NULL, plan TEXT NOT NULL);
-      PRAGMA user_version=1; COMMIT;`);
+      PRAGMA user_version=2; COMMIT;`);
   } catch (error) { db.close(); throw error; }
   // The initial empty document is deterministic across restarts, and is not a write.
   const initial = { document: structuredClone(initialDocument), schemaVersion: 2, documentId: null, revision: 0 };
@@ -87,9 +88,9 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
       if (i >= budget.count || bytes > budget.bytes) db.prepare(`DELETE FROM ${table} WHERE seq=?`).run(rows[i].seq);
     }
   }
-  function write(input, actor = 'ui') {
-    if (!input || !['save', 'import', 'reset', 'restore', 'memory'].includes(input.kind)) invalid('Unknown write operation.');
-    const fields = { save: ['document'], import: ['source'], reset: ['document', 'resetKind'], restore: ['id'], memory: ['document'] };
+  function write(input, actor = 'ui', { restoreDocument } = {}) {
+    if (!input || !['save', 'import', 'reset', 'restore', 'memory', 'backup-restore'].includes(input.kind)) invalid('Unknown write operation.');
+    const fields = { save: ['document'], import: ['source'], reset: ['document', 'resetKind'], restore: ['id'], 'backup-restore': ['id'], memory: ['document'] };
     const allowed = ['kind', 'expectedDocumentId', 'expectedRevision', 'opId', ...fields[input.kind]];
     if (Object.keys(input).some(key => input[key] !== undefined && !allowed.includes(key))) invalid('Unknown command field.');
     if (input.kind === 'import') {
@@ -120,9 +121,9 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
         db.exec('ROLLBACK'); return { ...current, conflict: true };
       }
       if (input.kind === 'reset' && !['empty', 'demo'].includes(input.resetKind)) invalid('Invalid reset kind.');
-      const document = input.kind === 'restore' ? readHistory(input.id).document
+      const document = input.kind === 'backup-restore' ? restoreDocument : input.kind === 'restore' ? readHistory(input.id).document
         : input.kind === 'import' ? input.source?.document : input.document;
-      assertValidDocument(document, { now: now() });
+      assertValidDocument(document, ['restore', 'backup-restore'].includes(input.kind) ? undefined : { now: now() });
       if (input.kind === 'reset') assertReset(document, input.resetKind);
       if (input.kind === 'save') assertValidTransition(current.document, document);
       const newIdentity = ['reset', 'memory'].includes(input.kind) ||
@@ -146,6 +147,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
           ...(removedIngredients.length && { removedIngredients,
             description: `Deleted ${removedIngredients.length} ingredient(s), including their price history; the pre-change snapshot is retained in version history within its retention limits.` }) });
         db.prepare('INSERT INTO journal (entry,bytes) VALUES (?,?)').run(entry, Buffer.byteLength(entry));
+        db.prepare("INSERT OR IGNORE INTO meta(key,value) VALUES('backupDirtySince',?)").run(timestamp);
         db.prepare("INSERT INTO meta (key,value) VALUES ('backupDirty','1') ON CONFLICT(key) DO UPDATE SET value='1'").run();
       }
       const encoded = JSON.stringify(receipt);

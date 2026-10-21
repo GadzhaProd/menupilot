@@ -144,6 +144,20 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
           const key = session.rotate(body.revokeSessions === true);
           value = { url: `${address}/menupilot/#k=${key}` };
         }
+        else if (req.method === 'GET' && path === '/api/backups/status' && storage.backups) value = storage.backups.status();
+        else if (req.method === 'GET' && path === '/api/backups' && storage.backups) value = storage.backups.list();
+        else if (req.method === 'POST' && ['/api/backups/verify', '/api/backups/restore'].includes(path) && storage.backups) {
+          const body = await jsonBody(req, 2048);
+          clearTimeout(deadline); // Body arrived; SQLite work has its own durable outcome.
+          if (path.endsWith('/verify')) {
+            if (!body || typeof body.id !== 'string' || Object.keys(body).length !== 1) throw new StoreError('invalid', 'Provide a backup ID.');
+            const checked = await storage.backups.verify(body.id);
+            value = { verified: true, ...checked.metadata };
+          } else {
+            if (source !== 'cli') { send(res, 403, { code: 'cli-required', message: 'Use backup restore in your terminal.' }); return; }
+            value = await storage.backups.restore(body, source);
+          }
+        }
         else if (req.method === 'GET' && path === '/api/document') value = storage.load();
         else if (req.method === 'GET' && path === '/api/version') value = storage.version();
         else if (req.method === 'GET' && path === '/api/history') value = storage.history.list();
@@ -155,7 +169,10 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
         else if (req.method === 'POST' && path === '/api/write') {
           // Future CLI writes must use D5 proposals and owner approval, never raw saves.
           if (source !== 'ui') { send(res, 403, { code: 'ui-required', message: 'Changes require the MenuPilot window.' }); return; }
-          value = storage.write(await jsonBody(req), source);
+          const body = await jsonBody(req);
+          clearTimeout(deadline);
+          if (body?.kind === 'backup-restore') throw new StoreError('invalid', 'Use the backup restore command.');
+          value = await storage.write(body, source);
         } else { send(res, 404, { code: 'not-found', message: 'Unknown API route or method.' }); return; }
         send(res, 200, value); return;
       }

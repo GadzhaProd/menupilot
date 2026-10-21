@@ -115,8 +115,8 @@ never displaced merely because it stops answering HTTP. The console always gives
 To migrate: Export in the browser version, then Data → Import backup locally.
 Review the counts and confirm replacement. A browser export gets a new local
 dataset identity; there is no merge or synchronization. Keep the original file.
-Local history retains up to 32 versions within 64 MiB; automatic independent
-backups are **not implemented yet**, so continue exporting backups.
+Local history retains up to 32 versions within 64 MiB. Automatic SQLite backups
+are described below; keep exported files for longer-term archives.
 
 After restarting the server, an open page preserves drafts and asks you to copy
 unsaved input before reloading. An interrupted write may have committed: reload
@@ -188,7 +188,113 @@ The launch secret grants a session while valid. This does not isolate data from 
 process running as your user (it can read 0600 files and SQLite), root, page-capable
 extensions or a compromised browser. Cookie theft alone no longer grants API access.
 HttpOnly does not prove human approval against an agent with your OS access.
-Automatic backups (D3), broader CLI (D4), proposals (D5) and doctor (D6) remain.
+Broader CLI and diagnostics (D4), proposals (D5) and installation polish (D6) remain.
+D3 implements automatic backups and the emergency recovery command below.
+
+## Local backups and recovery
+
+After a saved change, MenuPilot starts a verified SQLite snapshot after four minutes,
+leaving one minute to meet its **five-minute recovery-point target**. It also copies
+pending changes on normal shutdown and on the next startup after a crash. The pending
+flag is stored in the database. The server must be running for scheduled work; sleep,
+slow disks, unavailable storage and errors can delay it. The local-mode header shows
+last backup time, pending changes, failures and a warning after five minutes. Check
+that warning: the five-minute target is not a guarantee when copying cannot finish.
+No-change days also get a daily copy while the server is running. Each scheduler cycle
+compares elapsed time with the system clock. A forward or backward clock jump pauses
+automatic deletion in both folders and shows a warning; new copies continue using
+elapsed time, even if an older copy has a future date. The pause survives restarts.
+Check the date, verify your copies and manually archive older files if the budget
+fills; correcting the clock does not silently authorize deletion again.
+
+Copies live in `backups/` inside the data folder. A copy appears in `backup list` only
+after SQLite finishes, `integrity_check` and document validation pass, and a temporary
+file is flushed and atomically renamed. Each file contains its dataset ID, revision,
+time and database structure version. Keep all snapshots from the last 24 hours plus
+one per day for 14 older days, plus a verified spare behind the newest copy. Before
+rotation, MenuPilot restores candidates into temporary databases and checks them.
+It publishes a replacement before retiring older copies. Damaged copies move to
+`quarantine/`, do not count as restore points, and trigger a warning; they still count
+against the storage budget and are never automatically deleted. A verification that
+cannot run (for example, because the temporary disk is full) stops rotation.
+The hard limit is **512 files / 2 GiB** (whichever is
+reached first); when the retention window cannot fit, copying fails visibly instead
+of silently discarding recent restore points. Archive older files outside `backups/`
+and free disk space if this happens. A full disk rejects writes without confirming
+success; the previous committed document remains. Files left with `.partial` are not
+backups and are cleaned up on restart. History/receipts/journal have separate budgets.
+
+Import, reset, history restore, backup restore and database migration first create a
+verified copy under the writer queue. No other save can enter between that copy and
+the replacement. If the copy fails, the replacement is refused. Ordinary saves can
+continue while automatic copies are failing, with a visible warning.
+
+For a second location, **create the destination folder first**, then start with:
+
+```sh
+MENUPILOT_BACKUP_DIR="/path/to/external-or-cloud-folder" npm start
+```
+
+MenuPilot copies only ready, verified snapshots into a private `menupilot-<installation-id>`
+subfolder, checks the destination copy, then publishes it atomically. It retries failures
+with backoff (1 second up to 5 minutes). The UI shows the last completed external copy
+and warns if none is confirmed within 24 hours. The same retention and size limits apply.
+**A file written into a cloud folder does not prove cloud synchronization.** A folder
+on the same disk is not protection against disk loss. Check the sync client's own status.
+Known cloud/network data paths warn at startup; path/filesystem detection is a heuristic,
+not proof that a folder is safe. Keep the live database on a local disk.
+
+Run these commands while `npm start` is running, using the same `MENUPILOT_DATA_DIR`
+if you set one. IDs come from the list (they are not file paths):
+
+```sh
+npm run menupilot -- doctor # backup health, clock and damaged-copy warnings
+npm run menupilot -- backup list
+npm run menupilot -- backup verify <id>
+npm run menupilot -- backup restore <id>
+# Scripts only, after reviewing the selected ID:
+npm run menupilot -- backup restore <id> --yes
+```
+
+`verify` actually restores into a temporary database and checks its integrity, format
+and documents. Run it after upgrades and periodically (for example monthly) for the
+copies you rely on. `restore` asks for confirmation, copies the current state first,
+then puts the selected document through the normal CAS write protocol. It creates a
+**new revision**, journal entry and operation receipt; it does not replace the live
+file or roll back the revision counter. A concurrent edit cancels the restore. A lost
+response may mean the restore completed: inspect current data before another attempt.
+Without the server, these commands say to run `npm start`.
+
+If the main database is corrupt and the server cannot start, use the separate offline
+emergency procedure:
+
+1. Stop MenuPilot. Keep the data folder and its `.db`, `-wal` and `-shm` files together.
+2. Choose a backup ID from a previous list, or from a `backups/<id>.sqlite` filename.
+   If only an external copy survives, copy that complete `.sqlite` file into the data
+   folder's `backups/` first. Never copy an active database file from a running server.
+3. Run `npm run menupilot -- doctor --recover-from-backup <id>` and confirm `RESTORE`
+   (`--yes` is available for scripts). A running server prevents this operation.
+4. The command verifies the copy, preserves the original database and sidecars in a
+   neighbouring `recovery-<id>/` folder, installs the recovered database and writes
+   `report.json` there. Run `npm start` and check the ingredients and recipes.
+
+Emergency recovery creates a **new dataset identity**, invalidates old receipts/plans,
+and records the recovered revision in its report. It cannot know the highest revision
+lost from the damaged database; changes after the chosen snapshot are lost. Unlike a
+normal restore, it is a physical replacement. If interrupted, normal startup refuses
+while `recovery-pending.json` exists: repeat the same doctor command; do not delete
+that marker or the preserved originals. Recovery archives are never automatically
+deleted; review and archive them yourself after checking recovery.
+
+| Event | Protection and limit |
+| --- | --- |
+| Application crash | Confirmed SQLite commits use WAL + FULL; startup backs up pending changes. SIGKILL tests do not prove hardware power-loss durability. |
+| Accidental replacement | Verified pre-change copy and bounded version history; restoring creates a new revision. |
+| Main database lost/corrupt | Target ≤5 minutes with healthy storage and a running server. Use the visible last successful copy, not an assumed schedule. |
+| Device/disk lost | Local copies are lost too. Only a sufficiently recent independent external copy helps; cloud sync is not verified by MenuPilot. |
+| Disk full / destination unavailable | No false successful save; refused destructive operations, visible copy errors and retries. Copy freshness can exceed the target. |
+| System clock jumps forward or backward | Every scheduler cycle compares wall and monotonic time. Deletion pauses in both folders, including after restart; daily copies continue. The UI and doctor warn. The budget still applies; archive old copies manually if needed. |
+| A snapshot becomes corrupt | Rotation restore-tests candidates, isolates damaged files and preserves a verified spare. No protection if every copy is damaged or the whole disk is lost. |
 
 ## Testing
 

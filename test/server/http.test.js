@@ -159,3 +159,16 @@ test('HTTP: traversal and external symlink never expose files outside dist', asy
     assert.ok([403,404].includes(res.status),path);assert.ok(!res.text.includes('outside-secret'));
   }
 });
+
+test('HTTP: body deadline does not time out a completed request while verifying its backup', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-backup-deadline-'));
+  writeFileSync(join(dir, 'index.html'), '<html><head></head><body></body></html>');
+  const server = await serveLocal({ dataDir: dir, distDir: dir, port: 0, limits: { bodyMs: 50 }, storage: { backups: {
+    async verify(id) { await new Promise(r => setTimeout(r, 100)); return { metadata: { id } }; },
+  } } });
+  t.after(async () => { await server.close(); rmSync(dir, { recursive: true }); });
+  const response = await fetch(server.address + '/api/backups/verify', { method: 'POST',
+    headers: { Authorization: `Bearer ${server.cliToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'test' }) });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { verified: true, id: 'test' });
+});

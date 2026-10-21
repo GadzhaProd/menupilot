@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { privateFile } from './session.js';
 import { canonicalDataDir, acquireLock } from './lock.js';
-import { createSqliteStorage } from './sqlite.js';
+import { openLocalStorage } from './backups.js';
+import { dataLocationWarning } from './recovery.js';
 import { serveLocal } from './http.js';
 import { ensureBuild } from './build.js';
 
@@ -21,7 +22,7 @@ export async function start() {
     return closing ??= (async () => {
       try { if (http) await http.close(); }
       finally {
-        try { storage?.close(); }
+        try { await storage?.close(); }
         finally { await lock.release(); process.off('SIGTERM', onSignal); process.off('SIGINT', onSignal); }
       }
     })();
@@ -31,7 +32,9 @@ export async function start() {
     const root = fileURLToPath(new URL('../', import.meta.url));
     await ensureBuild(root, abort.signal);
     if (stopping) { await close(); return; }
-    storage = createSqliteStorage(join(dir, 'menupilot.db'));
+    const warning = dataLocationWarning(dir);
+    if (warning) console.warn(warning);
+    storage = await openLocalStorage(dir);
     const cliToken = randomBytes(32).toString('hex');
     privateFile(dir, 'token', cliToken);
     http = await serveLocal({ storage, dataDir: dir, distDir: join(root, 'dist'), port, cliToken, instanceId: lock.owner.instanceId });
