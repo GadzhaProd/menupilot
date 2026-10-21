@@ -149,3 +149,17 @@ test('SQLite: reset accepts only canonical empty or localized demo data', async 
     assert.deepEqual(s.load(),current);
   }
 });
+
+test('SQLite: deleting an unused ingredient with prices snapshots and describes the loss in journal', t => {
+  const s = fixture(t), first = s.load();
+  const doc = structuredClone(first.document);
+  doc.ingredients.push({ ...structuredClone(doc.ingredients[0]), id: 'unused', name: 'Removed flour' });
+  const saved = s.write(request(first, doc, 'add-unused'));
+  doc.ingredients = doc.ingredients.filter(i => i.id !== 'unused');
+  s.write(request(saved, doc, 'delete-unused'));
+  const entry = JSON.parse(s.db.prepare('SELECT entry FROM journal ORDER BY seq DESC LIMIT 1').get().entry);
+  assert.deepEqual(entry.removedIngredients, [{ id: 'unused', priceEntries: first.document.ingredients[0].prices.length }]);
+  assert.match(entry.description, /Deleted 1 ingredient.*price history/);
+  const prior = s.history.read(s.history.list()[0].id);
+  assert.deepEqual(prior.document, saved.document);
+});

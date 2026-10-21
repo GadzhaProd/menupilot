@@ -139,7 +139,12 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
         if (bytes > BUDGETS.history.bytes) throw new StoreError('quota', 'The pre-change snapshot exceeds the history budget.');
         db.prepare('INSERT INTO history (id,savedAt,raw,bytes) VALUES (?,?,?,?)').run(randomUUID(), timestamp, raw, bytes);
         db.prepare('INSERT INTO document (id,record) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET record=excluded.record').run(JSON.stringify(next));
-        const entry = JSON.stringify({ ...receipt, kind: input.kind, source: actor, at: timestamp });
+        const remaining = new Set(document.ingredients.map(i => i.id));
+        const removedIngredients = current.document.ingredients.filter(i => !remaining.has(i.id))
+          .map(i => ({ id: i.id, priceEntries: i.prices.length }));
+        const entry = JSON.stringify({ ...receipt, kind: input.kind, source: actor, at: timestamp,
+          ...(removedIngredients.length && { removedIngredients,
+            description: `Deleted ${removedIngredients.length} ingredient(s), including their price history; the pre-change snapshot is retained in version history within its retention limits.` }) });
         db.prepare('INSERT INTO journal (entry,bytes) VALUES (?,?)').run(entry, Buffer.byteLength(entry));
         db.prepare("INSERT INTO meta (key,value) VALUES ('backupDirty','1') ON CONFLICT(key) DO UPDATE SET value='1'").run();
       }
