@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { readFileSync, readdirSync, realpathSync, lstatSync } from 'node:fs';
 import { join, extname, relative } from 'node:path';
 import { StoreError } from '../src/store/errors.js';
@@ -25,8 +25,9 @@ function staticFiles(root) {
 }
 async function jsonBody(req) {
   if (req.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') throw Object.assign(new StoreError('content-type', 'Use application/json.'), { status: 415 });
+  if (Number(req.headers['content-length']) > MAX_BODY_BYTES) throw Object.assign(new StoreError('body-too-large', 'The request is too large.'), { status: 413 });
   let size = 0; const chunks = [];
-  for await (const chunk of req) {
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
     size += chunk.length;
     if (size > MAX_BODY_BYTES) throw Object.assign(new StoreError('body-too-large', 'The request is too large.'), { status: 413 });
     chunks.push(chunk);
@@ -40,7 +41,7 @@ function send(res, status, value) {
 }
 
 /** No arbitrary filesystem paths or arbitrary adapter method dispatch are accepted. */
-export async function serveLocal({ storage, dataDir, distDir, port, cliToken = randomBytes(32).toString('hex') }) {
+export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex') }) {
   const uiToken = randomBytes(32).toString('hex');
   const root = realpathSync(distDir), files = staticFiles(root);
   const template = readFileSync(join(root, 'index.html'), 'utf8');
@@ -52,6 +53,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, cliToken = r
       const url = new URL(req.url, address);
       if (url.origin !== address) { send(res, 403, { code: 'host', message: 'Invalid request target.' }); return; }
       const path = url.pathname;
+      if (req.method === 'GET' && path === '/menupilot-instance') { send(res, 200, { service: 'MenuPilot', instanceId }); return; }
       if (path.startsWith('/api/')) {
         const token = req.headers.authorization?.replace(/^Bearer /, '');
         const source = tokenMatches(token, uiToken) ? 'ui' : tokenMatches(token, cliToken) ? 'cli' : null;
@@ -60,7 +62,11 @@ export async function serveLocal({ storage, dataDir, distDir, port, cliToken = r
         if (req.method === 'GET' && path === '/api/document') value = storage.load();
         else if (req.method === 'GET' && path === '/api/version') value = storage.version();
         else if (req.method === 'GET' && path === '/api/history') value = storage.history.list();
-        else if (req.method === 'POST' && path === '/api/history/read') value = storage.history.read((await jsonBody(req)).id);
+        else if (req.method === 'POST' && path === '/api/history/read') {
+          const body = await jsonBody(req);
+          if (!body || Array.isArray(body) || typeof body.id !== 'string' || !body.id || Object.keys(body).length !== 1) throw new StoreError('invalid', 'Provide a history entry ID.');
+          value = storage.history.read(body.id);
+        }
         else if (req.method === 'POST' && path === '/api/write') {
           // Future CLI writes must use D5 proposals and owner approval, never raw saves.
           if (source !== 'ui') { send(res, 403, { code: 'ui-required', message: 'Changes require the MenuPilot window.' }); return; }
@@ -72,7 +78,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, cliToken = r
       if (path === '/' || path === '/menupilot') { res.writeHead(302, { Location: '/menupilot/', 'Cache-Control': 'no-store' }); res.end(); return; }
       if (path === '/menupilot/' || path === '/menupilot/index.html') {
         const config = escapeConfig({ mode: 'local', apiVersion: 1, token: uiToken, dataDir });
-        const html = template.replace('<head>', `<head><meta name="menupilot-mode" content="local"><script id="menupilot-local-config" type="application/json">${config}</script>`);
+        const html = template.replace('<head>', () => `<head><meta name="menupilot-mode" content="local"><script id="menupilot-local-config" type="application/json">${config}</script>`);
         res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
         res.end(req.method === 'HEAD' ? undefined : html); return;
       }
@@ -81,6 +87,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, cliToken = r
       res.writeHead(200, { 'Content-Type': MIME[extname(file)], 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' });
       res.end(req.method === 'HEAD' ? undefined : readFileSync(file));
     } catch (error) {
+      if (error.status === 413) res.setHeader('Connection', 'close');
       if (!res.headersSent) send(res, error.status ?? (error instanceof StoreError ? 400 : 500), {
         code: error instanceof StoreError ? error.code : 'server-error',
         message: error instanceof StoreError ? error.message : 'Local server could not complete the request.',

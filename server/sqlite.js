@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../src/store/demo.js';
 import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomUUID } from 'node:crypto';
 import { StoreError } from '../src/store/errors.js';
@@ -16,6 +18,23 @@ function canonical(value) {
 }
 function digest(value) { return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex'); }
 const invalid = message => { throw new StoreError('invalid', message); };
+const demos = ['demo.json', 'demo.nl.json'].map(name => JSON.parse(readFileSync(new URL('../data/' + name, import.meta.url), 'utf8')));
+function assertReset(document, kind) {
+  if (kind === 'empty' && digest(document) === digest(emptyDocument())) return;
+  if (kind === 'demo') {
+    // UI rebases every demo price by the same time offset. Match the entire
+    // bundled EN/NL document after that offset, including every non-date field.
+    for (const demo of demos) {
+      const stamp = document.ingredients[0]?.prices[0]?.recordedAt;
+      const offset = Date.parse(stamp) - Date.parse(demo.ingredients[0].prices[0].recordedAt);
+      const anchor = Date.parse(DEMO_REFERENCE_NOW) + offset;
+      if (Number.isFinite(anchor) && Math.abs(anchor) <= 8.64e15 &&
+        digest(document) === digest(shiftDemoDates(demo, new Date(anchor).toISOString()))) return;
+    }
+  }
+  invalid('Reset requires the canonical empty document or the selected English/Dutch demo. Use Import for other data.');
+}
+
 
 /** Owned by one server process. Each adapter has its own last accepted CAS identity. */
 export function createSqliteStorage(path, { initialDocument = emptyDocument(), now = () => new Date() } = {}) {
@@ -104,6 +123,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
       const document = input.kind === 'restore' ? readHistory(input.id).document
         : input.kind === 'import' ? input.source?.document : input.document;
       assertValidDocument(document, { now: now() });
+      if (input.kind === 'reset') assertReset(document, input.resetKind);
       if (input.kind === 'save') assertValidTransition(current.document, document);
       const newIdentity = ['reset', 'memory'].includes(input.kind) ||
         (input.kind === 'import' && (!input.source.documentId || input.source.documentId !== current.documentId));

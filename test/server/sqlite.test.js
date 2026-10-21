@@ -129,3 +129,23 @@ test('SQLite: newer DB version is refused; corrupt stored documents fail closed'
   s.db.prepare('UPDATE document SET record=?').run(JSON.stringify(malformed));
   assert.throws(() => s.load(),{code:'invalid'});
 });
+
+test('SQLite: reset accepts only canonical empty or localized demo data', async t => {
+  const {readFileSync}=await import('node:fs');
+  const {emptyDocument}=await import('../../src/store/schema.js');
+  const {shiftDemoDates}=await import('../../src/store/demo.js');
+  const s=fixture(t);
+  const reset=(document,resetKind,opId)=>s.write({...request(s.load(),document,opId),kind:'reset',resetKind});
+  const before=s.load();
+  assert.throws(()=>reset(before.document,'empty','fake-empty'),{code:'invalid'});
+  assert.throws(()=>reset(before.document,'demo','fake-demo'),{code:'invalid'});
+  assert.deepEqual(s.load(),before);
+  reset(emptyDocument(),'empty','empty');
+  for(const locale of ['', '.nl']) {
+    const demo=shiftDemoDates(JSON.parse(readFileSync(new URL(`../../data/demo${locale}.json`,import.meta.url))),new Date().toISOString());
+    reset(demo,'demo','demo'+locale);
+    const forged=structuredClone(demo);forged.ingredients[0].prices[0].packPriceCents++;
+    const current=s.load();assert.throws(()=>reset(forged,'demo','forged'+locale),{code:'invalid'});
+    assert.deepEqual(s.load(),current);
+  }
+});

@@ -98,7 +98,61 @@ test('HTTP: oversized JSON is refused before writing; config escapes script deli
   assert.equal(escapeConfig({ path: '</script>\u2028&' }).includes('<'),false);
   assert.deepEqual(JSON.parse(escapeConfig({ path: '</script>\u2028&' })),{ path: '</script>\u2028&' });
   const f = await fixture(); t.after(() => f.close());
-  const response = await fetch(`${f.address}/api/write`, { method:'POST', headers:{Authorization:`Bearer ${f.uiToken}`,'Content-Type':'application/json'},body:' '.repeat(MAX_BODY_BYTES+1) });
-  assert.equal(response.status,413);
+  const { request } = await import('node:http');
+  // Chunked input exercises the streaming budget independently of Content-Length.
+  const status = await new Promise((resolve,reject) => {
+    const req=request(f.address+'/api/write',{method:'POST',headers:{Authorization:`Bearer ${f.uiToken}`,'Content-Type':'application/json','Transfer-Encoding':'chunked'}},res=>{
+      res.resume();res.on('end',()=>resolve(res.statusCode));
+    });
+    req.on('error',reject);req.end(' '.repeat(MAX_BODY_BYTES+1));
+  });
+  assert.equal(status,413);
   assert.equal(f.storage.load().revision,0);
+});
+
+test('HTTP: dollar replacement patterns in data path remain literal JSON', async t => {
+  const f = await fixture(); t.after(() => f.close());
+  const path = f.dir + "/we$'ird$$x";
+  const other = await serveLocal({ storage: f.storage, dataDir: path, distDir: f.dir, port: 0 });
+  t.after(() => other.close());
+  const html = await (await fetch(other.address + '/menupilot/')).text();
+  const config = JSON.parse(html.match(/id="menupilot-local-config" type="application\/json">(.*?)<\/script>/s)[1]);
+  assert.equal(config.dataDir,path);
+});
+
+test('HTTP: invalid history-read bodies return 400 invalid', async t => {
+  const f = await fixture(); t.after(() => f.close());
+  for (const body of [null, {}, [], {id:42}, {id:''}, {id:'x',extra:true}]) {
+    const res = await fetch(f.address+'/api/history/read',{method:'POST',headers:{Authorization:`Bearer ${f.uiToken}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    assert.equal(res.status,400);assert.equal((await res.json()).code,'invalid');
+  }
+});
+
+test('HTTP: oversized Content-Length is rejected before receiving body; next request succeeds', async t => {
+  const { MAX_BODY_BYTES } = await import('../../server/http.js');
+  const f = await fixture(); t.after(() => f.close());
+  const agent = new http.Agent({keepAlive:true,maxSockets:1});t.after(()=>agent.destroy());
+  const status = await new Promise((resolve,reject)=>{
+    const req=http.request(f.address+'/api/write',{method:'POST',agent,headers:{Authorization:`Bearer ${f.uiToken}`,'Content-Type':'application/json','Content-Length':MAX_BODY_BYTES+1}},res=>{
+      res.resume();res.on('end',()=>resolve([res.statusCode,res.headers.connection]));
+    });
+    req.on('error',reject);req.setTimeout(1500,()=>req.destroy(new Error('waited for oversized body')));req.flushHeaders();
+  });
+  assert.deepEqual(status,[413,'close']);
+  const next=await new Promise((resolve,reject)=>http.get(f.address+'/api/document',{agent,headers:{Authorization:`Bearer ${f.uiToken}`}},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));}).on('error',reject));
+  assert.equal(next,200);
+});
+
+test('HTTP: traversal and external symlink never expose files outside dist', async t => {
+  const { mkdirSync, symlinkSync } = await import('node:fs');
+  const f = await fixture(); t.after(() => f.close());
+  const dist=join(f.dir,'static');mkdirSync(dist);
+  writeFileSync(join(dist,'index.html'),'<html><head></head><body>app</body></html>');
+  writeFileSync(join(f.dir,'secret.json'),'outside-secret');
+  symlinkSync(join(f.dir,'secret.json'),join(dist,'linked.json'));
+  const other=await serveLocal({storage:f.storage,dataDir:f.dir,distDir:dist,port:0});t.after(()=>other.close());
+  for(const path of ['/menupilot/%2e%2e/secret.json','/menupilot/%5c..%5csecret.json','//secret.json','/menupilot/%00secret.json','/menupilot/linked.json']) {
+    const res=await new Promise((resolve,reject)=>http.get(other.address,{path},r=>{let text='';r.on('data',b=>text+=b);r.on('end',()=>resolve({status:r.statusCode,text}));}).on('error',reject));
+    assert.ok([403,404].includes(res.status),path);assert.ok(!res.text.includes('outside-secret'));
+  }
 });
