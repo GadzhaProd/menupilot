@@ -2,10 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   batchCostMicro,
+  ingredientLineCostMicro,
   prepLineCostMicro,
   prepUnitCostDisplay,
   recipeCost,
 } from '../../src/calc/costing.js';
+import { roundDiv } from '../../src/calc/money.js';
+import { createBaselineSnapshot, simulate } from '../../src/calc/simulate.js';
 
 function ingredient(id, packPriceCents, packSizeMilli, unit = 'g', prices = null) {
   return {
@@ -230,4 +233,176 @@ test('does not mutate deep-frozen recipe, prep, ingredient, or document inputs',
 
   assert.equal(recipeCost(menuDish, data).costPerPortionMicro, 100_000n);
   assert.equal(JSON.stringify(data), before);
+});
+
+function legacyCost(recipe, data, options = {}, path = [], depth = 0) {
+  let currentDepth = depth;
+  let currentPath = path;
+  if (recipe.kind === 'prep') {
+    if (!recipe || typeof recipe.id !== 'string') throw new TypeError('Expected a prep recipe with an id.');
+    const cycleStart = path.findIndex((entry) => entry.id === recipe.id);
+    if (cycleStart !== -1) {
+      const cycle = path.slice(cycleStart).map((entry) => entry.name || entry.id);
+      cycle.push(recipe.name || recipe.id);
+      throw new Error(`Prep cycle detected: ${cycle.join(' -> ')}.`);
+    }
+    currentDepth = depth + 1;
+    if (currentDepth > 5) {
+      throw new Error(`Prep nesting exceeds maximum depth of 5 at ${recipe.name || recipe.id}.`);
+    }
+    normalizeUnit(recipe.outputUnit);
+    currentPath = [...path, recipe];
+  }
+  if (recipe.lines.length === 0) return null;
+  let total = 0n;
+  let unknown = false;
+  for (const entry of recipe.lines) {
+    let cost;
+    if (entry.ref.kind === 'ingredient') {
+      const source = data.ingredients.find((item) => item.id === entry.ref.id);
+      cost = ingredientLineCostMicro(source, entry, options);
+    } else {
+      const source = data.recipes.find((item) => item.id === entry.ref.id && item.kind === 'prep');
+      const batch = legacyCost(source, data, options, currentPath, currentDepth);
+      cost = batch === null ? null : roundDiv(batch * BigInt(entry.netQtyMilli) * 10_000n,
+        BigInt(source.outputMilli) * BigInt(entry.yieldBp));
+    }
+    if (cost === null) unknown = true;
+    else total += cost;
+  }
+  return unknown ? null : total;
+}
+
+function normalizeUnit(unit) {
+  if (!['g', 'ml', 'pc'].includes(unit)) throw new Error(`unsupported unit ${unit}`);
+}
+
+function seededRandom(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value = (value * 1664525 + 1013904223) >>> 0;
+    return value / 0x1_0000_0000;
+  };
+}
+
+test('matches the uncached algorithm on deterministic generated prep graphs', () => {
+  const random = seededRandom(0x51a7);
+  for (let graph = 0; graph < 40; graph += 1) {
+    const ingredients = Array.from({ length: 4 }, (_, index) => ingredient(
+      `i-${index}`, 100 + Math.floor(random() * 900), 100_000 + Math.floor(random() * 900_000), 'g',
+      index === 3 ? [] : [
+        { seq: 1, recordedAt: '2025-01-01T00:00:00.000Z', packPriceCents: 100 + index * 100, packSizeMilli: 1_000_000 },
+        { seq: 2, recordedAt: '2025-03-01T00:00:00.000Z', packPriceCents: 300 + index * 100, packSizeMilli: 1_000_000 },
+      ],
+    ));
+    const recipes = [];
+    for (let level = 3; level >= 0; level -= 1) {
+      const entries = Array.from({ length: 1 + Math.floor(random() * 5) }, (_, index) => {
+        const targetId = level === 3 ? `i-${Math.floor(random() * 4)}` : `p-${level + 1}-${Math.floor(random() * 3)}`;
+        return line(level === 3 ? 'ingredient' : 'prep', targetId,
+          1_000 + Math.floor(random() * 50_000), 5_000 + Math.floor(random() * 5_001));
+      });
+      for (let variant = 0; variant < 3; variant += 1) {
+        const ownLines = level === 3 ? entries : entries.map((entry, index) => ({
+          ...entry, ref: { kind: 'prep', id: `p-${level + 1}-${index % 3}` },
+        }));
+        recipes.push(prep(`p-${level}-${variant}`, 100_000 + variant * 10_000, 'g', ownLines));
+      }
+    }
+    const root = prep('root', 1_000_000, 'g', [0, 1, 2].map((variant) => line('prep', `p-0-${variant}`, 50_000 + variant * 1_000)));
+    recipes.push(root);
+    const data = document(ingredients, recipes);
+    for (const options of [{}, { asOf: '2025-02-01T00:00:00.000Z' }]) {
+      assert.equal(batchCostMicro(root, data, options), legacyCost(root, data, options));
+    }
+    const overrides = ingredients.map((item, index) => ({ ...item, prices: item.prices.map((price) => ({ ...price,
+      packPriceCents: price.packPriceCents + (index + 1) * 137,
+    })) }));
+    const overrideData = document(overrides, recipes);
+    assert.equal(batchCostMicro(root, overrideData, { asOf: '2025-02-01T00:00:00.000Z' }),
+      legacyCost(root, overrideData, { asOf: '2025-02-01T00:00:00.000Z' }));
+  }
+});
+
+test('matches old depth and cycle errors on invalid prep graphs', () => {
+  const salt = ingredient('salt', 100, 1_000_000);
+  const depthRecipes = Array.from({ length: 6 }, (_, index) => prep(
+    `depth-${index}`,
+    1_000_000,
+    'g',
+    [index === 5 ? line('ingredient', 'salt', 1_000_000) : line('prep', `depth-${index + 1}`, 1_000_000)],
+  ));
+  const depthRoot = depthRecipes[0];
+  const depthData = document([salt], depthRecipes);
+  const cycleA = prep('cycle-A', 1_000_000, 'g', [line('prep', 'cycle-B', 1_000_000)]);
+  const cycleB = prep('cycle-B', 1_000_000, 'g', [line('prep', 'cycle-A', 1_000_000)]);
+  const cycleRoot = cycleA;
+  const cycleData = document([], [cycleA, cycleB]);
+
+  for (const [root, data] of [[depthRoot, depthData], [cycleRoot, cycleData]]) {
+    let actual;
+    let expected;
+    assert.throws(() => batchCostMicro(root, data), (error) => { actual = error.message; return true; });
+    assert.throws(() => legacyCost(root, data), (error) => { expected = error.message; return true; });
+    assert.equal(actual, expected);
+  }
+});
+
+test('checks max depth when a prep is reused at a deeper path', () => {
+  const salt = ingredient('salt', 100, 1_000_000);
+  const x = prep('X', 1_000_000, 'g', [line('prep', 'Y', 1_000_000)]);
+  const y = prep('Y', 1_000_000, 'g', [line('prep', 'Z', 1_000_000)]);
+  const z = prep('Z', 1_000_000, 'g', [line('prep', 'W', 1_000_000)]);
+  const w = prep('W', 1_000_000, 'g', [line('ingredient', 'salt', 1_000_000)]);
+  const p1 = prep('P1', 1_000_000, 'g', [line('prep', 'P2', 1_000_000)]);
+  const p2 = prep('P2', 1_000_000, 'g', [line('prep', 'X', 1_000_000)]);
+  const menuDish = dish([line('prep', 'X', 1_000_000), line('prep', 'P1', 1_000_000)]);
+  const data = document([salt], [x, y, z, w, p1, p2, menuDish]);
+
+  assert.throws(
+    () => recipeCost(menuDish, data),
+    /Prep nesting exceeds maximum depth of 5 at W\./,
+  );
+});
+
+test('keeps simulator ingredient price overrides consistent through shared prep levels', () => {
+  const tomato = ingredient('tomato', 0, 0, 'g', [
+    { seq: 1, recordedAt: '2025-01-01T00:00:00.000Z', packPriceCents: 200, packSizeMilli: 1_000_000 },
+    { seq: 2, recordedAt: '2025-03-01T00:00:00.000Z', packPriceCents: 500, packSizeMilli: 1_000_000 },
+  ]);
+  const base = prep('base', 1_000_000, 'g', [line('ingredient', 'tomato', 600_000)]);
+  const shared = prep('shared', 1_000_000, 'g', [line('prep', 'base', 800_000), line('prep', 'base', 200_000)]);
+  const menuDish = { ...dish([line('prep', 'shared', 1_000_000)]), menuPriceInclVatCents: 1_000,
+    vatRateBp: 900, monthlyVolume: 10 };
+  const source = document([tomato], [base, shared, menuDish]);
+  const takenAt = '2025-02-01T00:00:00.000Z';
+  const baseline = createBaselineSnapshot(source, menuDish.id, takenAt);
+  const result = simulate(baseline, { ingredientPriceCents: { tomato: 900 } });
+
+  const changed = document(baseline.ingredients.map((item) => ({ ...item, prices: item.prices.map((price) =>
+    price.recordedAt === '2025-01-01T00:00:00.000Z' ? { ...price, packPriceCents: 900 } : price,
+  ) })), baseline.recipes);
+  assert.equal(result.recipeCostPerPortionMicro, legacyCost(menuDish, changed, { asOf: takenAt }));
+});
+
+test('calculates audited five-level shared prep graphs under 200 ms', () => {
+  function auditedGraph(fanout) {
+    const salt = ingredient('salt', 100, 1_000_000);
+    const recipes = [];
+    for (let level = 4; level >= 0; level -= 1) {
+      const target = level === 4 ? { kind: 'ingredient', id: 'salt' } : { kind: 'prep', id: `p-${level + 1}` };
+      recipes.push(prep(`p-${level}`, 1_000_000, 'g', Array.from({ length: fanout }, (_, index) => ({
+        id: `line-${level}-${index}`, ref: target, netQtyMilli: 1_000, yieldBp: 10_000,
+      }))));
+    }
+    const root = dish([line('prep', 'p-0', 1_000_000)]);
+    return { root, data: document([salt], [...recipes, root]) };
+  }
+
+  for (const fanout of [20, 40]) {
+    const { root, data } = auditedGraph(fanout);
+    const started = performance.now();
+    recipeCost(root, data);
+    assert.ok(performance.now() - started < 200, `${fanout} references per level took ${performance.now() - started} ms`);
+  }
 });

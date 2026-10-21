@@ -23,7 +23,19 @@ function lineCostFromPrepBatchMicro(line, prep, prepBatchCostMicroValue) {
   );
 }
 
-function calculateRecipeLinesCostMicro(recipe, data, options, prepStack, prepDepth) {
+function createCalculationContext(data) {
+  const ingredientsById = new Map();
+  const prepsById = new Map();
+  for (const ingredient of data.ingredients) {
+    if (!ingredientsById.has(ingredient.id)) ingredientsById.set(ingredient.id, ingredient);
+  }
+  for (const recipe of data.recipes) {
+    if (recipe.kind === 'prep' && !prepsById.has(recipe.id)) prepsById.set(recipe.id, recipe);
+  }
+  return { ingredientsById, prepsById, prepCosts: new Map() };
+}
+
+function calculateRecipeLinesCostMicro(recipe, data, options, prepStack, prepDepth, context) {
   if (!Array.isArray(recipe.lines)) {
     throw new TypeError('Recipe lines must be an array.');
   }
@@ -40,15 +52,13 @@ function calculateRecipeLinesCostMicro(recipe, data, options, prepStack, prepDep
 
     let lineCostMicro;
     if (line.ref.kind === 'ingredient') {
-      const ingredient = data.ingredients.find((entry) => entry.id === line.ref.id);
+      const ingredient = context.ingredientsById.get(line.ref.id);
       if (!ingredient) {
         throw new TypeError(`Unknown ingredient reference: ${line.ref.id}.`);
       }
       lineCostMicro = ingredientLineCostMicroInternal(ingredient, line, options);
     } else if (line.ref.kind === 'prep') {
-      const nestedPrep = data.recipes.find(
-        (entry) => entry.id === line.ref.id && entry.kind === 'prep',
-      );
+      const nestedPrep = context.prepsById.get(line.ref.id);
       if (!nestedPrep) {
         throw new TypeError(`Unknown prep reference: ${line.ref.id}.`);
       }
@@ -58,6 +68,7 @@ function calculateRecipeLinesCostMicro(recipe, data, options, prepStack, prepDep
         options,
         prepStack,
         prepDepth,
+        context,
       );
       lineCostMicro = lineCostFromPrepBatchMicro(line, nestedPrep, nestedBatchCostMicro);
     } else {
@@ -74,7 +85,7 @@ function calculateRecipeLinesCostMicro(recipe, data, options, prepStack, prepDep
   return hasUnknownLine ? null : totalCostMicro;
 }
 
-function calculatePrepBatchCostMicro(prep, data, options, prepStack, prepDepth) {
+function calculatePrepBatchCostMicro(prep, data, options, prepStack, prepDepth, context) {
   if (!prep || prep.kind !== 'prep' || typeof prep.id !== 'string') {
     throw new TypeError('Expected a prep recipe with an id.');
   }
@@ -92,13 +103,22 @@ function calculatePrepBatchCostMicro(prep, data, options, prepStack, prepDepth) 
   safeInteger(prep.outputMilli, 'outputMilli', 1);
   normalizeUnit(prep.outputUnit);
 
-  return calculateRecipeLinesCostMicro(
+  // Include depth to preserve the legacy max-depth behavior when the same prep
+  // is reachable through paths of different lengths. The context and its options
+  // belong to one public calculation, so neither document nor override state leaks.
+  const cacheKey = `${prep.id}:${currentDepth}`;
+  if (context.prepCosts.has(cacheKey)) return context.prepCosts.get(cacheKey);
+
+  const result = calculateRecipeLinesCostMicro(
     prep,
     data,
     options,
     [...prepStack, prep],
     currentDepth,
+    context,
   );
+  context.prepCosts.set(cacheKey, result);
+  return result;
 }
 
 /**
@@ -116,10 +136,11 @@ export function recipeBatchCostMicro(recipe, data, options = {}) {
   if (!data || !Array.isArray(data.ingredients) || !Array.isArray(data.recipes)) {
     throw new TypeError('Calculation data must contain ingredients and recipes arrays.');
   }
+  const context = createCalculationContext(data);
   if (recipe.kind === 'prep') {
-    return calculatePrepBatchCostMicro(recipe, data, options, [], 0);
+    return calculatePrepBatchCostMicro(recipe, data, options, [], 0, context);
   }
-  return calculateRecipeLinesCostMicro(recipe, data, options, [], 0);
+  return calculateRecipeLinesCostMicro(recipe, data, options, [], 0, context);
 }
 
 /**
