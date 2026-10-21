@@ -1,3 +1,4 @@
+import { signIn } from './session-helper.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -14,13 +15,13 @@ async function fixture(t, limits) {
   const storage = createSqliteStorage(':memory:');
   const f = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0, limits });
   t.after(async () => { await f.close(); storage.close(); rmSync(dir, { recursive: true }); });
-  return { ...f, dir, storage };
+  return { ...f, uiToken: (await signIn(f, dir)).token, dir, storage };
 }
 async function login(f) {
   const key = readFileSync(join(f.dir, 'launch-secret'), 'utf8');
   const r = await fetch(f.address + '/menupilot/session', { method: 'POST', headers: { Origin: f.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
   assert.equal(r.status, 200);
-  return { key, cookie: r.headers.get('set-cookie').split(';')[0], header: r.headers.get('set-cookie') };
+  return { key, token: (await r.json()).token, cookie: r.headers.get('set-cookie').split(';')[0], header: r.headers.get('set-cookie') };
 }
 test('security: page and config require cookie; one-time key, hardened headers and clean URL', async t => {
   const f = await fixture(t);
@@ -44,7 +45,8 @@ test('security: page and config require cookie; one-time key, hardened headers a
   assert.ok(!page.includes('<script>'));
   assert.match(page, /src="\/menupilot\/bootstrap-0.js"/);
   assert.match(await (await fetch(f.address + '/menupilot/bootstrap-0.js')).text(), /window.appearanceReady = true/);
-  assert.equal((await (await fetch(f.address + '/menupilot/local-config.json', { headers })).json()).token, f.uiToken);
+  assert.equal((await fetch(f.address + '/menupilot/local-config.json', { headers })).status, 401);
+  assert.equal((await fetch(f.address + '/menupilot/local-config.json', { headers: { Authorization: `Bearer ${session.token}` } })).status, 200);
   const replay = await fetch(f.address + '/menupilot/session', { method: 'POST', headers: { Origin: f.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: session.key }) });
   assert.equal(replay.status, 401);
   assert.notEqual(readFileSync(join(f.dir, 'launch-secret'), 'utf8'), session.key);
@@ -115,15 +117,15 @@ test('security: entering a sign-in fragment on an already open page clears it be
   const events = {}, calls = [];
   const location = { hash: '', replace: url => calls.push(['redirect', url]) };
   runInNewContext(readFileSync(new URL('../../server/login.js', import.meta.url), 'utf8'), {
-    URLSearchParams, location,
+    URLSearchParams, location, sessionStorage: { setItem: (key, token) => calls.push(['store', key, token]) },
     history: { replaceState: (_state, _title, url) => { calls.push(['clear', url]); location.hash = ''; } },
     addEventListener: (name, callback) => { events[name] = callback; },
-    fetch: async (_url, options) => { calls.push(['exchange', location.hash, JSON.parse(options.body).key]); return { ok: true }; },
+    fetch: async (_url, options) => { calls.push(['exchange', location.hash, JSON.parse(options.body).key]); return { ok: true, json: async () => ({ token: 'a'.repeat(64) }) }; },
   });
   assert.deepEqual(calls, []);
   location.hash = '#k=private'; events.hashchange();
   await new Promise(r => setImmediate(r));
-  assert.deepEqual(calls, [['clear', '/menupilot/'], ['exchange', '', 'private'], ['redirect', '/menupilot/']]);
+  assert.deepEqual(calls, [['clear', '/menupilot/'], ['exchange', '', 'private'], ['store', 'menupilot.local.token.v1', 'a'.repeat(64)], ['redirect', '/menupilot/']]);
 });
 
 test('security: rebinding Host and invalid cookies never disclose HTML or config', async t => {

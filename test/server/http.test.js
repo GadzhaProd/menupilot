@@ -1,3 +1,4 @@
+import { signIn } from './session-helper.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -17,6 +18,7 @@ async function fixture() {
   writeFileSync(join(dir, 'index.html'), '<html><head></head><body><div id="root"></div></body></html>');
   const storage = createSqliteStorage(join(dir, 'data.db'), { initialDocument: smallDocument() });
   const server = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0 });
+  server.uiToken = (await signIn(server, dir)).token;
   const fetchUI = (url, options = {}) => fetch(url, { ...options, headers: { ...options.headers, Origin: server.address } });
   return { ...server, storage, dir, fetchUI, serverClose: server.close,
     open: () => createHttpStorageAdapter({ baseUrl: server.address, token: server.uiToken, fetchImpl: fetchUI }),
@@ -116,8 +118,8 @@ test('HTTP: dollar replacement patterns in data path remain literal JSON', async
   const other = await serveLocal({ storage: f.storage, dataDir: path, distDir: f.dir, port: 0 });
   t.after(() => other.close());
   const response = await fetch(other.address + '/menupilot/session', { method: 'POST', headers: { Origin: other.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: readFileSync(join(path, 'launch-secret'), 'utf8') }) });
-  const cookie = response.headers.get('set-cookie').split(';')[0];
-  const config = await (await fetch(other.address + '/menupilot/local-config.json', { headers: { Cookie: cookie } })).json();
+  const token = (await response.json()).token;
+  const config = await (await fetch(other.address + '/menupilot/local-config.json', { headers: { Authorization: `Bearer ${token}` } })).json();
   assert.equal(config.dataDir,path);
 });
 

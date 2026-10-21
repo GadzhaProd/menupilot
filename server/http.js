@@ -18,7 +18,7 @@ function staticFiles(root) {
       const path = join(dir, name), stat = lstatSync(path);
       if (stat.isSymbolicLink()) continue;
       if (stat.isDirectory()) walk(path);
-      else if (stat.isFile() && MIME[extname(name)] && !name.endsWith('.map')) files.set('/menupilot/' + relative(root, path).split('\\').join('/'), path);
+      else if (stat.isFile() && MIME[extname(name)] && !name.endsWith('.map')) files.set('/menupilot/' + relative(root, path).split('\\').join('/'), { type: MIME[extname(name)], body: readFileSync(path) });
     }
   }
   walk(root); return files;
@@ -37,18 +37,36 @@ async function jsonBody(req, maxBytes = MAX_BODY_BYTES) {
   catch { throw new StoreError('invalid', 'The request must contain valid JSON.'); }
 }
 function send(res, status, value) {
+  const body = JSON.stringify(value);
+  res.denialCode = value?.code;
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-  res.end(JSON.stringify(value));
+  res.end(body);
+}
+
+export function handleRequestError(req, res, error) {
+  try {
+    if (res.writableEnded) return;
+    if (res.headersSent) { res.destroy(); return; }
+    if (!req.complete || error?.status === 413) res.setHeader('Connection', 'close');
+    send(res, error?.status ?? (error instanceof StoreError ? 400 : 500), {
+      code: error instanceof StoreError ? error.code : 'server-error',
+      message: error instanceof StoreError ? error.message : 'Local server could not complete the request.',
+      details: error instanceof StoreError ? error.details : [],
+    });
+  } catch { try { res.destroy(); } catch { /* Broken response cannot be reported again. */ } }
+}
+
+export function dispatchRequest(handle, req, res) {
+  void handle(req, res).catch(error => handleRequestError(req, res, error));
 }
 
 /** No arbitrary filesystem paths or arbitrary adapter method dispatch are accepted. */
-export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {} }) {
-  const session = createSession(dataDir), log = createLogger(dataDir);
+export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now }) {
+  const session = createSession(dataDir, now), log = createLogger(dataDir);
   const policy = { headersMs: 10000, bodyMs: 15000, keepAliveMs: 5000, connections: 32, ...limits };
   const loginPage = readFileSync(new URL('./login.html', import.meta.url));
   const loginScript = readFileSync(new URL('./login.js', import.meta.url));
   const headerTimers = new Map();
-  const uiToken = randomBytes(32).toString('hex');
   const root = realpathSync(distDir), files = staticFiles(root);
   // Preserve the existing synchronous appearance bootstrap without allowing inline JS.
   // Sources come only from our trusted build, never a request or stored document.
@@ -59,7 +77,12 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
     return `<script src="${path}"></script>`;
   });
   let address;
-  const server = createServer(async (req, res) => {
+  // EventEmitter does not observe async listener rejections. Contain even errors
+  // thrown while producing an error response, rather than terminating the writer.
+  const server = createServer((req, res) => {
+    dispatchRequest(handle, req, res);
+  });
+  async function handle(req, res) {
     clearTimeout(headerTimers.get(req.socket));
     headerTimers.delete(req.socket);
     const deadline = setTimeout(() => {
@@ -69,14 +92,21 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
     }, policy.bodyMs);
     deadline.unref();
     res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
-    res.on('finish', () => { clearTimeout(deadline); log('request', res.statusCode); if (!req.socket.destroyed) armHeaders(req.socket); });
+    res.on('finish', () => { clearTimeout(deadline); log('request', res.statusCode, res.denialCode); if (!req.socket.destroyed) armHeaders(req.socket); });
     res.on('close', () => clearTimeout(deadline));
     try {
       const host = new URL(address).host;
+      if (req.headers.host === `localhost:${server.address().port}` && (req.method === 'GET' || req.method === 'HEAD') && ['/', '/menupilot', '/menupilot/'].includes(req.url)) {
+        res.denialCode = 'host';
+        res.writeHead(403, { 'Content-Type': MIME['.html'] });
+        res.end(req.method === 'HEAD' ? undefined : `<!doctype html><html lang="en"><title>MenuPilot</title><h1>Use 127.0.0.1</h1><p>Open ${address}/menupilot/ and use the sign-in address from your terminal.</p><p lang="nl">Gebruik 127.0.0.1 en het aanmeldadres uit je terminal.</p></html>`); return;
+      }
       if (req.headers.host !== host) { send(res, 403, { code: 'host', message: 'Invalid Host.' }); return; }
       const url = new URL(req.url, address);
       if (url.origin !== address) { send(res, 403, { code: 'host', message: 'Invalid request target.' }); return; }
@@ -86,13 +116,13 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
       if (path === '/menupilot/session' && req.method === 'POST') {
         if (req.headers.origin !== address) { send(res, 403, { code: 'origin', message: 'Same-origin sign-in required.' }); return; }
         const body = await jsonBody(req, 1024);
-        const cookie = session.exchange(body?.key, cookieName);
-        if (!cookie) { send(res, 401, { code: 'sign-in', message: 'Open a new address from the terminal.' }); return; }
-        res.setHeader('Set-Cookie', cookie); send(res, 200, { ok: true }); return;
+        const exchanged = session.exchange(body?.key, cookieName);
+        if (!exchanged) { send(res, 401, { code: 'sign-in', message: 'Open a new address from the terminal.' }); return; }
+        res.setHeader('Set-Cookie', exchanged.cookie); send(res, 200, { token: exchanged.token }); return;
       }
       if (path === '/menupilot/local-config.json' && req.method === 'GET') {
-        if (!session.hasCookie(req, cookieName)) { send(res, 401, { code: 'sign-in', message: 'Open the address from the terminal.' }); return; }
-        send(res, 200, { mode: 'local', apiVersion: 1, token: uiToken, dataDir }); return;
+        if (!session.authorize(req.headers.authorization?.replace(/^Bearer /, ''))) { send(res, 401, { code: 'session-expired', message: 'Open the address from the terminal.' }); return; }
+        send(res, 200, { mode: 'local', apiVersion: 1, dataDir }); return;
       }
       if (req.method === 'GET' && bootstraps.has(path)) {
         res.writeHead(200, { 'Content-Type': MIME['.js'] }); res.end(bootstraps.get(path)); return;
@@ -103,11 +133,18 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
       if (req.method === 'GET' && path === '/menupilot-instance') { send(res, 200, { service: 'MenuPilot', instanceId }); return; }
       if (path.startsWith('/api/')) {
         const token = req.headers.authorization?.replace(/^Bearer /, '');
-        const source = tokenMatches(token, uiToken) ? 'ui' : tokenMatches(token, cliToken) ? 'cli' : null;
+        const source = session.authorize(token) ? 'ui' : tokenMatches(token, cliToken) ? 'cli' : null;
         if (!source) { send(res, 401, { code: 'session-expired', message: 'The local server session changed. Copy any unsaved drafts, then reload this page.' }); return; }
         if (req.method !== 'GET' && req.headers.origin !== address && source !== 'cli') { send(res, 403, { code: 'origin', message: 'Same-origin request required.' }); return; }
         let value;
-        if (req.method === 'GET' && path === '/api/document') value = storage.load();
+        if (req.method === 'POST' && path === '/api/open-url') {
+          if (source !== 'cli') { send(res, 403, { code: 'cli-required', message: 'Use open-url in your terminal.' }); return; }
+          const body = await jsonBody(req, 1024);
+          if (!body || Array.isArray(body) || Object.keys(body).some(k => k !== 'revokeSessions') || (body.revokeSessions !== undefined && typeof body.revokeSessions !== 'boolean')) throw new StoreError('invalid', 'Invalid open-url options.');
+          const key = session.rotate(body.revokeSessions === true);
+          value = { url: `${address}/menupilot/#k=${key}` };
+        }
+        else if (req.method === 'GET' && path === '/api/document') value = storage.load();
         else if (req.method === 'GET' && path === '/api/version') value = storage.version();
         else if (req.method === 'GET' && path === '/api/history') value = storage.history.list();
         else if (req.method === 'POST' && path === '/api/history/read') {
@@ -131,20 +168,11 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
         res.end(req.method === 'HEAD' ? undefined : html); return;
       }
       const file = files.get(path);
-      if (!file || extname(file) === '.html') { send(res, 404, { code: 'not-found', message: 'File not found.' }); return; }
-      res.writeHead(200, { 'Content-Type': MIME[extname(file)], 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' });
-      res.end(req.method === 'HEAD' ? undefined : readFileSync(file));
-    } catch (error) {
-      if (res.writableEnded) return;
-      if (!req.complete || error.status === 413) res.setHeader('Connection', 'close');
-      if (!res.headersSent) send(res, error.status ?? (error instanceof StoreError ? 400 : 500), {
-        code: error instanceof StoreError ? error.code : 'server-error',
-        message: error instanceof StoreError ? error.message : 'Local server could not complete the request.',
-        details: error instanceof StoreError ? error.details : [],
-      });
-      else res.destroy();
-    }
-  });
+      if (!file || file.type === MIME['.html']) { send(res, 404, { code: 'not-found', message: 'File not found.' }); return; }
+      res.writeHead(200, { 'Content-Type': file.type, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' });
+      res.end(req.method === 'HEAD' ? undefined : file.body);
+    } catch (error) { handleRequestError(req, res, error); }
+  }
   function armHeaders(socket) {
     clearTimeout(headerTimers.get(socket));
     const timer = setTimeout(() => {
@@ -165,7 +193,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
   address = `http://127.0.0.1:${server.address().port}`;
   log('started');
   let closing;
-  return { address, uiToken, cliToken, get openUrl() { return `${address}/menupilot/#k=${session.key}`; },
+  return { address, cliToken, get openUrl() { return `${address}/menupilot/#k=${session.key}`; },
     close() {
       return closing ??= new Promise((resolve, reject) => {
         // Unfinished bodies/keep-alive clients cannot hold the writer lock forever.

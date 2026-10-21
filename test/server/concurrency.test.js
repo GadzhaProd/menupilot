@@ -36,7 +36,7 @@ async function fixture(t) {
     const response = await fetch(address + '/menupilot/session', { method: 'POST', headers: { Origin: address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
     assert.equal(response.status, 200);
     const cookie = response.headers.get('set-cookie').split(';')[0];
-    const config = await (await fetch(address + '/menupilot/local-config.json', { headers: { Cookie: cookie } })).json();
+    const config = await response.json();
     return { cookie, ui: config.token, cli: readFileSync(join(dir, 'token'), 'utf8') };
   }
   function client() {
@@ -106,7 +106,7 @@ test('processes: response socket is lost after commit; retry after restart retur
 test('processes: two clients with the same browser cookie still enforce CAS; open-url uses private current secret', { timeout: 90000 }, async t => {
   const f = await fixture(t); await f.launch(); const auth = await f.login();
   const a = f.client(), b = f.client();
-  const configs = await Promise.all([a, b].map(client => client(f.address + '/menupilot/local-config.json', { headers: { Cookie: auth.cookie } })));
+  const configs = await Promise.all([a, b].map(client => client(f.address + '/menupilot/local-config.json', { headers: { Cookie: auth.cookie, Authorization: `Bearer ${auth.ui}` } })));
   assert.equal(configs[0].status, 200); assert.deepEqual(configs[0].body, configs[1].body);
   const record = (await a(f.address + '/api/document', { headers: { Authorization: `Bearer ${auth.ui}` } })).body;
   const results = await Promise.all([a, b].map((client, i) => client(f.address + '/api/write', options(f, auth.ui, save(record, i)))));

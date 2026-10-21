@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 const dir = mkdtempSync(join(tmpdir(), 'menupilot-mutants-'));
 try {
-  for (const path of ['server', 'src', 'test/store', 'test/server', 'data']) {
+  for (const path of ['server', 'src', 'test/store', 'test/server', 'data', 'README.md', 'docs/planning']) {
     mkdirSync(join(dir, path, '..'), { recursive: true }); cpSync(path, join(dir,path), { recursive: true });
   }
   writeFileSync(join(dir,'package.json'),'{"type":"module"}');
@@ -14,7 +14,7 @@ try {
     ['append-only transition', 'server/sqlite.js', "if (input.kind === 'save') assertValidTransition(current.document, document);", '', 'test/server/sqlite.test.js'],
     ['receipt deduplication', 'server/sqlite.js', "db.prepare('SELECT hash, receipt FROM ops WHERE id=?').get(input.opId)", 'undefined', 'test/server/sqlite.test.js'],
     ['lock ownership', 'server/lock.js', 'current?.instanceId !== owner.instanceId || current.pid !== owner.pid', 'false', 'test/server/lock.test.js'],
-    ['cookie gate', 'server/http.js', 'session.hasCookie(req, cookieName)', 'true', 'test/server/security.test.js'],
+    ['config token gate', 'server/http.js', "session.authorize(req.headers.authorization?.replace(/^Bearer /, ''))", 'true', 'test/server/review.test.js'],
     ['page cookie gate', 'server/http.js', 'const html = session.hasCookie(req, cookieName)', 'const html = true', 'test/server/security.test.js'],
     ['Origin check', 'server/http.js', 'req.headers.origin !== undefined && req.headers.origin !== address', 'false', 'test/server/security.test.js'],
     ['missing Origin check', 'server/http.js', "req.method !== 'GET' && req.headers.origin !== address && source !== 'cli'", 'false', 'test/server/security.test.js'],
@@ -23,6 +23,38 @@ try {
     ['streaming body budget', 'server/http.js', 'size > maxBytes', 'false', 'test/server/http.test.js'],
     ['Host check', 'server/http.js', 'req.headers.host !== host', 'false', 'test/server/http.test.js'],
     ['token check', 'server/http.js', 'if (!source)', 'if (false)', 'test/server/http.test.js'],
+    ['documented DoS boundary', 'README.md', 'Local DoS remains possible', 'Local DoS is prevented', 'test/server/security-docs.test.js'],
+    ['documented history boundary', 'README.md', 'not** guarantee erasure from browser history or sync', 'guarantee erasure', 'test/server/security-docs.test.js'],
+    ['static snapshot', 'server/http.js', "res.end(req.method === 'HEAD' ? undefined : file.body)", "res.end(req.method === 'HEAD' ? undefined : readFileSync(join(root, path.slice('/menupilot/'.length))))", 'test/server/review.test.js'],
+    ['sent header guard', 'server/http.js', 'if (res.headersSent) { res.destroy(); return; }', '', 'test/server/review.test.js'],
+    ['async handler boundary', 'server/http.js', '.catch(error => handleRequestError(req, res, error))', '', 'test/server/review.test.js'],
+    ['login byte budget', 'server/http.js', 'jsonBody(req, 1024)', 'jsonBody(req)', 'test/server/review.test.js'],
+    ['duplicate cookie', 'server/session.js', 'values.length === 1 &&', '', 'test/server/review.test.js'],
+    ['requests per socket', 'server/http.js', 'server.maxRequestsPerSocket = 100', 'server.maxRequestsPerSocket = 0', 'test/server/review.test.js'],
+    ['keepalive deadline', 'server/http.js', 'server.keepAliveTimeout = policy.keepAliveMs', 'server.keepAliveTimeout = 0', 'test/server/review.test.js'],
+    ['static methods', 'server/http.js', "req.method !== 'GET' && req.method !== 'HEAD'", 'false', 'test/server/review.test.js'],
+    ['link expiry', 'server/session.js', ' || now() - issuedAt >= LAUNCH_TTL_MS', '', 'test/server/review.test.js'],
+    ['absolute expiry', 'server/session.js', 'now() - record.createdAt < SESSION_ABSOLUTE_MS &&', '', 'test/server/review.test.js'],
+    ['idle expiry', 'server/session.js', 'now() - record.lastUsed < SESSION_IDLE_MS', 'true', 'test/server/review.test.js'],
+    ['CLI revocation flag', 'server/cli.js', "args[1] === '--revoke-sessions'", 'false', 'test/server/review.test.js'],
+    ['distinct session tokens', 'server/session.js', "const token = randomBytes(32).toString('hex'), cookie", "const token = 'a'.repeat(64), cookie", 'test/server/review.test.js'],
+    ['link rotation', 'server/http.js', 'session.rotate(body.revokeSessions === true)', 'session.key', 'test/server/review.test.js'],
+    ['session revocation', 'server/session.js', 'if (revokeSessions) sessions.clear();', '', 'test/server/review.test.js'],
+    ['warn default', 'server/log.js', "?? 'warn'", "?? 'info'", 'test/server/review.test.js'],
+    ['denial reason', 'server/log.js', '...(reason && { reason })', '', 'test/server/review.test.js'],
+    ['localhost help', 'server/http.js', "res.writeHead(403, { 'Content-Type': MIME['.html'] })", "res.writeHead(403, { 'Content-Type': 'application/json' })", 'test/server/review.test.js'],
+    ['ingredient audit name', 'server/sqlite.js', 'name: i.name, priceEntries:', 'priceEntries:', 'test/server/sqlite.test.js'],
+    ['sessionStorage bearer', 'server/login.js', "sessionStorage.setItem('menupilot.local.token.v1', token);", '', 'test/server/security.test.js'],
+    ...[
+      ["script-src 'self'", "script-src 'unsafe-inline' 'self'"],
+      ["script-src 'self'", "script-src 'self' https:"],
+      ["default-src 'none'", 'default-src *'],
+      ["connect-src 'self'", 'connect-src *'],
+      ["base-uri 'none'; ", ''],
+      ["form-action 'none'; ", ''],
+      ["res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');", ''],
+      ["res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');", ''],
+    ].map(([before, after], i) => [`CSP/isolation ${i + 1}`, 'server/http.js', before, after, 'test/server/review.test.js']),
   ];
   for (const [name, file, before, after, test] of mutants) {
     const path = join(dir,file), original = readFileSync(path,'utf8');

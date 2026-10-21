@@ -545,39 +545,56 @@ conflict. Для строгого повтора HTTP сохраняет вес�
 **HTTP и UI.** Разрешены GET document/version/history, POST history/read/write
 под `/api/`. Все требуют токен, Host — точный `127.0.0.1:port`. CLI-токен читает,
 но raw write требует UI-токен (будущая запись CLI только через D5). Ответы API и
-HTML — no-store. D2 закрывает HTML приложения и `/menupilot/local-config.json`
-за HttpOnly SameSite=Strict cookie (Path=/menupilot/). Страница без cookie содержит
-инструкцию EN/NL. `npm start` и `npm run menupilot -- open-url` печатают приватный
-адрес `#k=…`: внешний login.js удаляет фрагмент через replaceState до обмена JSON
-POST `/menupilot/session` и затем делает location.replace без секрета. Успешный
-обмен атомарно заменяет launch-secret (0600); повтор старого секрета отклоняется.
-При рестарте cookie и UI/CLI токены меняются. CLI token остаётся файлом 0600.
-Конфиг UI загружается асинхронно по cookie; ошибка блокирует запуск, без fallback.
+HTML — no-store. D2: одноразовый секрет `#k=…` действует 15 минут. Внешний
+login.js заменяет текущую запись session history через replaceState до JSON POST
+`/menupilot/session`; гарантии удаления из browser history или sync нет. Секрет
+находится в терминале и файле launch-secret (0600); успешный обмен меняет его.
 
-Host строго 127.0.0.1:port; чужой и null Origin отклоняются для всех запросов.
-POST требует точный Origin сервера; исключение — CLI token без Origin (raw write
-всё равно запрещён). GET API требует token, но может не иметь Origin.
-Статика — allowlist dist без symlink и source maps; методы и маршруты перечислены.
-CSP: скрипты только self, default-src none, frame-ancestors none, base-uri/form-action
-none, connect-src self; inline styles допустимы для Radix. Также X-Frame-Options
-DENY, nosniff, no-referrer; HTML/API/config no-store. Нет inline scripts.
-JSON body ≤15 100 000 UTF-8 байтов: до 3 байтов на каждый из 5 млн UTF-16 units
-общей сериализации плюс metadata. Login body ≤1024 байт. Срок заголовков 10 с,
-тела 15 с, keep-alive 5 с, максимум 32 соединения и 100 запросов на соединение.
+Обмен выдаёт уникальный токен на сеанс в JSON. login.js хранит токен только в
+sessionStorage (origin включает порт). Local-config.json и весь API требуют
+Authorization: Bearer; конфиг больше не возвращает токен. Cookie HttpOnly,
+SameSite=Strict, Path=/menupilot/, Max-Age=36000 открывает только HTML без секретов.
+Перехваченная другим loopback-портом cookie не выдаёт конфиг/токен/доступ к API.
+Сеанс: абсолютный срок 10 ч, простой 1 ч от последнего авторизованного запроса;
+открытый UI опрашивает сервер, но абсолютный срок не продлевается. Максимум 128
+сеансов, затем вытесняется старейший. Закрытие вкладки обычно очищает sessionStorage,
+но восстановление сеанса браузера может вернуть его. Рестарт отзывает все сеансы.
 
-Диагностика logs/server.log — только фиксированные события, время, уровень и
-числовой HTTP status; никаких URL, ошибок с пользовательским текстом, секретов,
-cookie или документа. Ротация: три файла всего по 1 MiB; MENUPILOT_LOG_LEVEL
-(off/error/warn/info, default info). SQLite journal отдельно фиксирует удалённые
-ID ингредиентов и число цен; полный предшествующий документ сохраняется в history
-в той же транзакции, с существующими пределами хранения.
+`npm run menupilot -- open-url` с CLI token через POST `/api/open-url` выпускает
+новый секрет, инвалидируя прежний; `--revoke-sessions` дополнительно отзывает все
+сеансы. Чтение файла cookie или открытие новой вкладки не заменяет обмен секрета.
+CLI token остаётся отдельным файлом 0600; raw write через него запрещён.
 
-Граница: доступ без секрета закрыт и для других OS users; процессы того же
-пользователя могут читать 0600 и БД, root/расширения/скомпрометированный браузер
-не изолированы. Cookie не разделяют порты loopback: посещение вредоносного local
-service в том же профиле может раскрыть cookie. Терминал — намеренный канал
-доставки секрета; crash браузера до replaceState может оставить адрес в истории,
-но использованный секрет недействителен. Это не доказательство согласия человека.
+Host строго 127.0.0.1:port; localhost на URL страницы получает HTML-инструкцию
+использовать 127.0.0.1, без данных. Foreign/null Origin отклоняются. POST требует
+Origin сервера; исключение — CLI token без Origin. GET API требует token и может
+не иметь Origin. Маршруты и методы явно перечислены. Dist читается в память до
+listen, без symlink/source maps; пересборка не меняет снимок работающего сервера.
+Promise каждого request handler перехватывается, обработчик ошибки проверяет
+headersSent до заголовков; ошибка формирования error-response тоже изолирована.
+
+CSP: default-src none, script-src self, style-src self unsafe-inline, img-src self
+data:, font-src self, connect-src self, base-uri/form-action/frame-ancestors none.
+Inline bootstrap темы/языка вынесен сервером в отдельный same-origin JS. Также
+CORP/COOP same-origin, X-Frame-Options DENY, nosniff/no-referrer; HTML/API/config
+no-store. Тесты проверяют CSP целиком, включая редиректы и bootstrap/login JS.
+
+JSON body ≤15 100 000 UTF-8 байтов (5 млн UTF-16 units плюс metadata), login/open-url
+≤1024. Заголовки 10 с, тело 15 с, keep-alive 5 с (Node может добавить 1 с буфера),
+максимум 32 соединения и 100 запросов/соединение. Local DoS всё ещё возможен: иной
+процесс может постоянно занимать все соединения; гарантии доступности нет.
+
+Диагностика: фиксированные события, время, уровень, HTTP status и короткая причина
+host/origin/sign-in/token/size, без свободного текста, URL, токенов, cookie или
+документа. Три файла по 1 MiB, MENUPILOT_LOG_LEVEL off/error/warn/info, default warn.
+SQLite journal отдельно фиксирует ID, имя и число цен удалённых ингредиентов,
+предшествующий документ сохраняется в history той же транзакцией.
+
+Граница: утечка UI token даёт полный доступ чтения/записи до отзыва/истечения,
+поскольку native client может подставить Origin. Cookie сама по себе API-доступа
+не даёт. Процессы того же OS user читают 0600/БД; root, расширения и скомпрометированный
+браузер не изолированы. Секрет может остаться в browser history или sync; использованный,
+заменённый и просроченный секрет недействителен. Это не доказательство согласия человека.
 
 `HttpStorageAdapter` реализует тот же контракт, `beforeReplace` вызывается до
 продвижения CAS, история-предпросмотр не двигает CAS. Не более трёх сетевых попыток

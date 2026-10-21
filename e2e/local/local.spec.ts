@@ -48,12 +48,15 @@ test('local price history survives restart; session warning preserves a draft; b
     await page.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
     await expect(page.getByTestId('local-mode')).toContainText('Local mode · data:');
     expect(page.url()).not.toContain('k=');
-    const configResponse = await page.request.get(`${origin}/menupilot/local-config.json`);
-    const config = await configResponse.json();
+    const token = await page.evaluate(() => sessionStorage.getItem('menupilot.local.token.v1'));
+    const config = { token: token! };
+    expect((await page.request.get(`${origin}/menupilot/local-config.json`)).status()).toBe(401);
     const secondContext = await page.context().browser()!.newContext({ storageState: await context.storageState() });
     await secondContext.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     const other = await secondContext.newPage();
     await other.goto(`${origin}/menupilot/`);
+    await expect(other.getByRole('alert')).toContainText('open-url');
+    await other.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
     await expect(other.getByTestId('local-mode')).toBeVisible();
     // Two independent browser contexts share one session but still compete by CAS.
     const current = await (await page.request.get(`${origin}/api/document`, { headers: { Authorization: `Bearer ${config.token}` } })).json();
