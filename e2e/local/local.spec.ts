@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
@@ -25,6 +25,7 @@ async function stop(child: ChildProcess) {
   const ended = once(child, 'exit'); child.kill('SIGTERM'); await ended;
 }
 async function navigate(page: Page, name: string) {
+  await expect(page.getByTestId('local-mode')).toBeVisible();
   const menu = page.getByRole('button', { name: 'Menu', exact: true });
   if (await menu.isVisible() && await menu.getAttribute('aria-expanded') !== 'true') await menu.click();
   await page.getByRole('link', { name, exact: true }).click();
@@ -33,6 +34,8 @@ async function navigate(page: Page, name: string) {
 test('local price history survives restart; session warning preserves a draft; browser import replaces with preview', async ({ page, context }, info) => {
   const dir = await mkdtemp(join(tmpdir(), 'menupilot-e2e-')), port = await freePort();
   const origin = `http://127.0.0.1:${port}`; const external: string[] = [];
+  const cspErrors: string[] = [];
+  page.on('console', message => { if (/Content Security Policy|script-src/.test(message.text())) cspErrors.push(message.text()); });
   await context.route('**/*', async route => {
     const url = route.request().url();
     if (new URL(url).origin === origin) await route.continue();
@@ -41,7 +44,27 @@ test('local price history survives restart; session warning preserves a draft; b
   let child = await launch(dir, port);
   try {
     await page.goto(`${origin}/menupilot/`);
+    await expect(page.getByText('Open MenuPilot from your terminal', { exact: true })).toBeVisible();
+    await page.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
     await expect(page.getByTestId('local-mode')).toContainText('Local mode · data:');
+    expect(page.url()).not.toContain('k=');
+    const configResponse = await page.request.get(`${origin}/menupilot/local-config.json`);
+    const config = await configResponse.json();
+    const secondContext = await page.context().browser()!.newContext({ storageState: await context.storageState() });
+    await secondContext.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    const other = await secondContext.newPage();
+    await other.goto(`${origin}/menupilot/`);
+    await expect(other.getByTestId('local-mode')).toBeVisible();
+    // Two independent browser contexts share one session but still compete by CAS.
+    const current = await (await page.request.get(`${origin}/api/document`, { headers: { Authorization: `Bearer ${config.token}` } })).json();
+    const race = await Promise.all([page, other].map((p, i) => p.evaluate(async ({ origin, token, current, i }) => {
+      const r = await fetch(origin + '/api/write', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'save', expectedDocumentId: current.documentId, expectedRevision: current.revision, opId: 'browser-' + i, document: { ...current.document, settings: { defaultVatRateBp: 900 + i } } }) });
+      return r.json();
+    }, { origin, token: config.token, current, i })));
+    expect(race.filter(r => r.conflict)).toHaveLength(1);
+    expect(race.filter(r => r.receipt?.changed)).toHaveLength(1);
+    await secondContext.close();
+    await page.reload();
     await navigate(page, 'Ingredients');
     await page.getByRole('button', { name: 'Add ingredient', exact: true }).click();
     let dialog = page.getByRole('dialog');
@@ -62,7 +85,8 @@ test('local price history survives restart; session warning preserves a draft; b
     await expect(page.getByText('The local server restarted. Copy any unsaved drafts, then reload this page.')).toBeVisible();
     await expect(page.getByRole('dialog').getByLabel(/Pack price/)).toHaveValue('4.00');
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-    await page.reload();
+    await page.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
+    await navigate(page, 'Ingredients');
     await page.getByRole('button', { name: 'Price history of Local flour', exact: true }).click();
     await expect(page.getByRole('dialog').getByRole('row')).toHaveCount(3);
     await expect(page.getByRole('dialog').getByText('€3.50', { exact: true })).toBeVisible();
@@ -80,5 +104,6 @@ test('local price history survives restart; session warning preserves a draft; b
     await expect(page.getByText('Browser export', { exact: true })).toBeVisible();
     await expect(page.getByText('Local flour', { exact: true })).toHaveCount(0);
     expect(external).toEqual([]);
+    expect(cspErrors).toEqual([]);
   } finally { await stop(child); await rm(dir, { recursive: true }); }
 });
