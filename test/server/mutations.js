@@ -10,6 +10,19 @@ try {
   }
   writeFileSync(join(dir,'package.json'),'{"type":"module"}');
   const mutants = [
+    ['backup writer queue', 'server/backups.js', 'const result = queue.then(fn)', 'const result = Promise.resolve().then(fn)', 'test/server/backups.test.js'],
+    ['snapshot metadata revision', 'server/backupFiles.js', 'manifest.revision !== record.revision || ', '', 'test/server/backups.test.js'],
+    ['backup dirty marking', 'server/sqlite.js', "VALUES ('backupDirty','1') ON CONFLICT(key) DO UPDATE SET value='1'", "VALUES ('backupDirty','0') ON CONFLICT(key) DO UPDATE SET value='0'", 'test/server/backups.test.js'],
+    ['pre-replacement snapshot', 'server/backups.js', "await capture('before-' + input.kind)", 'undefined', 'test/server/backups.test.js'],
+    ['startup dirty snapshot', 'server/backups.js', "await capture('startup')", 'undefined', 'test/server/backups.test.js'],
+    ['shutdown dirty snapshot', 'server/backups.js', "await capture('shutdown')", 'undefined', 'test/server/backups.test.js'],
+    ['backup restore revision', 'server/sqlite.js', 'revision: current.revision + 1', "revision: current.revision + (input.kind === 'backup-restore' ? 0 : 1)", 'test/server/backups.test.js'],
+    ['snapshot integrity check', 'server/backupFiles.js', "integrity.length !== 1 || integrity[0].integrity_check !== 'ok'", 'false', 'test/server/backups.test.js'],
+    ['snapshot retention budget', 'server/backupFiles.js', 'entries.length >= budget.count', 'false', 'test/server/backups.test.js'],
+    ['external retry backoff', 'server/backups.js', 'monotonic() < retryAt', 'false', 'test/server/backups.test.js'],
+    ['automatic deadline', 'server/backups.js', '4 * 60 * 1000', '6 * 60 * 1000', 'test/server/backups.test.js'],
+    ['snapshot restore-test', 'server/backupFiles.js', 'const checked = inspectDatabase(destination);', 'const checked = { record: {}, metadata: { id } };', 'test/server/backups.test.js'],
+    ['emergency startup guard', 'server/backups.js', "if (existsSync(join(dir, 'recovery-pending.json')))", 'if (false)', 'test/server/backups.test.js'],
     ['CAS identity', 'server/sqlite.js', 'current.documentId === expectedDocumentId &&', '', 'test/server/sqlite.test.js'],
     ['append-only transition', 'server/sqlite.js', "if (input.kind === 'save') assertValidTransition(current.document, document);", '', 'test/server/sqlite.test.js'],
     ['receipt deduplication', 'server/sqlite.js', "db.prepare('SELECT hash, receipt FROM ops WHERE id=?').get(input.opId)", 'undefined', 'test/server/sqlite.test.js'],
