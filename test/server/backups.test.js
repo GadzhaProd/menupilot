@@ -199,7 +199,7 @@ test('backups: verify refuses semantically corrupt snapshots even when SQLite in
 test('backups: retention keeps every last-day snapshot and 14 daily restore points', async t => {
   const { pruneSnapshots } = await import('../../server/backupFiles.js');
   let wall = Date.UTC(2026, 0, 1);
-  const { service, dir } = await fixture(t, { now: () => wall });
+  const { service, dir } = await fixture(t, { now: () => wall, monotonic: () => wall });
   await service.write(request(service.load()));
   for (let day = 0; day < 18; day++) {
     wall += 86400000;
@@ -209,7 +209,7 @@ test('backups: retention keeps every last-day snapshot and 14 daily restore poin
   assert.equal(entries.filter(e => wall - Date.parse(e.createdAt) <= 86400000).length, 2);
   assert.equal(entries.length, 16);
   const ids = entries.map(e => e.id);
-  pruneSnapshots(join(dir, 'backups'), wall - 30 * 86400000);
+  await pruneSnapshots(join(dir, 'backups'), wall - 30 * 86400000);
   assert.deepEqual(service.backups.list().map(e => e.id), ids);
 });
 

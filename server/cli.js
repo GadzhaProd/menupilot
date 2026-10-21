@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { assertRuntime } from './runtime.js';
 
-const usage = 'Usage: npm run menupilot -- open-url [--revoke-sessions] | backup list | backup verify <id> | backup restore <id> [--yes] | doctor --recover-from-backup <id> [--yes]';
+const usage = 'Usage: npm run menupilot -- open-url [--revoke-sessions] | backup list | backup verify <id> | backup restore <id> [--yes] | doctor | doctor --recover-from-backup <id> [--yes]';
 async function confirm(message, yes) {
   if (yes) return;
   if (!process.stdin.isTTY) throw new Error('Confirmation required. Review the backup ID, then repeat with --yes.');
@@ -25,10 +25,11 @@ try {
     console.log(`Recovered. Original files and report: ${result.reportPath}\nRun npm start. Emergency recovery uses a new dataset identity; changes after the backup are not recovered.`);
   } else {
     const open = args[0] === 'open-url' && (args.length === 1 || (args.length === 2 && args[1] === '--revoke-sessions'));
+    const doctor = args[0] === 'doctor' && args.length === 1;
     const list = args[0] === 'backup' && args[1] === 'list' && args.length === 2;
     const verify = args[0] === 'backup' && args[1] === 'verify' && args.length === 3;
     const restore = args[0] === 'backup' && args[1] === 'restore' && (args.length === 3 || (args.length === 4 && args[3] === '--yes'));
-    if (!open && !list && !verify && !restore) throw new Error(usage);
+    if (!open && !list && !verify && !restore && !doctor) throw new Error(usage);
     let owner, token;
     try {
       owner = JSON.parse(readFileSync(join(dir, 'lock'), 'utf8'));
@@ -52,9 +53,14 @@ try {
       const { url } = await api('open-url', { revokeSessions: args[1] === '--revoke-sessions' });
       if (typeof url !== 'string' || !url.startsWith(owner.address + '/menupilot/#k=')) throw new Error('Invalid server address.');
       console.log(url);
+    } else if (doctor) {
+      const status = await api('backups/status');
+      console.log(JSON.stringify(status, null, 2));
+      if (status.clockWarning) console.log('System clock changed: automatic backup deletion is paused, including after restart. New snapshots continue. Check the date and archive old copies manually if the budget fills.');
+      if (status.corruptBackups || status.corruptExternalBackups) console.log('Damaged backups are isolated in quarantine and are not restore points. Verify the remaining copies.');
     } else if (list) {
       const entries = await api('backups');
-      for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID — verify failed metadata` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
+      for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? " — quarantined" : ""} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
       if (!entries.length) console.log('No backups yet. A backup is created within five minutes of a change, and on normal shutdown.');
     } else if (verify) {
       const checked = await api('backups/verify', { id: args[2] });

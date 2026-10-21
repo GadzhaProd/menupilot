@@ -10,6 +10,12 @@ try {
   }
   writeFileSync(join(dir,'package.json'),'{"type":"module"}');
   const mutants = [
+    ['retention restore-test', 'server/backupFiles.js', 'await verifyOrQuarantine(dir, entry.id)', '{ metadata: entry }', 'test/server/backup-retention.test.js'],
+    ['retention verified spare', 'server/backupFiles.js', 'verified.slice(0, 2)', 'verified.slice(0, 1)', 'test/server/backup-retention.test.js'],
+    ['retention clock pause', 'server/backups.js', 'observe(); return clockWarning;', 'observe(); return false;', 'test/server/backup-retention.test.js'],
+    ['forward clock detection', 'server/backups.js', 'Math.abs((wall - lastWall) - (mono - lastMono)) > 60000', 'false', 'test/server/backup-retention.test.js'],
+    ['daily monotonic scheduling', 'server/backups.js', 'monotonic() >= dailyDue', 'now() - Date.parse(latest.createdAt) >= DAY_MS', 'test/server/backup-retention.test.js'],
+    ['persistent clock pause', 'server/backups.js', "put(db, 'backupClockWarning', '1');", '', 'test/server/backup-retention.test.js'],
     ['backup writer queue', 'server/backups.js', 'const result = queue.then(fn)', 'const result = Promise.resolve().then(fn)', 'test/server/backups.test.js'],
     ['snapshot metadata revision', 'server/backupFiles.js', 'manifest.revision !== record.revision || ', '', 'test/server/backups.test.js'],
     ['backup dirty marking', 'server/sqlite.js', "VALUES ('backupDirty','1') ON CONFLICT(key) DO UPDATE SET value='1'", "VALUES ('backupDirty','0') ON CONFLICT(key) DO UPDATE SET value='0'", 'test/server/backups.test.js'],

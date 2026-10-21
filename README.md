@@ -200,13 +200,24 @@ flag is stored in the database. The server must be running for scheduled work; s
 slow disks, unavailable storage and errors can delay it. The local-mode header shows
 last backup time, pending changes, failures and a warning after five minutes. Check
 that warning: the five-minute target is not a guarantee when copying cannot finish.
-No-change days also get a daily copy while the server is running.
+No-change days also get a daily copy while the server is running. Each scheduler cycle
+compares elapsed time with the system clock. A forward or backward clock jump pauses
+automatic deletion in both folders and shows a warning; new copies continue using
+elapsed time, even if an older copy has a future date. The pause survives restarts.
+Check the date, verify your copies and manually archive older files if the budget
+fills; correcting the clock does not silently authorize deletion again.
 
 Copies live in `backups/` inside the data folder. A copy appears in `backup list` only
 after SQLite finishes, `integrity_check` and document validation pass, and a temporary
 file is flushed and atomically renamed. Each file contains its dataset ID, revision,
 time and database structure version. Keep all snapshots from the last 24 hours plus
-one per day for 14 older days. The hard limit is **512 files / 2 GiB** (whichever is
+one per day for 14 older days, plus a verified spare behind the newest copy. Before
+rotation, MenuPilot restores candidates into temporary databases and checks them.
+It publishes a replacement before retiring older copies. Damaged copies move to
+`quarantine/`, do not count as restore points, and trigger a warning; they still count
+against the storage budget and are never automatically deleted. A verification that
+cannot run (for example, because the temporary disk is full) stops rotation.
+The hard limit is **512 files / 2 GiB** (whichever is
 reached first); when the retention window cannot fit, copying fails visibly instead
 of silently discarding recent restore points. Archive older files outside `backups/`
 and free disk space if this happens. A full disk rejects writes without confirming
@@ -237,6 +248,7 @@ Run these commands while `npm start` is running, using the same `MENUPILOT_DATA_
 if you set one. IDs come from the list (they are not file paths):
 
 ```sh
+npm run menupilot -- doctor # backup health, clock and damaged-copy warnings
 npm run menupilot -- backup list
 npm run menupilot -- backup verify <id>
 npm run menupilot -- backup restore <id>
@@ -281,7 +293,8 @@ deleted; review and archive them yourself after checking recovery.
 | Main database lost/corrupt | Target ≤5 minutes with healthy storage and a running server. Use the visible last successful copy, not an assumed schedule. |
 | Device/disk lost | Local copies are lost too. Only a sufficiently recent independent external copy helps; cloud sync is not verified by MenuPilot. |
 | Disk full / destination unavailable | No false successful save; refused destructive operations, visible copy errors and retries. Copy freshness can exceed the target. |
-| System clock moves backwards | Monotonic elapsed time keeps the in-session schedule; startup immediately copies dirty data and UI warns about observed rollback. Calendar retention dates can be inaccurate. |
+| System clock jumps forward or backward | Every scheduler cycle compares wall and monotonic time. Deletion pauses in both folders, including after restart; daily copies continue. The UI and doctor warn. The budget still applies; archive old copies manually if needed. |
+| A snapshot becomes corrupt | Rotation restore-tests candidates, isolates damaged files and preserves a verified spare. No protection if every copy is damaged or the whole disk is lost. |
 
 ## Testing
 

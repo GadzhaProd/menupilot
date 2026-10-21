@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fork, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { once } from 'node:events';
@@ -47,6 +48,10 @@ test('process: authenticated backup CLI, confirmation, new revision, offline ref
   t.after(async () => { if (child) await stop(child); rmSync(dir, { recursive: true }); });
   const offline = await cli(dir, ['backup', 'list']);
   assert.equal(offline.code, 1); assert.match(offline.output, /Run npm start/);
+  const seed = await openLocalStorage(dir, { timers: false }); await seed.close();
+  const db = new DatabaseSync(join(dir, 'menupilot.db'));
+  db.prepare("INSERT INTO meta(key,value) VALUES('backupClockWarning','1')").run(); db.close();
+  writeFileSync(join(dir, 'backups', `${Date.now()}-${crypto.randomUUID()}.sqlite`), 'corrupt snapshot');
   child = spawn(process.execPath, ['server/start.js'], { env: { ...process.env, MENUPILOT_DATA_DIR: dir, MENUPILOT_PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
   await new Promise((resolve, reject) => {
     let output = ''; const timer = setTimeout(() => reject(new Error(output)), 30000);
@@ -58,13 +63,18 @@ test('process: authenticated backup CLI, confirmation, new revision, offline ref
   const uiHeaders = { Authorization: `Bearer ${auth.token}`, Origin: address, 'Content-Type': 'application/json' };
   const headers = { Authorization: `Bearer ${readFileSync(join(dir, 'token'), 'utf8')}` };
   for (const route of ['backups', 'backups/status']) assert.equal((await fetch(address + '/api/' + route)).status, 401);
+  const health = await cli(dir, ['doctor']);
+  assert.equal(health.code, 0); assert.match(health.output, /"clockWarning": true/);
+  assert.match(health.output, /"corruptBackups": 1/);
+  assert.match(health.output, /automatic backup deletion is paused/);
+  assert.match(health.output, /isolated in quarantine/);
   const initial = await (await fetch(address + '/api/document', { headers })).json();
   const saved = await (await fetch(address + '/api/write', { method: 'POST', headers: uiHeaders, body: JSON.stringify({ kind: 'save', document: initial.document, expectedDocumentId: null, expectedRevision: 0, opId: 'saved' }) })).json();
   const document = structuredClone(saved.document); document.settings.defaultVatRateBp = 2100;
   const importedResponse = await fetch(address + '/api/write', { method: 'POST', headers: uiHeaders, body: JSON.stringify({ kind: 'import', source: { ...initial, document }, expectedDocumentId: saved.documentId, expectedRevision: saved.revision, opId: 'imported' }) });
   assert.equal(importedResponse.status, 200);
   const imported = await importedResponse.json();
-  const entries = await (await fetch(address + '/api/backups', { headers })).json();
+  const entries = (await (await fetch(address + '/api/backups', { headers })).json()).filter(e => !e.invalid);
   assert.equal(entries.length, 1); assert.equal(entries[0].revision, saved.revision);
   const id = entries[0].id;
   assert.match((await cli(dir, ['backup', 'list'])).output, new RegExp(id));

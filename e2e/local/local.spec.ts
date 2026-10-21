@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
+import { DatabaseSync } from 'node:sqlite';
 
 async function freePort() {
   const probe = createServer(); await new Promise<void>(r => probe.listen(0, '127.0.0.1', r));
@@ -87,7 +88,14 @@ test('local price history survives restart; session warning preserves a draft; b
     // An unfinished editor must survive polling a restarted server.
     await page.getByRole('button', { name: 'New price for Local flour', exact: true }).click();
     await page.getByRole('dialog').getByLabel(/Pack price/).fill('4.00');
-    await stop(child); child = await launch(dir, port);
+    await stop(child);
+    // Persist a detected clock jump and a damaged snapshot while the writer is stopped.
+    const db = new DatabaseSync(join(dir, 'menupilot.db'));
+    db.prepare("INSERT INTO meta(key,value) VALUES('backupClockWarning','1') ON CONFLICT(key) DO UPDATE SET value='1'").run();
+    db.close();
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'backups', `${Date.now()}-${crypto.randomUUID()}.sqlite`), 'damaged snapshot');
+    child = await launch(dir, port);
     await expect(page.getByText('The local server restarted. Copy any unsaved drafts, then reload this page.')).toBeVisible();
     await expect(page.getByRole('dialog').getByLabel(/Pack price/)).toHaveValue('4.00');
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -99,11 +107,15 @@ test('local price history survives restart; session warning preserves a draft; b
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('backup-status')).toContainText('Last backup:');
     await expect(page.getByTestId('backup-status')).not.toContainText('Last backup: none yet');
+    await expect(page.getByTestId('backup-status')).toContainText('Automatic backup deletion is paused');
+    await expect(page.getByTestId('backup-status')).toContainText('Damaged backups');
     await page.screenshot({ path: info.outputPath('local.png'), fullPage: true });
     await page.getByRole('button', { name: 'NL – Nederlands' }).click();
     await expect(page.getByTestId('backup-status')).toContainText('Laatste reservekopie:');
     await expect(page.getByTestId('backup-status')).toContainText('Externe kopie mislukt');
     await expect(page.getByTestId('backup-status')).toContainText('bewijst niet');
+    await expect(page.getByTestId('backup-status')).toContainText('Automatisch verwijderen');
+    await expect(page.getByTestId('backup-status')).toContainText('Beschadigde reservekopieën');
     await page.screenshot({ path: info.outputPath('local-backups-nl.png'), fullPage: true });
     await page.getByRole('button', { name: 'EN – English' }).click();
     await navigate(page, 'Data');

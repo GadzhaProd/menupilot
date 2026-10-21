@@ -12,6 +12,8 @@ interface BackupStatus {
   backupError: string | null;
   externalError: string | null;
   clockWarning: boolean;
+  corruptBackups: number;
+  corruptExternalBackups: number | null;
 }
 
 /** Observational only: backup state never enters the document or form reducers. */
@@ -58,7 +60,8 @@ export function LocalBackupStatus() {
       {status?.overdue && <p>{nl ? 'Reservekopie te laat: wijzigingen wachten al meer dan 5 minuten.' : 'Backup overdue: changes have waited more than 5 minutes.'}</p>}
       {status?.externalError && <p>{nl ? 'Externe kopie mislukt. Controleer de externe map; MenuPilot probeert het opnieuw.' : 'External copy failed. Check the external folder; MenuPilot will retry.'}</p>}
       {status?.externalOverdue && <p>{nl ? 'Externe kopie te laat: geen bevestigde kopie in de afgelopen 24 uur.' : 'External copy overdue: no confirmed copy in the last 24 hours.'}</p>}
-      {status?.clockWarning && <p>{nl ? 'De systeemklok is teruggezet. Controleer de datum en de tijden van reservekopieën.' : 'The system clock moved backwards. Check the date and backup times.'}</p>}
+      {status && (status.corruptBackups > 0 || (status.corruptExternalBackups ?? 0) > 0) && <p>{nl ? 'Beschadigde reservekopieën zijn apart gezet en tellen niet als herstelpunten. Controleer je overige kopieën.' : 'Damaged backups have been isolated and do not count as restore points. Verify your remaining copies.'}</p>}
+      {status?.clockWarning && <p>{nl ? 'De systeemklok is gewijzigd. Automatisch verwijderen van kopieën is gepauzeerd; nieuwe kopieën gaan door. Controleer de datum.' : 'The system clock changed. Automatic backup deletion is paused; new copies continue. Check the date.'}</p>}
     </div>
     {!status && !failed && <p>{nl ? 'Reservekopieën controleren…' : 'Checking backups…'}</p>}
   </div>;

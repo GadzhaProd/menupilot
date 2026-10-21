@@ -1,5 +1,5 @@
 import { DatabaseSync, backup } from 'node:sqlite';
-import { openSync, closeSync, fsyncSync, mkdirSync, readdirSync, statSync, unlinkSync, renameSync, chmodSync } from 'node:fs';
+import { openSync, closeSync, fsyncSync, mkdirSync, readdirSync, statSync, unlinkSync, renameSync, chmodSync, existsSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -70,23 +70,63 @@ export function listSnapshots(dir) {
       entries.push({ ...manifest, bytes: statSync(path).size });
     } catch { entries.push({ id: name.slice(0, -7), invalid: true, bytes: statSync(path).size, sequence: -1 }); }
   }
+  const quarantine = join(dir, 'quarantine');
+  if (existsSync(quarantine)) for (const name of readdirSync(quarantine)) {
+    if (!/^\d{13}-[a-f0-9-]{36}\.[a-f0-9-]{36}\.sqlite$/.test(name)) continue;
+    entries.push({ id: name.slice(0, 50), invalid: true, quarantined: true,
+      bytes: statSync(join(quarantine, name)).size, sequence: -1 });
+  }
   return entries.sort((a, b) => b.sequence - a.sequence || b.id.localeCompare(a.id));
 }
-/** Keep all of the last day, then the latest snapshot on each of 14 older UTC days.
- * Future timestamps (clock rollback) are retained. Budgets refuse new copies instead
- * of silently shortening this promised window. Corrupt files are never auto-deleted. */
-export function pruneSnapshots(dir, now) {
-  const days = new Set();
-  for (const item of listSnapshots(dir)) {
-    if (item.invalid || now - Date.parse(item.createdAt) <= DAY_MS) continue;
-    const day = item.createdAt.slice(0, 10);
-    if (!days.has(day) && days.size < 14) { days.add(day); continue; }
-    unlinkSync(backupPath(dir, item.id));
+/** Never infer recoverability from a readable manifest. Failure to perform the
+ * restore-test (e.g. no temporary disk space) aborts rotation without deleting. */
+export async function auditSnapshots(dir) {
+  const verified = [];
+  for (const entry of listSnapshots(dir).filter(e => !e.quarantined)) {
+    try {
+      const checked = await verifyOrQuarantine(dir, entry.id);
+      verified.push({ ...checked.metadata, bytes: entry.bytes });
+    } catch (error) {
+      if (error.code !== 'backup-invalid') throw error;
+    }
+  }
+  return verified.sort((a, b) => b.sequence - a.sequence || b.id.localeCompare(a.id));
+}
+export async function verifyOrQuarantine(dir, id) {
+  try { return await verifySnapshot(dir, id); }
+  catch (error) {
+    if (error.code === 'backup-invalid') {
+      const quarantine = join(dir, 'quarantine');
+      mkdirSync(quarantine, { recursive: true, mode: 0o700 });
+      renameSync(backupPath(dir, id), join(quarantine, id + '.' + randomUUID() + '.sqlite'));
+      syncPath(quarantine); syncPath(dir);
+    }
+    throw error;
   }
 }
-export async function publishSnapshot(db, dir, { now = Date.now(), reason, sequence, backupImpl = backup, budget = SNAPSHOT_BUDGET } = {}) {
+/** Publication happens before retirement. Retain the last day, 14 older daily
+ * points AND a verified spare behind the newest point, regardless of its date. */
+export async function pruneSnapshots(dir, now, { retentionPaused = () => false } = {}) {
+  const verified = await auditSnapshots(dir);
+  if (retentionPaused()) return;
+  const keep = new Set(verified.slice(0, 2).map(e => e.id)), days = new Set();
+  for (const item of verified) {
+    if (now - Date.parse(item.createdAt) <= DAY_MS) { keep.add(item.id); continue; }
+    const day = item.createdAt.slice(0, 10);
+    if (!days.has(day) && days.size < 14) { days.add(day); keep.add(item.id); }
+  }
+  for (const item of verified) {
+    if (retentionPaused()) return; // A clock jump during asynchronous verification is unsafe too.
+    if (!keep.has(item.id)) unlinkSync(backupPath(dir, item.id));
+  }
+  syncPath(dir);
+}
+export async function publishSnapshot(db, dir, { now = Date.now(), reason, sequence, backupImpl = backup, budget = SNAPSHOT_BUDGET, retentionPaused = () => false } = {}) {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  pruneSnapshots(dir, now);
+  const previous = listSnapshots(dir);
+  const last = JSON.parse(db.prepare("SELECT value FROM meta WHERE key='lastBackup'").get()?.value ?? 'null');
+  const nextSequence = Math.max(0, Number.isSafeInteger(last?.sequence) ? last.sequence : 0, ...previous.map(e => e.sequence)) + 1;
+  await auditSnapshots(dir);
   const entries = listSnapshots(dir);
   const estimatedBytes = db.prepare('PRAGMA page_count').get().page_count * db.prepare('PRAGMA page_size').get().page_size + 65536;
   if (entries.length >= budget.count || entries.reduce((sum, e) => sum + e.bytes, 0) + estimatedBytes > budget.bytes) {
@@ -103,13 +143,14 @@ export async function publishSnapshot(db, dir, { now = Date.now(), reason, seque
       const record = readRecord(copy);
       const manifest = { id, documentId: record.documentId, revision: record.revision,
         createdAt: new Date(now).toISOString(), dbVersion: copy.prepare('PRAGMA user_version').get().user_version,
-        reason, sequence: sequence ?? Math.max(0, ...entries.map(e => e.sequence)) + 1 };
+        reason, sequence: sequence ?? nextSequence };
       copy.prepare("INSERT INTO meta(key,value) VALUES('snapshot',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(manifest));
     } finally { copy.close(); }
     const checked = inspectDatabase(partial);
     syncPath(partial);
     renameSync(partial, target); // Only verified, complete files have the public suffix.
     syncPath(dir);
+    await pruneSnapshots(dir, now, { retentionPaused });
     return checked.metadata;
   } catch (error) {
     throw new StoreError('backup-failed', 'A verified backup could not be created. Check disk space and folder permissions. The replacement was not performed.', [error.code ?? 'backup']);
@@ -122,14 +163,18 @@ export async function publishSnapshot(db, dir, { now = Date.now(), reason, seque
 /** Actual SQLite restore into a disposable database, followed by full checks. */
 export async function verifySnapshot(dir, id) {
   const source = backupPath(dir, id), temp = await mkdtemp(join(tmpdir(), 'menupilot-verify-'));
-  let db;
+  let db, checking = false;
   try {
     db = new DatabaseSync(source, { readOnly: true });
     const destination = join(temp, 'restored.db');
     await backup(db, destination);
+    checking = true;
     const checked = inspectDatabase(destination);
     if (checked.metadata.id !== id) throw new Error('identity');
     return checked;
-  } catch { throw new StoreError('backup-invalid', 'This backup could not be restored and verified. Choose another backup.'); }
+  } catch (error) {
+    if (checking || [11, 26].includes(error.errcode)) throw new StoreError('backup-invalid', 'This backup could not be restored and verified. Choose another backup.');
+    throw new StoreError('backup-unverified', 'Backup verification could not run. Check disk space and permissions; existing copies have been kept.');
+  }
   finally { db?.close(); await rm(temp, { recursive: true, force: true }); }
 }
