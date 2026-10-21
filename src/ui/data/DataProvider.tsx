@@ -1,4 +1,4 @@
-import type { HistoryEntry, BackupStatus } from './storeHistory';
+import type { HistoryEntry, BackupStatus } from '@/ui/domain/store';
 import { coordinateStorage } from './browserStorage';
 import { LocaleProvider, useLocale } from '@/ui/i18n';
 import { ThemeProvider } from '@/ui/theme/ThemeProvider';
@@ -35,6 +35,8 @@ interface DataContextValue {
   backupStatus: BackupStatus;
   listHistory(): CommandResult<readonly HistoryEntry[]>;
   recordExport(): void;
+  remindLater(): void;
+  backupError: string | null;
   reloadLatest(): Promise<void>;
   activateEditing(): Promise<void>;
   registerDraftSource(source: () => boolean, targets?: () => readonly DraftTarget[]): () => void;
@@ -115,6 +117,7 @@ function DocumentProvider(props: DataProviderProps) {
   const [loaded] = useState(() => openStore({ ...props, storage: coordinator.storage }));
   const [removedTargets, setRemovedTargets] = useState<readonly DraftTarget[]>([]);
   const [historyWarning, setHistoryWarning] = useState(false);
+  const [backupError, setBackupError] = useState<string | null>(null);
   const [backupStatus, setBackupStatus] = useState<BackupStatus>(() => loaded.store?.getBackupStatus() ?? { startedAt: null, lastExportAt: null, due: false });
   const [safety, setSafety] = useState<string | null>(null);
   const draftSources = useRef(new Set<() => boolean>());
@@ -275,9 +278,13 @@ function DocumentProvider(props: DataProviderProps) {
     catch { return { ok: false, code: 'read-failed', error: t('history.unavailable'), details: [] }; }
   }, [store, t]);
   const recordExport = useCallback(() => {
-    try { store?.recordExport(); if (store) setBackupStatus(store.getBackupStatus()); }
-    catch { /* Export succeeded even if its reminder timestamp could not be stored. */ }
-  }, [store]);
+    try { store?.recordExport(); if (store) setBackupStatus(store.getBackupStatus()); setBackupError(null); }
+    catch { setBackupError(t('backup.recordFailed')); }
+  }, [store, t]);
+  const remindLater = useCallback(() => {
+    try { store?.remindLater(); if (store) setBackupStatus(store.getBackupStatus()); setBackupError(null); }
+    catch { setBackupError(t('backup.deferFailed')); }
+  }, [store, t]);
   useEffect(() => {
     const refresh = () => { if (store) setBackupStatus(store.getBackupStatus()); };
     const timer = window.setInterval(refresh, 60_000);
@@ -286,9 +293,9 @@ function DocumentProvider(props: DataProviderProps) {
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener('storage', refresh); };
   }, [store]);
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
-  const value = useMemo(() => ({ removedTargets, historyWarning, backupStatus, listHistory, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest,
+  const value = useMemo(() => ({ removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest,
     activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode }),
-  [removedTargets, historyWarning, backupStatus, listHistory, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
+  [removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -328,6 +335,6 @@ export function useDataSafety() {
 }
 
 export function useVersionHistory() {
-  const { historyWarning, backupStatus, listHistory, recordExport } = useData();
-  return { historyWarning, backupStatus, listHistory, recordExport };
+  const { historyWarning, backupStatus, backupError, remindLater, listHistory, recordExport } = useData();
+  return { historyWarning, backupStatus, backupError, remindLater, listHistory, recordExport };
 }

@@ -1,5 +1,10 @@
 import type { safetyEn } from './safety.en';
 export const safetyNl = {
+  "backup.later": "Herinner me later",
+  "backup.recordFailed": "De download is aangevraagd, maar we konden de exportdatum niet opslaan. De herinnering is niet opnieuw ingesteld. Controleer de browseropslag en exporteer opnieuw.",
+  "backup.deferFailed": "We konden de herinnering niet uitstellen. Controleer de browseropslag en probeer opnieuw.",
+  "history.futurePrices": "Deze versie bevat prijzen met een datum in de toekomst. Controleer de datum op je apparaat of kies een andere versie. Je huidige gegevens zijn ongewijzigd.",
+
   "merge.title": "Gewijzigde velden controleren",
   "merge.description": "Beide tabbladen hebben deze velden gewijzigd. Kies welke waarde je wilt bewaren voordat je opslaat.",
   "merge.mine": "Jouw concept",

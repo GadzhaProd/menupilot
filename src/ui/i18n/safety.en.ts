@@ -1,4 +1,9 @@
 export const safetyEn = {
+  "backup.later": "Remind me later",
+  "backup.recordFailed": "The download was requested, but we could not record the Export date. The backup reminder has not been reset. Check browser storage and try Export again.",
+  "backup.deferFailed": "We could not postpone the reminder. Check browser storage and try again.",
+  "history.futurePrices": "This version contains prices dated in the future. Check the date on your device or choose another version. Your current data is unchanged.",
+
   "merge.title": "Review changed fields",
   "merge.description": "Both tabs changed these fields. Choose which value to keep before saving.",
   "merge.mine": "Your draft",

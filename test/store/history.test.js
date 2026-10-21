@@ -169,6 +169,17 @@ test('restoring the oldest of a full history preserves that snapshot on main-wri
   }
 });
 
+test('backup reminders can be deferred seven days without claiming an Export', () => {
+  let clock = Date.parse(DEMO_NOW);
+  const storage = memoryStorage();
+  const s = createStore(storage, { demo: smallDocument(), now: () => clock }); s.load();
+  s.updateIngredient('i1', { name: 'Own data' }); clock += 7*86400000;
+  s.remindLater(); assert.equal(s.getBackupStatus().due, false);
+  assert.equal(s.getBackupStatus().lastExportAt, null);
+  clock += 6*86400000; assert.equal(s.getBackupStatus().due, false);
+  clock += 86400000; assert.equal(s.getBackupStatus().due, true);
+});
+
 test('archive quota never evicts the version being restored', () => {
   const backing = memoryStorage({ [STORAGE_KEY]: JSON.stringify(smallDocument()) });
   let failHistory = false;

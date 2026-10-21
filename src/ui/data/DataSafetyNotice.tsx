@@ -15,7 +15,7 @@ export function DataSafetyNotice() {
   const sessions = useSimulatorSessions();
   const recipes = useRecipeDrafts();
   const { exportBackup, execute } = useCommands();
-  const { historyWarning, backupStatus, recordExport } = useVersionHistory();
+  const { historyWarning, backupStatus, backupError, remindLater, recordExport } = useVersionHistory();
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [memoryError, setMemoryError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState(false);
@@ -38,15 +38,18 @@ export function DataSafetyNotice() {
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [safety]);
+  const backupAlert = backupError && <p role="alert" className="rounded-md border border-amber-500/50 p-3">{backupError}</p>;
   if (!safety) return <>
+    {backupAlert}
     {historyWarning && <p role="status" className="rounded-md border border-amber-500/50 p-3">{t('history.unavailable')}</p>}
-    {backupStatus.due && <p role="status" className="rounded-md border border-line p-3 text-sm">{t('backup.reminder')} <a className="underline" href="#/data">{t('data.export')}</a></p>}
+    {backupStatus.due && <p role="status" className="rounded-md border border-line p-3 text-sm">{t('backup.reminder')} <a className="underline" href="#/data">{t('data.export')}</a> <Button type="button" variant="outline" onClick={remindLater}>{t('backup.later')}</Button></p>}
   </>;
   const cachedRemoved = safety === 'draft-target-removed' ? removedTargets.filter(target => target.kind === 'recipe' && recipes.read(target.id) && ![...document.querySelectorAll<HTMLElement>('[data-draft-kind=recipe]')].some(element => element.dataset.draftId === target.id)) : [];
   const text = safety === 'storage-cleared' ? t('safety.cleared') : safety === 'draft-target-removed' ? t(cachedRemoved.length ? 'safety.cachedRemoved' : 'safety.removed') : safety === 'conflict' ? t('safety.changed') : safety === 'write-busy' ? t('safety.busy')
     : safety === 'write-unavailable' ? t('safety.unavailable') : t('safety.readFailed');
   const notice = <div role="status" className="space-y-2 rounded-md border border-amber-500/50 bg-card p-3 text-sm">
     <p>{text}</p>
+    {backupAlert}
     {safety === 'storage-cleared' && <Button type="button" variant="outline" className="whitespace-normal" onClick={() => {
       const backup = exportBackup();
       if (!backup.ok) { setDownloadError(true); return; }

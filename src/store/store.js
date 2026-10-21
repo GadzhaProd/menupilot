@@ -218,6 +218,7 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     listHistory: history.list,
     getBackupStatus: backup.get,
     recordExport: backup.exported,
+    remindLater: backup.remindLater,
     getHistoryWarning: () => historyWarning,
     restoreHistory(id) {
       const entry = history.list().find(item => item.id === id);

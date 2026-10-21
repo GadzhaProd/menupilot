@@ -9,7 +9,7 @@ import { useLocale } from '@/ui/i18n';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
 import { useSimulatorSessions } from '@/ui/simulator/session';
-import type { HistoryEntry } from './storeHistory';
+import type { HistoryEntry } from '@/ui/domain/store';
 import { isSafetyError } from './safetyErrors';
 
 function parse(raw: string): MenuDocument | null {
@@ -43,7 +43,7 @@ export function VersionHistory() {
   function restore() {
     if (!dialog.state) return;
     const result = execute(store => store.restoreHistory(dialog.state!.entry.id), { report: false });
-    if (!result.ok) { setError(isSafetyError(result.code) ? null : t('history.failed')); return; }
+    if (!result.ok) { setError(isSafetyError(result.code) ? null : t(result.details.some(detail => detail.includes('must not be in the future')) ? 'history.futurePrices' : 'history.failed')); return; }
     recipes.clearAll(); sessions.clear(); dialog.close(); setRestored(true);
   }
   return <Surface className="space-y-4" aria-labelledby="history-title">
