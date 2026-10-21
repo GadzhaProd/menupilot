@@ -277,3 +277,185 @@ test('navigation and viewport resizing preserve recipe and simulator drafts with
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.width);
   }
 });
+
+test('automatic network guard blocks an intentional external request', async ({ page, blockedExternalUrls }) => {
+  const rejected = await page.evaluate(async () => {
+    try {
+      await fetch('https://network-guard.invalid/probe');
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  expect(rejected).toBe(true);
+  expect(blockedExternalUrls).toEqual(['https://network-guard.invalid/probe']);
+  // This is the one deliberately attempted request; acknowledge it after proving
+  // that the context route caught and aborted it. All other requests must remain absent.
+  blockedExternalUrls.splice(0, 1);
+});
+
+test('two tabs preserve a price history through a stale rename conflict and retry', async ({ page }) => {
+  const context = page.context();
+  const second = await context.newPage();
+  await second.clock.install({ time: new Date('2026-10-20T12:00:00.000Z') });
+  await second.goto('./');
+  await expect(second.getByRole('heading', { name: 'What has changed on your menu?' })).toBeVisible();
+  await second.getByRole('link', { name: 'Ingredients', exact: true }).click();
+  const minceRow = second.getByRole('row', { name: /Beef mince 80\/20/ });
+  await minceRow.getByRole('button', { name: 'Rename Beef mince 80/20', exact: true }).click();
+  const rename = second.getByRole('dialog');
+  await rename.getByLabel('Name', { exact: true }).fill('House mince');
+
+  await page.bringToFront();
+  await page.getByRole('link', { name: 'Ingredients', exact: true }).click();
+  const activeMince = page.getByRole('row', { name: /Beef mince 80\/20/ });
+  await activeMince.getByRole('button', { name: 'New price for Beef mince 80/20', exact: true }).click();
+  const price = page.getByRole('dialog');
+  await price.getByLabel(/Pack price/).fill('18.00');
+  await price.getByRole('button', { name: 'Save price', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Beef mince 80\/20/ }).getByRole('cell').nth(3)).toHaveText('€18.00');
+
+  await second.bringToFront();
+  await rename.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(rename.getByRole('status')).toContainText('Another tab changed the saved data');
+  await expect(rename.getByLabel('Name', { exact: true })).toHaveValue('House mince');
+  await rename.getByRole('button', { name: 'Load latest data', exact: true }).click();
+  await expect(rename).toBeVisible();
+  await expect(rename.getByLabel('Name', { exact: true })).toHaveValue('House mince');
+  await rename.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(rename).toHaveCount(0);
+
+  const saved = await second.evaluate(() => JSON.parse(localStorage.getItem('menupilot:v1')!));
+  const mince = saved.ingredients.find((ingredient: { name: string }) => ingredient.name === 'House mince');
+  expect(mince).toBeTruthy();
+  expect(mince.prices.map((entry: { packPriceCents: number }) => entry.packPriceCents)).toEqual([1400, 1700, 1800]);
+});
+
+test('a recipe draft survives Help and another tab update without overwriting it', async ({ page }) => {
+  await page.goto('#/recipe/new?kind=dish');
+  await screen(page, 'New dish');
+  await page.getByLabel('Name', { exact: true }).fill('Saved after conflict');
+  await page.getByLabel('Menu price (incl. VAT)', { exact: true }).fill('12.00');
+  const line = page.getByRole('group', { name: 'Line 1', exact: true });
+  await line.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'Beef mince 80/20 · g' });
+  await line.getByLabel(/Net quantity/).fill('100');
+  await line.getByLabel('Yield %', { exact: true }).fill('100');
+  await page.getByRole('link', { name: 'Help for this page', exact: true }).click();
+  await screen(page, 'MenuPilot: step-by-step guide');
+  await expect(page).toHaveURL(/#\/help\/dishes$/);
+
+  const second = await page.context().newPage();
+  await second.clock.install({ time: new Date('2026-10-20T12:00:00.000Z') });
+  await second.goto('./');
+  await second.getByRole('link', { name: 'Ingredients', exact: true }).click();
+  await second.getByRole('row', { name: /Beef mince 80\/20/ }).getByRole('button', { name: 'New price for Beef mince 80/20', exact: true }).click();
+  const priceDialog = second.getByRole('dialog');
+  await priceDialog.getByLabel(/Pack price/).fill('18.00');
+  await priceDialog.getByRole('button', { name: 'Save price', exact: true }).click();
+
+  await page.bringToFront();
+  // Navigate inside the app so its in-memory recipe draft cache remains alive.
+  await page.getByRole('link', { name: 'Recipes', exact: true }).click();
+  await page.getByRole('link', { name: 'New dish', exact: true }).click();
+  await screen(page, 'New dish');
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Saved after conflict');
+  const conflictNotice = page.getByRole('status').filter({ hasText: 'Another tab changed the saved data' });
+  await expect(conflictNotice).toBeVisible();
+  await page.getByRole('button', { name: 'Save dish', exact: true }).click();
+  await expect(conflictNotice).toBeVisible();
+  await page.getByRole('button', { name: 'Load latest data', exact: true }).click();
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Saved after conflict');
+  await page.getByRole('button', { name: 'Save dish', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Saved after conflict', exact: true })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('menupilot:v1')!));
+  expect(saved.ingredients.find((ingredient: { name: string }) => ingredient.name === 'Beef mince 80/20').prices.at(-1).packPriceCents).toBe(1800);
+  expect(saved.recipes.some((recipe: { name: string }) => recipe.name === 'Saved after conflict')).toBe(true);
+});
+
+test('another tab without drafts updates itself and a background tab does not block the active writer', async ({ page }) => {
+  const second = await page.context().newPage();
+  await second.clock.install({ time: new Date('2026-10-20T12:00:00.000Z') });
+  await second.goto('./');
+  await second.getByRole('link', { name: 'Ingredients', exact: true }).click();
+  await expect(second.getByRole('row', { name: /Beef mince 80\/20/ })).toBeVisible();
+
+  await page.bringToFront();
+  await page.getByRole('link', { name: 'Ingredients', exact: true }).click();
+  await page.getByRole('row', { name: /Beef mince 80\/20/ }).getByRole('button', { name: 'New price for Beef mince 80/20', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel(/Pack price/).fill('18.00');
+  await dialog.getByRole('button', { name: 'Save price', exact: true }).click();
+  await expect(second.getByRole('row', { name: /Beef mince 80\/20/ }).getByRole('cell').nth(3)).toHaveText('€18.00');
+});
+
+test('storage cleared in another tab keeps the displayed document and shows a warning', async ({ page }) => {
+  await page.getByRole('link', { name: 'Ingredients', exact: true }).click();
+  await page.getByRole('row', { name: /Beef mince 80\/20/ }).getByRole('button', { name: 'New price for Beef mince 80/20', exact: true }).click();
+  const price = page.getByRole('dialog');
+  await price.getByLabel(/Pack price/).fill('18.00');
+  await price.getByRole('button', { name: 'Save price', exact: true }).click();
+  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+  const second = await page.context().newPage();
+  await second.clock.install({ time: new Date('2026-10-20T12:00:00.000Z') });
+  await second.goto('./');
+  await second.evaluate(() => localStorage.removeItem('menupilot:v1'));
+  await expect(page.getByRole('status')).toContainText('The saved data was removed in another tab');
+  await expect(page.getByRole('heading', { name: 'What has changed on your menu?' })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Classic Burger/ })).toBeVisible();
+});
+
+async function exerciseRecovery(page: import('@playwright/test').Page, testInfo: import('@playwright/test').TestInfo, dutch: boolean) {
+  if (dutch) await page.getByRole('button', { name: 'NL – Nederlands', exact: true }).click();
+  await page.getByRole('link', { name: dutch ? 'Gegevens' : 'Data', exact: true }).click();
+  const backupDownloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: dutch ? 'Reservekopie exporteren' : 'Export backup', exact: true }).click();
+  const backupDownload = await backupDownloadPromise;
+  const backupPath = testInfo.outputPath(`valid-${backupDownload.suggestedFilename()}`);
+  await backupDownload.saveAs(backupPath);
+  const original = await readFile(backupPath, 'utf8');
+  const backupDocument = JSON.parse(original);
+  backupDocument.recipes.find((recipe: { name: string }) => recipe.name === 'Classic Burger').name = 'Restored Burger';
+  const validBackup = Buffer.from(JSON.stringify(backupDocument, null, 2));
+  const damaged = '{"version":1,\n\u0000 damaged bytes';
+  await page.evaluate((raw) => localStorage.setItem('menupilot:v1', raw), damaged);
+  await page.reload();
+
+  const downloadLabel = dutch ? 'Beschadigde gegevens downloaden' : 'Download damaged data';
+  const restoreLabel = dutch ? 'Herstellen vanuit een reservekopie' : 'Restore from backup';
+  await expect(page.getByRole('heading', { name: dutch ? 'Je gegevens konden niet worden geopend' : 'Your data could not be opened' })).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: downloadLabel, exact: true }).click();
+  const download = await downloadPromise;
+  const savedPath = testInfo.outputPath(download.suggestedFilename());
+  await download.saveAs(savedPath);
+  expect(await readFile(savedPath)).toEqual(Buffer.from(damaged));
+
+  const backupLabel = dutch ? 'Reservekopiebestand' : 'Backup file';
+  await page.getByLabel(backupLabel, { exact: true }).setInputFiles({
+    name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{"version":1}'),
+  });
+  await expect(page.getByRole('alert').filter({ hasText: dutch
+    ? 'Deze reservekopie is ongeldig of gebruikt een niet-ondersteund formaat.'
+    : 'This backup is not valid or uses an unsupported format.' })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('menupilot:v1'))).toBe(damaged);
+
+  await page.getByRole('button', { name: restoreLabel, exact: true }).click();
+  await page.getByLabel(backupLabel, { exact: true }).setInputFiles({
+    name: 'valid-backup.json', mimeType: 'application/json', buffer: validBackup,
+  });
+  const confirmation = page.getByRole('alertdialog');
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: dutch ? 'Vervangen door reservekopie' : 'Replace with backup', exact: true }).click();
+  await expect(confirmation).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('link', { name: dutch ? 'Recepten' : 'Recipes', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Restored Burger', exact: true })).toBeVisible();
+}
+
+test('recovery downloads exact damaged bytes and restores a validated copy in English', async ({ page }, testInfo) => {
+  await exerciseRecovery(page, testInfo, false);
+});
+
+test('recovery downloads exact damaged bytes and restores a validated copy in Dutch', async ({ page }, testInfo) => {
+  await exerciseRecovery(page, testInfo, true);
+});

@@ -1,18 +1,21 @@
 import { expect, test as base } from '@playwright/test';
 
 export const test = base.extend<{ blockedExternalUrls: string[] }>({
-  blockedExternalUrls: async ({ page }, use) => {
+  // An automatic fixture depending on the browser context is installed before
+  // beforeEach hooks, so every page (including extra tabs) is guarded before goto.
+  blockedExternalUrls: [async ({ context, baseURL }, use) => {
     const urls: string[] = [];
-    await page.route('**/*', async route => {
+    const appOrigin = new URL(baseURL ?? 'http://127.0.0.1:4174/menupilot/').origin;
+    await context.route('**/*', async route => {
       const url = new URL(route.request().url());
-      if (url.hostname === '127.0.0.1') await route.continue();
+      if (url.origin === appOrigin) await route.continue();
       else {
         urls.push(url.href);
         await route.abort();
       }
     });
     await use(urls);
-  },
+  }, { auto: true }],
 });
 
 test.beforeEach(async ({ page }) => {
