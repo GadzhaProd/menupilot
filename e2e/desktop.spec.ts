@@ -372,7 +372,7 @@ test('a recipe draft survives Help and another tab update without overwriting it
   expect(saved.recipes.some((recipe: { name: string }) => recipe.name === 'Saved after conflict')).toBe(true);
 });
 
-test('another tab without drafts updates itself and a background tab does not block the active writer', async ({ page }) => {
+test('idle tab refreshes itself', async ({ page }) => {
   const second = await page.context().newPage();
   await second.clock.install({ time: new Date('2026-10-20T12:00:00.000Z') });
   await second.goto('./');
@@ -458,4 +458,27 @@ test('recovery downloads exact damaged bytes and restores a validated copy in En
 
 test('recovery downloads exact damaged bytes and restores a validated copy in Dutch', async ({ page }, testInfo) => {
   await exerciseRecovery(page, testInfo, true);
+});
+
+
+test('version history restores previous data as a new revision and archives the replaced data', async ({ page }) => {
+  await page.goto('#/recipe/dish_classic_burger');
+  await page.getByLabel('Name', { exact: true }).fill('First saved burger');
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'First saved burger', exact: true })).toBeVisible();
+  await page.getByLabel('Name', { exact: true }).fill('Second saved burger');
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Second saved burger', exact: true })).toBeVisible();
+  const revision = await page.evaluate(() => localStorage.getItem('menupilot:revision'));
+  await page.getByRole('link', { name: 'Data', exact: true }).click();
+  await page.getByRole('button', { name: 'Preview version', exact: true }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('Changed entries: 0 ingredients, 1 recipes');
+  await dialog.getByRole('button', { name: 'Restore version', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Preview version', exact: true })).toHaveCount(2);
+  expect(await page.evaluate(() => localStorage.getItem('menupilot:revision'))).not.toBe(revision);
+  await page.goto('#/recipe/dish_classic_burger');
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('First saved burger');
+  const versions = await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('menupilot:history:')).map(k => JSON.parse(localStorage.getItem(k)!).raw));
+  expect(versions.some(raw => raw.includes('Second saved burger'))).toBe(true);
 });

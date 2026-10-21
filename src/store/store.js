@@ -1,3 +1,5 @@
+import { createBackupStatus } from './backup.js';
+import { createHistory } from './history.js';
 import { instantNotAfter, isObject } from './check.js';
 import { shiftDemoDates } from './demo.js';
 import { StoreError } from './errors.js';
@@ -5,6 +7,7 @@ import { FORMAT_VERSION, assertValidDocument, emptyDocument } from './schema.js'
 
 export { StoreError };
 export const STORAGE_KEY = 'menupilot:v1';
+const REVISION_KEY = 'menupilot:revision';
 
 function randomId(prefix) {
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(6));
@@ -99,9 +102,13 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
   }
   assertValidDocument(demo);
   let current = null;
-  // Exact persisted bytes are the comparison token; no second key or format change.
+  // Exact document bytes plus an independent revision marker prevent stale writes and ABA.
   let expectedRaw;
+  let expectedRevision;
+  let historyWarning = false;
   const isoNow = () => new Date(now()).toISOString();
+  const history = createHistory(storage, isoNow);
+  const backup = createBackupStatus(storage, isoNow);
 
   function loaded() {
     if (current === null) {
@@ -114,21 +121,48 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
    * Validate, write, and only then publish `candidate` as the current document.
    * `checkFuture` also rejects price records from the future (used for save and import).
    */
-  function persist(candidate, { checkFuture = false } = {}) {
+  function persist(candidate, { checkFuture = false, ownData = true, requireHistory = false, preservedHistoryId = undefined } = {}) {
     assertValidDocument(candidate, checkFuture ? { now: isoNow() } : undefined);
     const text = JSON.stringify(candidate);
     const actualRaw = readRaw();
-    if (expectedRaw !== undefined && actualRaw !== expectedRaw) {
+    if (expectedRaw !== undefined && (actualRaw !== expectedRaw || storage.getItem(REVISION_KEY) !== expectedRevision)) {
       throw new StoreError('conflict', 'Another tab changed the saved data. Load the latest data, review your draft and save again.');
     }
-    try {
-      storage.setItem(STORAGE_KEY, text);
-    } catch (error) {
-      if (error instanceof StoreError) throw error;
-      throw writeError(error);
+    if (text === actualRaw) {
+      expectedRaw = text;
+      expectedRevision = storage.getItem(REVISION_KEY);
+      current ??= deepFreeze(JSON.parse(text));
+      return current;
     }
+    const snapshot = history.archive(actualRaw, preservedHistoryId);
+    if (requireHistory && !snapshot.available) {
+      throw new StoreError(snapshot.error ? writeError(snapshot.error).code : 'quota', `A copy of the current data could not be stored${snapshot.error?.message ? ` (${snapshot.error.message})` : ''}. Replacement was cancelled. Export a backup and free browser storage before trying again.`);
+    }
+    // The sidecar prevents ABA (restore A after B) without changing document v1.
+    // Write it before the document: an interrupted commit invalidates stale writers.
+    // A failed main write can leave a new token and a redundant snapshot, safely.
+    const revision = crypto.randomUUID();
+    for (;;) {
+      try {
+        storage.setItem(REVISION_KEY, revision);
+        expectedRevision = revision;
+        storage.setItem(STORAGE_KEY, text);
+        break;
+      } catch (error) {
+        if (error instanceof StoreError) throw error;
+        const failure = writeError(error);
+        if (failure.code === 'quota') {
+          try { if (history.evictOldest(snapshot.protectedKey, preservedHistoryId)) continue; }
+          catch (evictionError) { if (evictionError instanceof StoreError) throw evictionError; }
+        }
+        throw failure;
+      }
+    }
+    historyWarning = !snapshot.available;
     expectedRaw = text;
     current = deepFreeze(JSON.parse(text));
+    // Ancillary reminder metadata must never turn a committed save into a failure.
+    try { backup.saved(ownData); } catch { /* best effort, file backup remains available */ }
     return current;
   }
 
@@ -170,15 +204,35 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     /** Load saved data (first run: the demo, not yet written). Never overwrites bad data. */
     load({ beforeReplace = () => {} } = {}) {
       const raw = readRaw();
-      if (current === null) expectedRaw = raw;
+      const revision = storage.getItem(REVISION_KEY);
+      if (current === null) { expectedRaw = raw; expectedRevision = revision; }
       const doc = raw === null ? demoDocument() : parseDocumentText(raw, 'The saved data');
       beforeReplace(deepFreeze(doc));
       expectedRaw = raw;
+      expectedRevision = revision;
       current = deepFreeze(doc);
       return current;
     },
 
     getDocument: loaded,
+    listHistory: history.list,
+    getBackupStatus: backup.get,
+    recordExport: backup.exported,
+    remindLater: backup.remindLater,
+    getHistoryWarning: () => historyWarning,
+    restoreHistory(id) {
+      const entry = history.list().find(item => item.id === id);
+      if (!entry) throw new StoreError('not-found', 'This version is no longer available.');
+      return persist(parseDocumentText(entry.raw, 'The saved version', { now: isoNow() }), { requireHistory: true, preservedHistoryId: id });
+    },
+    /** Explicit recovery of the memory document only if storage is still empty. */
+    saveMemoryAsNew() {
+      const candidate = loaded();
+      if (readRaw() !== null) throw new StoreError('conflict', 'Another tab has saved data. Load the latest data first.');
+      expectedRaw = null;
+      expectedRevision = storage.getItem(REVISION_KEY);
+      return persist(structuredClone(candidate));
+    },
     /** Comparison token for the loaded document; never performs storage I/O. */
     getRevision: () => expectedRaw,
     readRaw,
@@ -295,17 +349,17 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     importJSON(text) {
       // Recovery is allowed after load() captured even an unreadable document.
       if (expectedRaw === undefined) loaded();
-      return persist(parseDocumentText(text, 'The imported file', { now: isoNow() }));
+      return persist(parseDocumentText(text, 'The imported file', { now: isoNow() }), { requireHistory: true });
     },
 
     /** Optional translated demo; validated before shifting/writing, never mutates the caller. */
     resetToDemo(source = demo) {
-      return persist(demoDocument(source));
+      return persist(demoDocument(source), { ownData: false, requireHistory: true });
     },
 
     /** Replace all data with an empty document (nothing is kept). Like resetToDemo, atomic. */
     resetToEmpty() {
-      return persist(emptyDocument());
+      return persist(emptyDocument(), { requireHistory: true });
     },
   };
 }

@@ -25,6 +25,7 @@ import { useLocale } from '@/ui/i18n';
 import { Surface } from '@/components/ui/surface';
 import { InlineStatus } from '@/components/ui/inline-status';
 import { useRecipeDrafts } from './RecipeDraftProvider';
+import { mergeDraft, type DraftConflict } from './mergeDraft';
 import { isSafetyError } from '@/ui/data/safetyErrors';
 
 /** Stands in for the id of a recipe that is not saved yet, so its cost can still be calculated. */
@@ -42,12 +43,19 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const { execute } = useCommands();
   const draftCache = useRecipeDrafts();
   const draftKey = recipe?.id ?? `new:${kind}`;
-  const sourceSnapshot = JSON.stringify(recipe ?? document) ?? '';
+  const source = recipe ?? document;
+  const sourceSnapshot = useMemo(() => JSON.stringify(source) ?? '', [source]);
   const sourceSnapshotRef = useRef(sourceSnapshot);
   const sourceChanged = sourceSnapshotRef.current !== sourceSnapshot;
   const [initial] = useState(() => recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp));
-  const [baseline, setBaseline] = useState<RecipeDraft>(initial);
-  const [draft, setDraft] = useState<RecipeDraft>(() => draftCache.read(draftKey) ?? initial);
+  const [starting] = useState(() => {
+    const cached = draftCache.read(draftKey);
+    return cached ? mergeDraft(cached.baseline, cached.draft, recipe ? initial : { ...initial, lines: cached.baseline.lines }, cached.conflicts)
+      : { draft: initial, baseline: initial, conflicts: [] };
+  });
+  const [baseline, setBaseline] = useState<RecipeDraft>(starting.baseline);
+  const [draft, setDraft] = useState<RecipeDraft>(starting.draft);
+  const [conflicts, setConflicts] = useState<DraftConflict[]>(starting.conflicts);
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -62,18 +70,20 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   useEffect(() => {
     if (!sourceChanged) return;
     sourceSnapshotRef.current = sourceSnapshot;
-    const fresh = recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp);
-    if (!dirty) setDraft(fresh);
+    const fresh = recipe ? draftFromRecipe(recipe, document) : { ...blankDraft(kind, document.settings.defaultVatRateBp), lines: baseline.lines };
+    const merged = mergeDraft(baseline, draft, fresh, conflicts);
+    setDraft(merged.draft);
+    setConflicts(merged.conflicts);
     setBaseline(fresh);
     setAttempt(0);
     setSaveError(null);
-  }, [sourceChanged, sourceSnapshot, draftKey, recipe, document, kind, dirty]);
+  }, [sourceChanged, sourceSnapshot, draftKey, recipe, document, kind, baseline, draft, conflicts]);
 
   useEffect(() => {
     if (sourceChanged) return;
-    if (dirty) draftCache.write(draftKey, draft);
+    if (dirty || conflicts.length) draftCache.write(draftKey, { draft, baseline, conflicts });
     else draftCache.clear(draftKey);
-  }, [sourceChanged, dirty, draft, draftKey, sourceSnapshot, draftCache]);
+  }, [sourceChanged, dirty, draft, draftKey, sourceSnapshot, draftCache, baseline, conflicts]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -150,6 +160,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     event.preventDefault();
     setAttempt((count) => count + 1);
     setSaved(false);
+    if (conflicts.length) return;
     if (!built.ok) {
       setSaveError(null);
       return;
@@ -180,11 +191,26 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
 
   function discard() {
     setDraft(baseline);
+    setConflicts([]);
     setAttempt(0);
     setSaveError(null);
     setSaved(false);
   }
 
+  const fieldLabels: Record<DraftConflict['field'], string> = {
+    kind: t('recipe.dish'), name: t('recipe.name'), menuPrice: t('recipe.menuPriceInput'),
+    vatRateBp: t('recipe.vatRate'), portions: t('recipe.portions'), monthlyVolume: t('recipe.monthlyVolume'),
+    output: t('recipe.oneBatch'), lines: t('recipe.ingredientsAndPreps'),
+  };
+  const showValue = (value: DraftConflict['local']) => typeof value === 'string' ? value : 'outputQty' in value ? `${value.outputQty} ${localizedUnit(value.outputUnit, locale)}` : value.map(line => {
+    const refId = line.ref.slice(line.ref.indexOf(':') + 1);
+    const item = [...document.ingredients, ...document.recipes].find(item => item.id === refId);
+    return `${item?.name ?? t('recipe.error.ref')} · ${line.qty} ${localizedUnit(line.unit, locale)} · ${line.yieldPct}%`;
+  }).join('\n');
+  function resolve(conflict: DraftConflict, latest: boolean) {
+    if (latest) setDraft(current => conflict.field === 'output' ? { ...current, ...conflict.latest } : { ...current, [conflict.field]: conflict.latest });
+    setConflicts(current => current.filter(item => item.field !== conflict.field));
+  }
   const heading = recipe?.name ?? t(kind === 'dish' ? 'recipe.newDish' : 'recipe.newPrep');
 
   return (
@@ -305,6 +331,19 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
           hasLines={draft.lines.length > 0}
         />
 
+        {conflicts.length > 0 && <Surface className="space-y-3" aria-label={t('merge.title')}>
+          <h2 className="text-xl font-semibold">{t('merge.title')}</h2>
+          <p>{t('merge.description')}</p>
+          {conflicts.map(conflict => <div key={conflict.field} className="space-y-2 border-t border-line pt-3">
+            <h3 className="font-semibold">{fieldLabels[conflict.field]}</h3>
+            <p>{t('merge.mine')}</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-sm">{showValue(conflict.field === 'output' ? { outputQty: draft.outputQty, outputUnit: draft.outputUnit } : draft[conflict.field])}</pre>
+            <p>{t('merge.latest')}</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-sm">{showValue(conflict.latest)}</pre>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => resolve(conflict, false)}>{t('merge.keep')}</Button>
+              <Button type="button" variant="outline" onClick={() => resolve(conflict, true)}>{t('merge.useLatest')}</Button>
+            </div>
+          </div>)}
+        </Surface>}
         {saveError !== null ? (
           <InlineStatus tone="error">{saveError} {t('recipe.saveErrorKeep')}</InlineStatus>
         ) : null}
@@ -313,7 +352,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit">{recipe ? t('recipe.saveChanges') : kind === 'dish' ? t('recipe.saveDish') : t('recipe.savePrep')}</Button>
+          <Button type="submit" disabled={conflicts.length > 0}>{recipe ? t('recipe.saveChanges') : kind === 'dish' ? t('recipe.saveDish') : t('recipe.savePrep')}</Button>
           {recipe ? <Button type="button" variant="outline" disabled={!dirty} onClick={discard}>{t('recipe.discard')}</Button> : null}
           <span role="status" className="text-sm text-muted-foreground">
             {saved ? t('recipe.saved') : dirty && recipe ? t('recipe.unsaved') : ''}

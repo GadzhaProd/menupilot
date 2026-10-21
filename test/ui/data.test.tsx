@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useCommands, useDataState, useDocument } from '@/ui/data/DataProvider';
 import { dataReducer } from '@/ui/data/reducer';
 import type { MenuDocument } from '@/ui/domain/types';
@@ -80,9 +80,10 @@ describe('store ↔ React contract', () => {
 
   it('runs a command once under StrictMode', async () => {
     const storage = memoryStorage();
+    const writes = vi.spyOn(storage, 'setItem');
     renderApp(storage, { strict: true, children: <Probe /> });
     await userEvent.click(screen.getByRole('button', { name: 'add price' }));
-    expect(storage.setCalls).toBe(1);
+    expect(writes.mock.calls.filter(([key]) => key === STORAGE_KEY)).toHaveLength(1);
     expect(beefPrices()).toBe(String(Number(initialBeefPrices) + 1));
   });
 

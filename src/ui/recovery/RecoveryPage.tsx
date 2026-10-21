@@ -1,3 +1,4 @@
+import { VersionHistory } from '@/ui/data/VersionHistory';
 import { useSimulatorSessions } from '@/ui/simulator/session';
 import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
 import { useRef, useState, type ChangeEvent } from 'react';
@@ -72,6 +73,8 @@ export function RecoveryPage() {
     <h1 id="page-title" className="text-3xl font-semibold">{t('error.dataTitle')}</h1>
     <InlineStatus tone="error">{reason}</InlineStatus>
     <p className="text-muted-foreground">{t('recovery.explanation')}</p>
+    <p className="text-sm text-muted-foreground">{t('recovery.textLimit')}</p>
+    <VersionHistory />
     <Surface className="space-y-4">
       <Button type="button" className="whitespace-normal" disabled={!rawAvailable} onClick={download}>{t('recovery.download')}</Button>
       {downloaded && <p role="status">{t('recovery.downloaded')}</p>}

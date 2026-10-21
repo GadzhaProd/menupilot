@@ -1,3 +1,5 @@
+import { VersionHistory } from '@/ui/data/VersionHistory';
+import { useVersionHistory } from '@/ui/data/DataProvider';
 import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
 import { downloadText } from '@/ui/data/downloadText';
@@ -43,6 +45,7 @@ function dialogText(pending: Pending, t: ReturnType<typeof useLocale>['t']) {
 export function DataPage() {
   const { locale, t, plural } = useLocale();
   const document = useDocument();
+  const { backupStatus, recordExport } = useVersionHistory();
   const { execute, exportBackup: readBackupText } = useCommands();
   const sessions = useSimulatorSessions();
   const recipes = useRecipeDrafts();
@@ -75,6 +78,7 @@ export function DataPage() {
       setNotice({ tone: 'error', text: t('data.downloadFail', { error: t('error.generic') }) });
       return;
     }
+    recordExport();
     setNotice({ tone: 'ok', text: t('data.backupSaved', { file: fileName }) });
   }
 
@@ -136,6 +140,8 @@ export function DataPage() {
 
       <Surface aria-labelledby="export-title" className="space-y-4"><div className="space-y-1"><h2 id="export-title" className="text-xl font-semibold">{t('data.exportTitle')}</h2><p className="text-muted-foreground">{t('data.exportDescription')}</p></div><Button type="button" onClick={downloadBackup}><DownloadIcon aria-hidden="true" /> {t('data.export')}</Button></Surface>
 
+      <p className="text-sm text-muted-foreground">{backupStatus.lastExportAt ? t('backup.lastExport', { date: new Date(backupStatus.lastExportAt).toLocaleString(locale === 'nl' ? 'nl-NL' : 'en-GB') }) : t('backup.never')}</p>
+      <VersionHistory />
       <Surface aria-labelledby="import-title" className="space-y-4">
           <div className="space-y-1"><h2 id="import-title" className="text-xl font-semibold">{t('data.importTitle')}</h2><p className="text-muted-foreground">{t('data.importDescription')}</p></div>
           <input ref={fileInput} type="file" accept=".json,application/json" aria-label={t('data.backupFile')} className="hidden" onChange={chooseFile} />
