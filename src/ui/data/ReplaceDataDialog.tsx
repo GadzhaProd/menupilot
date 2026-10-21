@@ -1,6 +1,6 @@
 import { useCommands } from '@/ui/data/DataProvider';
 import { CommandButton } from '@/ui/data/CommandButton';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useLocale } from '@/ui/i18n';
 import { InlineStatus } from '@/components/ui/inline-status';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import {
 
 interface ReplaceDataDialogProps {
   title: string;
+  preview?: ReactNode;
   /** What will replace the current data, for example the file name. */
   description: string;
   confirmLabel: string;
@@ -23,7 +24,7 @@ interface ReplaceDataDialogProps {
 
 /** Confirm before all current data is replaced (import or reset). Cancel changes nothing. */
 export function ReplaceDataDialog({
-  title, description, confirmLabel, unsavedScenarios, onClose, onCloseAutoFocus, onConfirm,
+  title, description, preview, confirmLabel, unsavedScenarios, onClose, onCloseAutoFocus, onConfirm,
 }: ReplaceDataDialogProps) {
   const { commandStatus } = useCommands();
   const { t, plural } = useLocale();
@@ -35,6 +36,7 @@ export function ReplaceDataDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{t('data.replacementWarning', { description })}</DialogDescription>
         </DialogHeader>
+        {preview}
         {unsavedScenarios > 0 ? (
           <InlineStatus>{plural('data.unsavedScenarios', unsavedScenarios)}</InlineStatus>
         ) : null}

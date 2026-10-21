@@ -42,8 +42,8 @@ MenuPilot keeps ingredients with their price history, builds dish and prep (sub-
 - **Contribution is not profit.** "Contribution" is the menu price excl. VAT minus the recipe-based ingredient cost. It is *before* labour, rent and all other costs. MenuPilot never calls it profit.
 - **Ingredient cost is theoretical.** "Recipe-based ingredient cost" is what the recipe should cost, not what was actually used (waste and over-portioning are not measured).
 - **Scenarios are not forecasts.** They are calculations on the numbers you type, including your own monthly sales estimate. MenuPilot does not predict demand.
-- **Your data lives in your browser.** There is no server and no account. Clearing browser data, or using private mode, can erase it. Export a backup regularly.
-- **Previous versions:** Data and recovery keep up to 10 versions within 1 MiB; restoring creates a new revision. A seven-day Export reminder starts with your own changes. Clearing the browser deletes this history too; only a backup file kept elsewhere protects against that loss.
+- **In the public demo, your data lives in your browser.** There is no account. Clearing browser data, or using private mode, can erase it. Export a backup regularly.
+- **Browser previous versions:** Data and recovery keep up to 10 versions within 1 MiB; restoring creates a new revision. A seven-day Export reminder starts with your own changes. Clearing the browser deletes this history too; only a backup file kept elsewhere protects against that loss.
 
 ## How MenuPilot differs
 
@@ -76,11 +76,65 @@ Tools such as Apicbase, meez, MarketMan and Restaurant365 are broad restaurant o
 - The only rounding operation is `roundDiv`: division rounded **half away from zero**, the same for positive and negative numbers. It is applied only at the points listed in the rounding contract (section 6 of [03_ARCHITECTURE.md](docs/planning/03_ARCHITECTURE.md)), for example once per recipe line and when a value is shown in cents.
 - Scenario differences are computed from the displayed (already rounded) values, so the screen always adds up.
 
+## Run locally (preview)
+
+Requires macOS or Linux and **Node 24.15.0 LTS** (tested patch; SQLite 3.51.3).
+Newer 24.x and Node 25.8.1+ in the 25.x series are accepted; 25.8.1 is also tested.
+This raises the project tooling minimum above Vite's minimum. No new dependencies.
+[Node 24.15.0 release](https://nodejs.org/en/blog/release/v24.15.0).
+
+```sh
+npm ci
+npm start
+# Open http://127.0.0.1:4710/menupilot/ — stop with Ctrl+C
+```
+
+The first local launch starts empty. Add an ingredient, or choose Data → Reset to
+demo data. The UI builds when needed. Only the server writes the SQLite database;
+a second server using the same folder refuses to start and prints the first address.
+
+Data stays outside the checkout: macOS `~/Library/Application Support/MenuPilot`,
+Linux `$XDG_DATA_HOME/menupilot` (default `~/.local/share/menupilot`). Override with
+`MENUPILOT_DATA_DIR=/absolute/local/path`; change the port with `MENUPILOT_PORT=4711`.
+Use a local disk folder, not a network or cloud-synced folder. The header shows the
+canonical data path. Updating the checkout does not replace this data.
+
+Lock recovery is automatic for a dead process, a reused PID, an incomplete lock
+older than 5 seconds, or an orphaned `lock.guard` older than 30 seconds. A separate
+`lock-coordinator.sqlite` serializes recovery; do not delete it. A live owner is
+never displaced merely because it stops answering HTTP. The console always gives
+**Data folder**, **Lock file**, and one next step:
+
+- **Already running** (verified matching instance): open the printed address.
+- **Lock looks stale or MenuPilot is still starting**: stop the existing MenuPilot
+  process, then run `npm start` again.
+- **Incomplete lock**: wait 5 seconds, then run `npm start` again.
+- **Lock maintenance interrupted**: wait 30 seconds, then run `npm start` again.
+- **Cannot verify process identity**: allow process inspection, then run `npm start` again.
+
+To migrate: Export in the browser version, then Data → Import backup locally.
+Review the counts and confirm replacement. A browser export gets a new local
+dataset identity; there is no merge or synchronization. Keep the original file.
+Local history retains up to 32 versions within 64 MiB; automatic independent
+backups are **not implemented yet**, so continue exporting backups.
+
+After restarting the server, an open page preserves drafts and asks you to copy
+unsaved input before reloading. An interrupted write may have committed: reload
+the latest data before submitting a new command. There is no offline write queue.
+
+D1 is a preview: loopback-only binding, Host checks and separate UI/CLI tokens are
+implemented. Origin/CSP hardening (D2), automatic backups (D3), CLI (D4), approved
+proposals (D5), and installation/doctor (D6) remain. It does not isolate data from
+browser extensions with page access or other processes running as your user.
+
 ## Testing
 
 ```sh
 npm test          # test:core (node:test) + test:ui (Vitest, Testing Library, jsdom)
 npm run check     # typecheck + all tests + production build
+npm run test:mutations # six intentional defects must be caught (also in npm test)
+npm run test:server # SQLite/HTTP contract, process lock, transaction and security tests
+npm run test:e2e:local # Local server, desktop + 375 px, restart and migration
 npm run test:e2e  # Playwright on Chromium against production preview under /menupilot/
 ```
 
@@ -107,7 +161,7 @@ Money input accepts a decimal comma or point and rejects thousands separators.
 
 ## Requirements
 
-- **Node.js** `^20.19.0`, `^22.13.0` or `>=24` (the range Vite 8 and the test tools support; CI uses Node 24).
+- **Node.js** `^24.15.0` or `^25.8.1` (local preview needs built-in SQLite with the WAL fix; CI uses Node 24.15.0).
 - **Browsers** (set by Tailwind CSS v4): Safari 16.4+, Chrome 111+, Firefox 128+.
 
 ## Deployment

@@ -1,3 +1,5 @@
+import { createHttpStorageAdapter } from '@/store/httpAdapter.js';
+import { readLocalConfig, LocalModeContext, type ConnectionState } from './localMode';
 import { browserLocks } from './browserStorage';
 import type { HistoryEntry, BackupStatus } from '@/ui/domain/store';
 import type { StorageAdapter } from '@/ui/domain/storageAdapter';
@@ -111,7 +113,21 @@ async function openStore({ storage, demo, now, createId, adapter }: Omit<DataPro
 }
 
 export function DataProvider(props: DataProviderProps) {
-  return <LocaleProvider storage={props.storage}><ThemeProvider storage={props.storage}><LocalizedDataProvider {...props} /></ThemeProvider></LocaleProvider>;
+  const [connection, setConnection] = useState<ConnectionState>(null);
+  const [runtime] = useState(() => {
+    try { return { config: readLocalConfig(), error: null }; }
+    catch (error) { return { config: null, error: describe(error) }; }
+  });
+  const adapter = useMemo(() => runtime.config
+    ? createHttpStorageAdapter({ token: runtime.config.token, onConnectionChange: setConnection })
+    : props.adapter, [runtime.config, props.adapter]);
+  if (runtime.error) return <main role="alert" className="mx-auto max-w-3xl space-y-4 p-6">
+    <h1 className="text-2xl font-semibold">MenuPilot</h1><p>{runtime.error}</p>
+    <p lang="nl">Ongeldige configuratie van de lokale server. Start MenuPilot opnieuw en vernieuw deze pagina.</p>
+  </main>;
+  return <LocalModeContext.Provider value={runtime.config ? { dataDir: runtime.config.dataDir, connection } : null}>
+    <LocaleProvider storage={props.storage}><ThemeProvider storage={props.storage}><LocalizedDataProvider {...props} adapter={adapter} /></ThemeProvider></LocaleProvider>
+  </LocalModeContext.Provider>;
 }
 function LocalizedDataProvider(props: DataProviderProps) {
   const { locale } = useLocale();
@@ -199,6 +215,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
       await activateEditing();
     } catch (error) {
       if (error instanceof Error && error.message === 'draft-target-removed') { setSafety('draft-target-removed'); return; }
+      if (props.adapter) { setSafety('read-failed'); return; }
       // A failed load deliberately does not advance a live store's CAS token. Open a
       // recovery store against the damaged bytes so a confirmed restore can replace them.
       const latest = await openStore(props);

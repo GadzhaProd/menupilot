@@ -1,3 +1,5 @@
+import { useLocalMode } from '@/ui/data/localMode';
+import type { MenuDocument } from '@/ui/domain/types';
 import { VersionHistory } from '@/ui/data/VersionHistory';
 import { useVersionHistory } from '@/ui/data/DataProvider';
 import { isSafetyError } from '@/ui/data/safetyErrors';
@@ -19,7 +21,7 @@ import { useSimulatorSessions } from '@/ui/simulator/session';
 /** Same limit as the store: a backup is about the size of the whole browser storage quota. */
 const MAX_FILE_BYTES = 5_000_000;
 
-type Pending = { kind: 'import'; fileName: string; text: string } | { kind: 'reset' } | { kind: 'empty' };
+type Pending = { kind: 'import'; fileName: string; text: string; preview?: MenuDocument } | { kind: 'reset' } | { kind: 'empty' };
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
@@ -45,8 +47,9 @@ function dialogText(pending: Pending, t: ReturnType<typeof useLocale>['t']) {
 export function DataPage() {
   const { locale, t, plural } = useLocale();
   const document = useDocument();
+  const local = useLocalMode();
   const { backupStatus, recordExport } = useVersionHistory();
-  const { execute, exportBackup: readBackupText } = useCommands();
+  const { execute, previewImport, exportBackup: readBackupText } = useCommands();
   const sessions = useSimulatorSessions();
   const recipes = useRecipeDrafts();
   const dialog = useDialogState<Pending>();
@@ -98,8 +101,14 @@ export function DataPage() {
       setNotice({ tone: 'error', text: t('data.fileUnreadable', { file: file.name }) });
       return;
     }
+    let preview: MenuDocument | undefined;
+    if (local) {
+      const result = await previewImport(text);
+      if (!result.ok) { setNotice({ tone: 'error', text: commandError(result.code, result.error, result.details) }); return; }
+      preview = result.value;
+    }
     setNotice(null);
-    dialog.open({ kind: 'import', fileName: file.name, text }, { currentTarget: openImport.current ?? input });
+    dialog.open({ kind: 'import', fileName: file.name, text, preview }, { currentTarget: openImport.current ?? input });
   }
 
   async function confirm(): Promise<string | null> {
@@ -125,7 +134,7 @@ export function DataPage() {
     <section aria-labelledby="page-title" className="space-y-6">
       <div className="space-y-1">
         <h1 id="page-title" className="text-4xl font-semibold">{t('data.title')}</h1>
-        <p className="max-w-prose text-muted-foreground">{t('data.intro')}</p>
+        <p className="max-w-prose text-muted-foreground">{local ? (locale === 'nl' ? 'Je gegevens staan op deze computer. Exporteer regelmatig een back-up; automatische kopieën zijn nog niet beschikbaar in deze preview.' : 'Your data is stored on this computer. Export a backup regularly; automatic copies are not available in this preview yet.') : t('data.intro')}</p>
         <p className="text-sm text-muted-foreground">{t('data.currentCounts', {
           ingredients: plural('data.count.ingredients', document.ingredients.length),
           recipes: plural('data.count.recipes', document.recipes.length),
@@ -140,7 +149,7 @@ export function DataPage() {
 
       <Surface aria-labelledby="export-title" className="space-y-4"><div className="space-y-1"><h2 id="export-title" className="text-xl font-semibold">{t('data.exportTitle')}</h2><p className="text-muted-foreground">{t('data.exportDescription')}</p></div><Button type="button" onClick={downloadBackup}><DownloadIcon aria-hidden="true" /> {t('data.export')}</Button></Surface>
 
-      <p className="text-sm text-muted-foreground">{backupStatus.lastExportAt ? t('backup.lastExport', { date: new Date(backupStatus.lastExportAt).toLocaleString(locale === 'nl' ? 'nl-NL' : 'en-GB') }) : t('backup.never')}</p>
+      {!local && <p className="text-sm text-muted-foreground">{backupStatus.lastExportAt ? t('backup.lastExport', { date: new Date(backupStatus.lastExportAt).toLocaleString(locale === 'nl' ? 'nl-NL' : 'en-GB') }) : t('backup.never')}</p>}
       <VersionHistory />
       <Surface aria-labelledby="import-title" className="space-y-4">
           <div className="space-y-1"><h2 id="import-title" className="text-xl font-semibold">{t('data.importTitle')}</h2><p className="text-muted-foreground">{t('data.importDescription')}</p></div>
@@ -167,6 +176,14 @@ export function DataPage() {
       {dialog.state !== null ? (
         <ReplaceDataDialog
           {...dialogText(dialog.state, t)}
+          preview={dialog.state.kind === 'import' && dialog.state.preview ? <div className="space-y-2 text-sm">
+            <p>{t('history.selected')}: {t('history.counts', {
+              dishes: dialog.state.preview.recipes.filter(r => r.kind === 'dish').length,
+              preps: dialog.state.preview.recipes.filter(r => r.kind === 'prep').length,
+              ingredients: dialog.state.preview.ingredients.length, scenarios: dialog.state.preview.scenarios.length,
+            })}</p>
+            <p>{locale === 'nl' ? 'Dit vervangt de lokale gegevens zonder samenvoegen. Een browserexport wordt een nieuwe dataset. De browserversie en dit bestand blijven ongewijzigd.' : 'This replaces local data without merging. A browser export becomes a new dataset. The browser version and your file stay unchanged.'}</p>
+          </div> : undefined}
           unsavedScenarios={unsaved}
           onClose={dialog.close}
           onCloseAutoFocus={dialog.onCloseAutoFocus}

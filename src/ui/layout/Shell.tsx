@@ -1,3 +1,4 @@
+import { useLocalMode } from '@/ui/data/localMode';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { MenuIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,8 @@ const NAV = [
 export function Shell({ route, children }: { route: Route; children: ReactNode }) {
   const { commandError } = useDataState();
   const { dismissError } = useCommands();
-  const { t, storageError: localeError } = useLocale();
+  const local = useLocalMode();
+  const { t, locale, storageError: localeError } = useLocale();
   const { storageError: themeError } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
@@ -58,8 +60,16 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
           </nav>
           <div className="shell-preferences"><ThemeSelect /><LocaleSelect /></div>
         </div>
+        {local && <div className="mx-auto max-w-7xl px-4 pb-2 text-xs text-muted-foreground break-all" data-testid="local-mode">
+          {locale === 'nl' ? 'Lokale modus · gegevens: ' : 'Local mode · data: '}{local.dataDir}
+        </div>}
       </header>
       <main id="main" ref={mainRef} tabIndex={-1} className="shell-main space-y-6">
+        {local?.connection && <p role="status" className="rounded-md border p-3 text-sm">
+          {local.connection === 'session-expired'
+            ? (locale === 'nl' ? 'De lokale server is opnieuw gestart. Kopieer niet-opgeslagen invoer en vernieuw daarna deze pagina.' : 'The local server restarted. Copy any unsaved drafts, then reload this page.')
+            : (locale === 'nl' ? 'De lokale server is niet bereikbaar. Houd deze pagina open en start npm start. Je invoer blijft hier bewaard.' : 'The local server is unavailable. Keep this page open and run npm start. Your drafts remain here.')}
+        </p>}
         {(themeError || localeError) && <div role="status" className="text-sm text-muted-foreground print:hidden">
           {themeError && <p>{t('theme.storageError')}</p>}{localeError && <p>{t('locale.storageError')}</p>}
         </div>}

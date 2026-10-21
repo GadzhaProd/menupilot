@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
+    "node": "^24.15.0 || ^25.8.1"
   },
   "scripts": {
     "dev": "vite",
@@ -16,8 +16,12 @@
     "test:ui": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
-    "test": "npm run test:core && npm run test:ui",
-    "check": "npm run typecheck && npm test && npm run build"
+    "test": "npm run test:core && npm run test:ui && npm run test:server && npm run test:mutations",
+    "check": "npm run typecheck && npm test && npm run build",
+    "start": "node server/start.js",
+    "test:server": "node --test test/server/*.test.js",
+    "test:e2e:local": "playwright test --config playwright.local.config.ts",
+    "test:mutations": "node test/server/mutations.js"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.3.1",

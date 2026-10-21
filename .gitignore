@@ -10,3 +10,6 @@ coverage/
 dist/
 playwright-report/
 test-results/
+
+# Local-mode E2E artifacts (separate from static browser E2E)
+test-results-local/

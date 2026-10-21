@@ -77,4 +77,4 @@ noted in README "Acknowledgements" with the MIT notice.
 - Check peer deps, Tailwind v3 config, Next.js imports, dynamic classes, and CSS variables before adoption.
 
 ## Runtime support
-- Set Node `engines` and README to the minimum required by installed Vite. Target Safari 16.4+, Chrome 111+, Firefox 128+.
+- Keep Node `engines` and README at `^24.15.0 || ^25.8.1`; local SQLite requires the WAL fix. Tested patches: 24.15.0 LTS and 25.8.1. CI uses 24.15.0. Target Safari 16.4+, Chrome 111+, Firefox 128+.
