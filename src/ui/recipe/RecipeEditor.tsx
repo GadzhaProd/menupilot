@@ -1,3 +1,4 @@
+import { CommandButton } from '@/ui/data/CommandButton';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { PlusIcon } from 'lucide-react';
 import { FormField } from '@/components/form-field';
@@ -40,8 +41,10 @@ interface RecipeEditorProps {
 export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const { t, locale } = useLocale();
   const document = useDocument();
-  const { execute } = useCommands();
+  const { execute, commandStatus } = useCommands();
   const draftCache = useRecipeDrafts();
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const draftKey = recipe?.id ?? `new:${kind}`;
   const source = recipe ?? document;
   const sourceSnapshot = useMemo(() => JSON.stringify(source) ?? '', [source]);
@@ -156,7 +159,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     addLineRef.current?.focus();
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     setAttempt((count) => count + 1);
     setSaved(false);
@@ -167,7 +170,8 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     }
     const { id: _unsaved, ...input } = built.recipe;
     const toSave = recipe ? { ...input, id: recipe.id } : input;
-    const result = execute((store) => store.saveRecipe(toSave), { report: false });
+    const startedAtHash = window.location.hash;
+    const result = (await execute((store) => store.saveRecipe(toSave), { report: false }));
     if (!result.ok) {
       // The draft stays exactly as typed; the saved data is unchanged.
       setSaveError(isSafetyError(result.code) ? null : localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
@@ -176,7 +180,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     draftCache.clear(draftKey);
     setSaveError(null);
     if (!recipe) {
-      window.location.hash = hrefFor({ name: 'recipe', id: result.value.id });
+      if (mounted.current && window.location.hash === startedAtHash) window.location.hash = hrefFor({ name: 'recipe', id: result.value.id });
       return;
     }
     const stored = result.value.document.recipes.find((entry) => entry.id === recipe.id);
@@ -222,7 +226,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
         <HelpLink section={kind === 'dish' ? 'dishes' : 'preps'} />
       </div>
 
-      <form data-draft-kind={recipe ? "recipe" : undefined} data-draft-id={recipe?.id} ref={formRef} noValidate onSubmit={submit} className="space-y-6">
+      <form data-draft-kind={recipe ? "recipe" : undefined} data-draft-id={recipe?.id} ref={formRef} noValidate onSubmit={submit} className="space-y-6"><fieldset disabled={commandStatus === 'saving'} className="contents">
         <Surface aria-labelledby="recipe-details-title" className="space-y-4">
           <header className="space-y-1"><h2 id="recipe-details-title" className="text-xl font-semibold">{kind === 'dish' ? t('recipe.dish') : t('recipe.prep')}</h2><p className="text-muted-foreground">{t('recipe.vatNote')}</p></header>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -352,7 +356,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" disabled={conflicts.length > 0}>{recipe ? t('recipe.saveChanges') : kind === 'dish' ? t('recipe.saveDish') : t('recipe.savePrep')}</Button>
+          <CommandButton type="submit" disabled={conflicts.length > 0}>{recipe ? t('recipe.saveChanges') : kind === 'dish' ? t('recipe.saveDish') : t('recipe.savePrep')}</CommandButton>
           {recipe ? <Button type="button" variant="outline" disabled={!dirty} onClick={discard}>{t('recipe.discard')}</Button> : null}
           <span role="status" className="text-sm text-muted-foreground">
             {saved ? t('recipe.saved') : dirty && recipe ? t('recipe.unsaved') : ''}
@@ -363,7 +367,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
             </Button>
           ) : null}
         </div>
-      </form>
+      </fieldset></form>
 
       {recipe && dialog.state === 'delete' ? (
         <DeleteRecipeDialog

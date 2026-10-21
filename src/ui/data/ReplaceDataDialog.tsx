@@ -1,3 +1,5 @@
+import { useCommands } from '@/ui/data/DataProvider';
+import { CommandButton } from '@/ui/data/CommandButton';
 import { useState } from 'react';
 import { useLocale } from '@/ui/i18n';
 import { InlineStatus } from '@/components/ui/inline-status';
@@ -16,17 +18,18 @@ interface ReplaceDataDialogProps {
   onClose: () => void;
   onCloseAutoFocus: (event: Event) => void;
   /** Returns why the data could not be replaced, or null when it was. */
-  onConfirm: () => string | null;
+  onConfirm: () => Promise<string | null>;
 }
 
 /** Confirm before all current data is replaced (import or reset). Cancel changes nothing. */
 export function ReplaceDataDialog({
   title, description, confirmLabel, unsavedScenarios, onClose, onCloseAutoFocus, onConfirm,
 }: ReplaceDataDialogProps) {
+  const { commandStatus } = useCommands();
   const { t, plural } = useLocale();
   const [error, setError] = useState<string | null>(null);
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -39,8 +42,8 @@ export function ReplaceDataDialog({
           <InlineStatus tone="error">{error}</InlineStatus>
         ) : null}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
-          <Button type="button" variant="destructive" onClick={() => setError(onConfirm())}>{confirmLabel}</Button>
+          <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
+          <CommandButton type="button" variant="destructive" onClick={async () => setError((await onConfirm()))}>{confirmLabel}</CommandButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

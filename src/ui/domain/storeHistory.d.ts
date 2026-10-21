@@ -1,17 +1,18 @@
 import type { MenuDocument } from '@/ui/domain/types';
 import '@/store/store.js';
 
-export interface HistoryEntry { readonly id: string; readonly order: number; readonly savedAt: string; readonly raw: string }
+export interface HistoryEntry { readonly id: string; readonly order: number; readonly savedAt: string }
 export interface BackupStatus { readonly startedAt: string | null; readonly lastExportAt: string | null; readonly due: boolean }
 declare module '@/store/store.js' {
   interface StorageLike { removeItem?(key: string): void }
   interface Store {
-    listHistory(): readonly HistoryEntry[];
+    readHistory(id: string): Promise<import('./storageAdapter').StoredDocument>;
+    listHistory(): Promise<readonly HistoryEntry[]>;
     getHistoryWarning(): boolean;
-    restoreHistory(id: string): MenuDocument;
-    saveMemoryAsNew(): MenuDocument;
+    restoreHistory(id: string): Promise<MenuDocument>;
+    saveMemoryAsNew(): Promise<MenuDocument>;
     getBackupStatus(): BackupStatus;
-    recordExport(): void;
-    remindLater(): void;
+    recordExport(): Promise<void>;
+    remindLater(): Promise<void>;
   }
 }

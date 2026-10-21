@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { go, renderApp } from './helpers';
 
 describe('Shell', () => {
-  it('has landmarks, a skip link and a labelled main navigation', () => {
-    renderApp();
+  it('has landmarks, a skip link and a labelled main navigation', async () => {
+    (await renderApp());
     expect(screen.getByRole('banner')).toBeTruthy();
     expect(screen.getByRole('main')).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeTruthy();
@@ -14,7 +14,7 @@ describe('Shell', () => {
   });
 
   it('moves focus to the page content after navigating, and updates the title', async () => {
-    renderApp();
+    (await renderApp());
     expect(document.activeElement).toBe(document.body);
     await userEvent.click(screen.getByRole('link', { name: 'Ingredients' }));
     await screen.findByRole('heading', { level: 1, name: 'Ingredients' });
@@ -23,7 +23,7 @@ describe('Shell', () => {
   });
 
   it('the skip link focuses the main content', async () => {
-    renderApp();
+    (await renderApp());
     await userEvent.tab();
     expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Skip to content' }));
     await userEvent.keyboard('{Enter}');
@@ -32,7 +32,7 @@ describe('Shell', () => {
 });
 
 it.each(['Theme', 'EN – English', 'Menu', 'Ingredients'])('Escape closes the menu from %s and restores its trigger', async (name) => {
-  renderApp();
+  (await renderApp());
   const menu = screen.getByRole('button', { name: 'Menu' });
   await userEvent.click(menu);
   expect(menu.getAttribute('aria-expanded')).toBe('true');
@@ -56,7 +56,7 @@ it('keeps navigation alive when resize hides an animated link, and when Shell un
   HTMLElement.prototype.animate = vi.fn();
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   try {
-    const view = renderApp(undefined, { strict: true });
+    const view = (await renderApp(undefined, { strict: true }));
     expect(document.activeElement).toBe(document.body);
     await go('#/recipes');
     const nav = screen.getByRole('navigation', { name: 'Main' });

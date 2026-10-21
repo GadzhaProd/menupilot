@@ -24,7 +24,7 @@ function dishCells(name: string): string[] {
 describe('Dashboard date comparison', () => {
   it('switches between 7, 30 and 90 day comparisons and accepts a custom date', async () => {
     const user = userEvent.setup();
-    renderApp();
+    (await renderApp());
 
     await user.click(screen.getByRole('button', { name: '7 days' }));
     expect(dishCells('Classic Burger').slice(1, 4)).toEqual([
@@ -50,8 +50,8 @@ describe('Dashboard date comparison', () => {
     expect(dishCells('Classic Burger').slice(1, 3)).toEqual(['€4.85', '€4.85']);
   });
 
-  it('shows recipe and simulator links for a dish', () => {
-    renderApp();
+  it('shows recipe and simulator links for a dish', async () => {
+    (await renderApp());
     const table = dishTable();
     const burgerRow = within(table).getByRole('row', { name: /Classic Burger/ });
 
@@ -63,7 +63,7 @@ describe('Dashboard date comparison', () => {
 
   it('renders the same cost and impact values in the mobile dish cards', async () => {
     const user = userEvent.setup();
-    renderApp();
+    (await renderApp());
     await user.click(screen.getByRole('button', { name: '30 days' }));
 
     const burgerCards = screen.getAllByRole('article').filter((article) =>
@@ -75,11 +75,11 @@ describe('Dashboard date comparison', () => {
     expect(within(burgerCards[0]!).getByText('-€195.00')).toBeTruthy();
   });
 
-  it('ignores dates after today and exposes today as the maximum date', () => {
+  it('ignores dates after today and exposes today as the maximum date', async () => {
     // "Today" must not depend on the real clock: the demo is written for NOW.
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(NOW));
-    renderApp();
+    (await renderApp());
     const datePicker = screen.getByLabelText('Choose date');
     expect(datePicker.getAttribute('max')).toBe('2026-10-18');
     fireEvent.change(datePicker, { target: { value: '2026-10-19' } });

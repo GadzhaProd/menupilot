@@ -8,7 +8,7 @@ import {
 const user = () => userEvent.setup();
 
 async function openIngredients(storage = memoryStorage()) {
-  renderApp(storage);
+  (await renderApp(storage));
   await go('#/ingredients');
   await screen.findByRole('heading', { level: 1, name: 'Ingredients' });
   return storage;
@@ -120,6 +120,7 @@ describe('Add ingredient', () => {
     await u.type(within(dialog).getByLabelText(/Pack size/), '100');
     await u.selectOptions(within(dialog).getByLabelText('Unit'), 'g');
     await u.type(within(dialog).getByLabelText(/Pack price/), '1.50');
+    storage.setItem('menupilot:premigration-v1', storage.getItem(STORAGE_KEY)!);
     storage.failOnSet = new Error('disk is full');
     await u.click(within(dialog).getByRole('button', { name: 'Add ingredient' }));
 

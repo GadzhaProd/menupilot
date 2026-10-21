@@ -16,10 +16,10 @@ function Probe() {
     <div>
       <p data-testid="beef-prices">{beef?.prices.length}</p>
       <p data-testid="error">{commandError ?? 'none'}</p>
-      <button onClick={() => execute((store) => store.addPrice('ing_beef', { packPriceCents: 1800, packSizeMilli: 1_000_000 }))}>
+      <button onClick={() => execute(async (store) => (await store.addPrice('ing_beef', { packPriceCents: 1800, packSizeMilli: 1_000_000 })))}>
         add price
       </button>
-      <button onClick={() => execute((store) => store.addPrice('ing_missing', { packPriceCents: 1, packSizeMilli: 1 }))}>
+      <button onClick={() => execute(async (store) => (await store.addPrice('ing_missing', { packPriceCents: 1, packSizeMilli: 1 })))}>
         add price to unknown ingredient
       </button>
     </div>
@@ -32,20 +32,20 @@ const initialBeefPrices = String(demo.ingredients.find((ingredient) => ingredien
 describe('store ↔ React contract', () => {
   it('a successful command replaces the document on screen and saves it', async () => {
     const storage = memoryStorage();
-    renderApp(storage, { children: <Probe /> });
+    (await renderApp(storage, { children: <Probe /> }));
     expect(beefPrices()).toBe(initialBeefPrices);
     expect(storage.data.has(STORAGE_KEY)).toBe(false); // the demo is not written until the first change
 
     await userEvent.click(screen.getByRole('button', { name: 'add price' }));
 
     expect(beefPrices()).toBe(String(Number(initialBeefPrices) + 1));
-    const saved = JSON.parse(storage.data.get(STORAGE_KEY) ?? 'null') as MenuDocument;
+    const saved = JSON.parse(storage.data.get(STORAGE_KEY) ?? 'null').document as MenuDocument;
     expect(saved.ingredients.find((ingredient) => ingredient.id === 'ing_beef')?.prices.at(-1)?.packPriceCents).toBe(1800);
   });
 
   it('a failed write keeps the previous document on screen and shows the error', async () => {
     const storage = memoryStorage();
-    renderApp(storage, { children: <Probe /> });
+    (await renderApp(storage, { children: <Probe /> }));
     storage.failOnSet = new Error('disk is full');
 
     await userEvent.click(screen.getByRole('button', { name: 'add price' }));
@@ -62,7 +62,7 @@ describe('store ↔ React contract', () => {
   });
 
   it('a rejected command (store validation) leaves the document unchanged', async () => {
-    renderApp(memoryStorage(), { children: <Probe /> });
+    (await renderApp(memoryStorage(), { children: <Probe /> }));
     await userEvent.click(screen.getByRole('button', { name: 'add price to unknown ingredient' }));
     expect(beefPrices()).toBe(initialBeefPrices);
     expect(screen.getByTestId('error').textContent).toMatch(/unknown ingredient/i);
@@ -70,34 +70,34 @@ describe('store ↔ React contract', () => {
 
   it('data is still there after the provider is mounted again with the same storage', async () => {
     const storage = memoryStorage();
-    const first = renderApp(storage, { children: <Probe /> });
+    const first = (await renderApp(storage, { children: <Probe /> }));
     await userEvent.click(screen.getByRole('button', { name: 'add price' }));
     first.unmount();
 
-    renderApp(storage, { children: <Probe /> });
+    (await renderApp(storage, { children: <Probe /> }));
     expect(beefPrices()).toBe(String(Number(initialBeefPrices) + 1));
   });
 
   it('runs a command once under StrictMode', async () => {
     const storage = memoryStorage();
     const writes = vi.spyOn(storage, 'setItem');
-    renderApp(storage, { strict: true, children: <Probe /> });
+    (await renderApp(storage, { strict: true, children: <Probe /> }));
     await userEvent.click(screen.getByRole('button', { name: 'add price' }));
     expect(writes.mock.calls.filter(([key]) => key === STORAGE_KEY)).toHaveLength(1);
     expect(beefPrices()).toBe(String(Number(initialBeefPrices) + 1));
   });
 
-  it('corrupt saved data shows a clear error and is not overwritten', () => {
+  it('corrupt saved data shows a clear error and is not overwritten', async () => {
     const storage = memoryStorage({ [STORAGE_KEY]: '{not json' });
-    renderApp(storage);
+    (await renderApp(storage));
     expect(screen.getByRole('heading', { name: /could not be opened/i })).toBeTruthy();
     expect(screen.getAllByRole('alert')[0]?.textContent).toMatch(/not valid JSON/i);
     expect(storage.data.get(STORAGE_KEY)).toBe('{not json');
     expect(storage.setCalls).toBe(0);
   });
 
-  it('blocked browser storage shows a clear error', () => {
-    renderApp(null);
+  it('blocked browser storage shows a clear error', async () => {
+    (await renderApp(null));
     expect(screen.getByRole('alert').textContent).toMatch(/storage is blocked/i);
   });
 });

@@ -59,7 +59,7 @@ async function go(hash: string) {
 
 describe('routing in the app', () => {
   it('shows each screen', async () => {
-    renderApp();
+    (await renderApp());
     expect(await heading('What has changed on your menu?')).toBeTruthy();
     await go('#/ingredients');
     expect(await heading('Ingredients')).toBeTruthy();
@@ -78,7 +78,7 @@ describe('routing in the app', () => {
   });
 
   it('an unknown route or id shows a clear "not found" page', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/nope');
     expect(await heading('Not found')).toBeTruthy();
     await go('#/recipe/does_not_exist');
@@ -92,7 +92,7 @@ describe('routing in the app', () => {
   });
 
   it('follows Back and Forward', async () => {
-    renderApp();
+    (await renderApp());
     await go('#/ingredients');
     await go('#/simulator');
     expect(await heading('Simulator')).toBeTruthy();
@@ -111,7 +111,7 @@ describe('routing in the app', () => {
   });
 
   it('menu links navigate and mark the current page', async () => {
-    renderApp();
+    (await renderApp());
     const nav = screen.getByRole('navigation', { name: 'Main' });
     await userEvent.click(nav.querySelector('a[href="#/ingredients"]') as HTMLElement);
     expect(await heading('Ingredients')).toBeTruthy();

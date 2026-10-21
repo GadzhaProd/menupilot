@@ -14,7 +14,7 @@ const user = () => userEvent.setup();
 beforeEach(() => { window.location.hash = ''; });
 
 async function open(hash: string, storage = memoryStorage()) {
-  renderApp(storage);
+  (await renderApp(storage));
   await go(hash);
   await screen.findByRole('heading', { level: 1 });
   return storage;
@@ -138,7 +138,7 @@ describe('recipe session drafts', () => {
     const replaced = savedDocument(storage);
     replaced.recipes.find((entry) => entry.id === 'dish_classic_burger')!.name = 'Imported Burger';
     storage.setItem(STORAGE_KEY, JSON.stringify(replaced));
-    renderApp(storage);
+    (await renderApp(storage));
     await go('#/recipe/dish_classic_burger');
     expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Imported Burger');
   });
@@ -166,7 +166,7 @@ describe('recipe session drafts', () => {
     await screen.findByRole('heading', { level: 1, name: 'Recipes' });
     cleanup();
     storage.setItem(STORAGE_KEY, JSON.stringify(original));
-    renderApp(storage);
+    (await renderApp(storage));
     await go('#/recipe/dish_fries');
     expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Fries with Burger Sauce');
   });
@@ -438,6 +438,7 @@ describe('Form errors', () => {
     await u.type(screen.getByLabelText('Name'), 'Pasta');
     await u.type(screen.getByLabelText(/Menu price/), '12');
     await fillLine(u, 1, 'ingredient:ing_tomato', '200');
+    storage.setItem('menupilot:premigration-v1', storage.getItem(STORAGE_KEY)!);
     storage.failOnSet = new Error('disk is full');
     await u.click(screen.getByRole('button', { name: 'Save dish' }));
 
@@ -558,7 +559,7 @@ describe('Editing a saved recipe', () => {
   it('keeps data after the page is reloaded (same storage, new session)', async () => {
     const u = user();
     const storage = memoryStorage();
-    const first = renderApp(storage);
+    const first = (await renderApp(storage));
     await go('#/recipe/dish_classic_burger');
     await screen.findByRole('heading', { level: 1, name: 'Classic Burger' });
     await u.clear(screen.getByLabelText('Name'));
@@ -566,7 +567,7 @@ describe('Editing a saved recipe', () => {
     await u.click(screen.getByRole('button', { name: 'Save changes' }));
     first.unmount();
 
-    renderApp(storage);
+    (await renderApp(storage));
     await go('#/recipe/dish_classic_burger');
     expect(await screen.findByRole('heading', { level: 1, name: 'Burger Deluxe' })).toBeTruthy();
   });

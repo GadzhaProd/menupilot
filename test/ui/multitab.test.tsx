@@ -5,30 +5,30 @@ import { createStore } from '@/ui/domain/store';
 import { demo, go, memoryStorage, NOW, renderApp, savedDocument, STORAGE_KEY } from './helpers';
 
 beforeEach(() => { window.location.hash = ''; });
-function otherTab(storage: ReturnType<typeof memoryStorage>) {
+async function otherTab(storage: ReturnType<typeof memoryStorage>) {
   const store = createStore(storage, { demo, now: () => NOW });
-  store.load();
+  (await store.load());
   return store;
 }
 function signal() { act(() => { window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY })); }); }
 
 it('refreshes an idle tab after a storage event', async () => {
   const storage = memoryStorage();
-  renderApp(storage); await go('#/ingredients');
-  otherTab(storage).updateIngredient('ing_beef', { name: 'Fresh beef' });
+  (await renderApp(storage)); await go('#/ingredients');
+  (await (await otherTab(storage)).updateIngredient('ing_beef', { name: 'Fresh beef' }));
   signal();
   expect(await screen.findByText('Fresh beef', { selector: 'td' })).toBeTruthy();
 });
 
 it('keeps a rename draft on conflict and reloads fresh data without closing the dialog', async () => {
   const storage = memoryStorage();
-  renderApp(storage); await go('#/ingredients');
+  (await renderApp(storage)); await go('#/ingredients');
   const row = screen.getByText('Beef mince 80/20', { selector: 'td' }).closest('tr')!;
   await userEvent.click(within(row).getByRole('button', { name: /rename/i }));
   const dialog = screen.getByRole('dialog');
   const name = within(dialog).getByLabelText('Name');
   await userEvent.clear(name); await userEvent.type(name, 'My beef');
-  otherTab(storage).addPrice('ing_beef', { packPriceCents: 1800, packSizeMilli: 1_000_000 });
+  (await (await otherTab(storage)).addPrice('ing_beef', { packPriceCents: 1800, packSizeMilli: 1_000_000 }));
   const newer = storage.getItem(STORAGE_KEY);
   signal();
   expect((name as HTMLInputElement).value).toBe('My beef');
@@ -49,10 +49,11 @@ it('a successful write is published even if subsequent storage reads fail', asyn
   const backing = memoryStorage();
   let readsBlocked = false;
   const storage = {
+    isolated: true,
     getItem(key: string) { if (readsBlocked) throw new Error('reading is blocked'); return backing.getItem(key); },
     setItem(key: string, value: string) { backing.setItem(key, value); if (key === STORAGE_KEY) readsBlocked = true; },
   };
-  renderApp(storage); await go('#/ingredients');
+  (await renderApp(storage)); await go('#/ingredients');
   const row = screen.getByText('Beef mince 80/20', { selector: 'td' }).closest('tr')!;
   await userEvent.click(within(row).getByRole('button', { name: /rename/i }));
   const dialog = screen.getByRole('dialog');
@@ -65,13 +66,13 @@ it('a successful write is published even if subsequent storage reads fail', asyn
 
 it('does not unmount a draft when latest data removed its ingredient', async () => {
   const storage = memoryStorage();
-  renderApp(storage); await go('#/ingredients');
+  (await renderApp(storage)); await go('#/ingredients');
   const row = screen.getByText('Beef mince 80/20', { selector: 'td' }).closest('tr')!;
   await userEvent.click(within(row).getByRole('button', { name: /rename/i }));
   const dialog = screen.getByRole('dialog');
   const name = within(dialog).getByLabelText('Name');
   await userEvent.clear(name); await userEvent.type(name, 'Keep this draft');
-  otherTab(storage).resetToEmpty();
+  (await (await otherTab(storage)).resetToEmpty());
   signal();
   await userEvent.click(within(dialog).getByRole('button', { name: 'Load latest data' }));
   expect((name as HTMLInputElement).isConnected).toBe(true);

@@ -1,3 +1,4 @@
+import { STORAGE_KEY } from '@/ui/domain/store';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,7 +31,7 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); });
 
 async function openData(storage = memoryStorage()) {
-  renderApp(storage);
+  (await renderApp(storage));
   await go('#/data');
   await screen.findByRole('heading', { level: 1, name: 'Data' });
   return storage;
@@ -70,7 +71,7 @@ describe('Data page', () => {
   });
 
   it('is reachable from the main navigation and explains where data lives', async () => {
-    renderApp();
+    (await renderApp());
     await userEvent.click(screen.getByRole('link', { name: 'Data' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Data' })).toBeTruthy();
     expect(screen.getByText('Your data lives only in this browser. Export a backup regularly.')).toBeTruthy();
@@ -89,7 +90,7 @@ describe('Data page', () => {
     const parsed = JSON.parse(file?.text ?? '') as MenuDocument;
     expect(parsed.ingredients.length).toBe(demoCopy().ingredients.length);
     expect(parsed.recipes.length).toBe(demoCopy().recipes.length);
-    expect(screen.getByRole('status').textContent).toMatch(/Backup saved as menupilot-backup-/);
+    expect(screen.getAllByRole('status').map(node => node.textContent).join(' ')).toMatch(/Backup saved as menupilot-backup-/);
   });
 
   it('importing a valid file replaces the data after confirmation', async () => {
@@ -104,7 +105,7 @@ describe('Data page', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(ingredientNames(savedDocument(storage))).toEqual(['Tomatoes', 'Spice mix', 'Saffron']);
-    expect(screen.getByRole('status').textContent).toMatch(/backup\.json was imported/);
+    expect(screen.getAllByRole('status').map(node => node.textContent).join(' ')).toMatch(/backup\.json was imported/);
     expect(screen.getByText(/Now: 3 ingredients, 0 recipes/)).toBeTruthy();
   });
 
@@ -172,7 +173,7 @@ describe('Data page', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(ingredientNames(savedDocument(storage))).toEqual(ingredientNames(demoCopy()));
-    expect(screen.getByRole('status').textContent).toBe('Demo data restored.');
+    expect(screen.getAllByRole('status').map(node => node.textContent).join(' ')).toContain('Demo data restored.');
   });
 
   it('cancel in the reset dialog changes nothing', async () => {
@@ -203,7 +204,7 @@ describe('Data page', () => {
       version: 1, settings: { defaultVatRateBp: 900 }, ingredients: [], recipes: [], scenarios: [],
     });
     expect(screen.getByText('Now: 0 ingredients, 0 recipes, 0 saved scenarios.')).toBeTruthy();
-    expect(screen.getByRole('status').textContent).toMatch(/All data was removed/);
+    expect(screen.getAllByRole('status').map(node => node.textContent).join(' ')).toMatch(/All data was removed/);
   });
 
   it('cancel in the start-with-empty-data dialog changes nothing', async () => {
@@ -220,6 +221,7 @@ describe('Data page', () => {
   it('a failed write keeps the data and shows the reason in the dialog', async () => {
     const storage = storageWith(sauceDoc());
     await openData(storage);
+    storage.setItem('menupilot:premigration-v1', storage.getItem(STORAGE_KEY)!);
     storage.failOnSet = new Error('disk is full');
     await userEvent.click(screen.getByRole('button', { name: 'Start with empty data' }));
     await userEvent.click(within(await dialog()).getByRole('button', { name: 'Start with empty data' }));
@@ -251,7 +253,7 @@ describe('unsaved simulator scenarios', () => {
     vi.setSystemTime(new Date(NOW));
     try {
       const storage = memoryStorage();
-      renderApp(storage);
+      (await renderApp(storage));
       await go('#/simulator/dish_classic_burger');
       await userEvent.click(await screen.findByRole('button', { name: /Add scenario/ }));
       await go('#/data');

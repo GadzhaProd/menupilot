@@ -8,7 +8,7 @@ afterEach(() => vi.useRealTimers());
 
 describe('C+ selected simulator', () => {
   it('keeps independent drafts, invalid text and locale-bound results when switching scenarios, language and theme', async () => {
-    const user = userEvent.setup(); const storage = memoryStorage(); renderApp(storage);
+    const user = userEvent.setup(); const storage = memoryStorage(); (await renderApp(storage));
     await go('#/simulator/dish_classic_burger');
     await user.click(screen.getByRole('button', { name: 'Add scenario' }));
     await user.type(screen.getByLabelText('Menu price (incl. VAT)'), '14.17');
@@ -29,7 +29,7 @@ describe('C+ selected simulator', () => {
 
   it('distinguishes unknown cost from a valid zero sales estimate in Dutch', async () => {
     const doc = demoCopy(); doc.ingredients.find(i => i.id === 'ing_beef')!.prices = [];
-    renderApp(storageWith(doc)); const user = userEvent.setup();
+    (await renderApp(storageWith(doc))); const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
     await go('#/simulator/dish_classic_burger');
     await user.click(screen.getByRole('button', { name: 'Scenario toevoegen' }));

@@ -52,7 +52,7 @@ const failedRun = (error: string): Run => ({ ok: false, error });
 export function Workbench({ dish }: { dish: Dish }) {
   const { t, plural } = useLocale(); const f = useFormatters();
   const document = useDocument();
-  const { execute } = useCommands();
+  const { execute, commandStatus } = useCommands();
   const dishHasVolume = dish.monthlyVolume !== undefined && dish.monthlyVolume !== null;
 
   // The page compares against current real data; scenario snapshots stay unchanged.
@@ -133,7 +133,7 @@ export function Workbench({ dish }: { dish: Dish }) {
     dispatch({ type: 'added', draft: newDraft(key, defaultName(drafts), pageBaseline.baseline, emptyFields(pageBaseline.baseline)) });
   }
 
-  function save(draft: ScenarioDraft) {
+  async function save(draft: ScenarioDraft) {
     if (validateName(draft.name) !== null || Object.keys(draft.errors).length > 0) {
       setAttempts((current) => ({ ...current, [draft.key]: (current[draft.key] ?? 0) + 1 }));
       return;
@@ -141,7 +141,7 @@ export function Workbench({ dish }: { dish: Dish }) {
     // The sales estimate the result was calculated with is saved too, so it can be reproduced.
     const overrides = withSharedVolume(draft.applied, sharedVolume);
     const input = toScenarioInput(draft, dish.id, draft.baseline, overrides);
-    const result = execute((store) => store.saveScenario(input), { report: false });
+    const result = (await execute((store) => store.saveScenario(input), { report: false }));
     if (result.ok) {
       setProblem(draft.key, null);
       dispatch({ type: 'saved', key: draft.key, id: result.value.id, createdAt: input.createdAt, overrides });
@@ -162,10 +162,10 @@ export function Workbench({ dish }: { dish: Dish }) {
   }
 
   /** Remove a scenario; a saved one is deleted from the store first. Returns why it failed, if it did. */
-  function remove(draft: ScenarioDraft): string | null {
+  async function remove(draft: ScenarioDraft): Promise<string | null> {
     if (draft.id !== null) {
       const id = draft.id;
-      const result = execute((store) => store.deleteScenario(id), { report: false });
+      const result = (await execute((store) => store.deleteScenario(id), { report: false }));
       if (!result.ok) return isSafetyError(result.code) ? null : t('simulator.error.save');
     }
     dispatch({ type: 'removed', key: draft.key });
@@ -179,7 +179,7 @@ export function Workbench({ dish }: { dish: Dish }) {
   const active = drafts[activeIndex];
   const activeRun = runs[activeIndex];
   const activeDelta = active && !staleKeys.has(active.key) ? deltas[activeIndex]?.monthlyContributionDeltaCents ?? null : null;
-  return <section aria-labelledby="page-title" className="space-y-6">
+  return <section aria-labelledby="page-title" className="space-y-6"><fieldset disabled={commandStatus === 'saving'} className="contents">
     <div className="space-y-2">
       <Button asChild variant="ghost" className="-ml-3 no-print"><a href={hrefFor({ name: 'simulator', id: null })}><ArrowLeftIcon aria-hidden="true" />{t('simulator.allDishes')}</a></Button>
       <h1 id="page-title" className="text-[31px] leading-tight font-semibold sm:text-4xl">{t('simulator.heading', { name: dish.name })}</h1>
@@ -240,5 +240,5 @@ export function Workbench({ dish }: { dish: Dish }) {
       </Surface>}
     </div>
     {deletingDraft && <DeleteScenarioDialog name={deletingDraft.name} onClose={deleting.close} onCloseAutoFocus={deleting.onCloseAutoFocus} onConfirm={() => remove(deletingDraft)} />}
-  </section>;
+  </fieldset></section>;
 }

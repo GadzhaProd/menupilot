@@ -65,8 +65,8 @@ export function DataPage() {
     return t('error.generic');
   }
 
-  function downloadBackup() {
-    const result = readBackupText();
+  async function downloadBackup() {
+    const result = await readBackupText();
     if (!result.ok) {
       setNotice({ tone: 'error', text: t('data.exportFail', { error: commandError(result.code, result.error, result.details) }) });
       return;
@@ -78,7 +78,7 @@ export function DataPage() {
       setNotice({ tone: 'error', text: t('data.downloadFail', { error: t('error.generic') }) });
       return;
     }
-    recordExport();
+    await recordExport();
     setNotice({ tone: 'ok', text: t('data.backupSaved', { file: fileName }) });
   }
 
@@ -102,14 +102,14 @@ export function DataPage() {
     dialog.open({ kind: 'import', fileName: file.name, text }, { currentTarget: openImport.current ?? input });
   }
 
-  function confirm(): string | null {
+  async function confirm(): Promise<string | null> {
     const pending = dialog.state;
     if (pending === null) return null;
     const result = pending.kind === 'import'
-      ? execute((store) => store.importJSON(pending.text), { report: false })
+      ? (await execute((store) => store.importJSON(pending.text), { report: false }))
       : pending.kind === 'empty'
-        ? execute((store) => store.resetToEmpty(), { report: false })
-        : execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false });
+        ? (await execute((store) => store.resetToEmpty(), { report: false }))
+        : (await execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false }));
     if (!result.ok) return isSafetyError(result.code) ? null : commandError(result.code, result.error, result.details);
     sessions.clear(); recipes.clearAll();
     dialog.close();

@@ -30,3 +30,17 @@ test.afterEach(async ({ blockedExternalUrls }) => {
 });
 
 export { expect };
+
+/** Hold the real browser writer lock to exercise delayed durable commands. */
+export async function holdWriter(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    const state = window as unknown as { testLockReady: boolean; releaseTestWriter: () => void };
+    state.testLockReady = false;
+    void navigator.locks.request('menupilot:document-writer', () => {
+      state.testLockReady = true;
+      return new Promise<void>(resolve => { state.releaseTestWriter = resolve; });
+    });
+  });
+  await page.waitForFunction(() => (window as unknown as { testLockReady: boolean }).testLockReady);
+  return () => page.evaluate(() => (window as unknown as { releaseTestWriter: () => void }).releaseTestWriter());
+}

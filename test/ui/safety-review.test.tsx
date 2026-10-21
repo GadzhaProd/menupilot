@@ -9,7 +9,7 @@ import { demo, demoCopy, go, memoryStorage, NOW, renderApp, savedDocument, stora
 beforeEach(() => { window.location.hash = ''; });
 afterEach(() => vi.restoreAllMocks());
 const signal = () => act(() => { window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY })); });
-function remote(storage: ReturnType<typeof memoryStorage>) { const s = createStore(storage, { demo, now: () => NOW }); s.load(); return s; }
+async function remote(storage: ReturnType<typeof memoryStorage>) { const s = createStore(storage, { demo, now: () => NOW }); (await s.load()); return s; }
 async function renameBeef() {
   const row = screen.getByText('Beef mince 80/20', { selector: 'td' }).closest('tr')!;
   await userEvent.click(within(row).getByRole('button', { name: /Rename/ }));
@@ -21,14 +21,14 @@ async function renameBeef() {
 
 it('keeps a cached recipe draft through Help and refuses saving over an external change', async () => {
   const storage = storageWith(demoCopy());
-  renderApp(storage); await go('#/recipe/dish_classic_burger');
+  (await renderApp(storage)); await go('#/recipe/dish_classic_burger');
   await userEvent.clear(screen.getByLabelText('Name'));
   await userEvent.type(screen.getByLabelText('Name'), 'My draft burger');
   await userEvent.click(screen.getByRole('link', { name: 'Help for this page' }));
-  const other = remote(storage);
-  other.addPrice('ing_beef', { packPriceCents: 1800, packSizeMilli: 1_000_000 });
+  const other = (await remote(storage));
+  (await other.addPrice('ing_beef', { packPriceCents: 1800, packSizeMilli: 1_000_000 }));
   const recipe = other.getDocument().recipes.find(r => r.id === 'dish_classic_burger')!;
-  other.saveRecipe({ ...recipe, name: 'Remote burger' });
+  (await other.saveRecipe({ ...recipe, name: 'Remote burger' }));
   const fresh = storage.getItem(STORAGE_KEY);
   signal();
   expect(await screen.findByText(/Another tab changed/)).toBeTruthy();
@@ -36,7 +36,7 @@ it('keeps a cached recipe draft through Help and refuses saving over an external
   expect(screen.getByLabelText('Name')).toHaveProperty('value', 'My draft burger');
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
   expect(storage.getItem(STORAGE_KEY)).toBe(fresh);
-  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Load latest data' }));
   expect(screen.getByLabelText('Name')).toHaveProperty('value', 'My draft burger');
   await go('#/help/dishes'); await go('#/recipe/dish_classic_burger');
   expect(screen.getByLabelText('Name')).toHaveProperty('value', 'My draft burger');
@@ -46,9 +46,9 @@ it('keeps a cached recipe draft through Help and refuses saving over an external
 
 it('reloads when an unrelated item was deleted, preserving the edited ingredient', async () => {
   const doc = demoCopy(); doc.ingredients.push({ id: 'unused', name: 'Unused', unit: 'g', prices: [] });
-  const storage = storageWith(doc); renderApp(storage); await go('#/ingredients');
+  const storage = storageWith(doc); (await renderApp(storage)); await go('#/ingredients');
   const dialog = await renameBeef();
-  remote(storage).deleteIngredient('unused'); signal();
+  (await (await remote(storage)).deleteIngredient('unused')); signal();
   await userEvent.click(within(dialog).getByRole('button', { name: 'Load latest data' }));
   expect(within(dialog).getByLabelText('Name')).toHaveProperty('value', 'Local draft');
   expect(screen.queryByText(/removed an item/)).toBeNull();
@@ -57,9 +57,9 @@ it('reloads when an unrelated item was deleted, preserving the edited ingredient
 });
 
 it('refreshes the screen and clears the draft notice when a conflicting form is cancelled', async () => {
-  const storage = memoryStorage(); renderApp(storage); await go('#/ingredients');
+  const storage = memoryStorage(); (await renderApp(storage)); await go('#/ingredients');
   const dialog = await renameBeef();
-  remote(storage).updateIngredient('ing_beef', { name: 'Remote beef' }); signal();
+  (await (await remote(storage)).updateIngredient('ing_beef', { name: 'Remote beef' })); signal();
   await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   expect(await screen.findByText('Remote beef', { selector: 'td' })).toBeTruthy();
   expect(screen.queryByText(/Your draft is still here/)).toBeNull();
@@ -67,7 +67,7 @@ it('refreshes the screen and clears the draft notice when a conflicting form is 
 
 it('retains the memory copy after external storage clearing and can download it', async () => {
   const doc = demoCopy(); doc.ingredients[0]!.name = 'My saved beef';
-  const storage = storageWith(doc); renderApp(storage); await go('#/ingredients');
+  const storage = storageWith(doc); (await renderApp(storage)); await go('#/ingredients');
   act(() => { storage.data.delete(STORAGE_KEY); }); signal();
   expect(screen.getByText('My saved beef', { selector: 'td' })).toBeTruthy();
   let blob: Blob | undefined;
@@ -79,9 +79,9 @@ it('retains the memory copy after external storage clearing and can download it'
 });
 
 it('Load latest opens recovery for damaged data and a valid backup can replace it', async () => {
-  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/ingredients');
+  const storage = storageWith(demoCopy()); (await renderApp(storage)); await go('#/ingredients');
   storage.setItem(STORAGE_KEY, '{remote corruption'); signal();
-  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Load latest data' }));
   expect(await screen.findByRole('button', { name: 'Download damaged data' })).toBeTruthy();
   expect(storage.getItem(STORAGE_KEY)).toBe('{remote corruption');
   await userEvent.upload(screen.getByLabelText('Backup file'), new File([JSON.stringify(demo)], 'backup.json', { type: 'application/json' }));
@@ -90,12 +90,12 @@ it('Load latest opens recovery for damaged data and a valid backup can replace i
 });
 
 it('marks stale scenario snapshots and refreshes the page baseline after Load latest', async () => {
-  const storage = memoryStorage(); renderApp(storage); await go('#/simulator/dish_classic_burger');
+  const storage = memoryStorage(); (await renderApp(storage)); await go('#/simulator/dish_classic_burger');
   await userEvent.click(screen.getByRole('button', { name: 'Add scenario' }));
-  remote(storage).addPrice('ing_beef', { packPriceCents: 1800, packSizeMilli: 1_000_000 }); signal();
+  (await (await remote(storage)).addPrice('ing_beef', { packPriceCents: 1800, packSizeMilli: 1_000_000 })); signal();
   await userEvent.click(screen.getByRole('button', { name: 'Save scenario' }));
   expect(screen.queryByText(/Check that your browser has space/)).toBeNull();
-  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Load latest data' }));
   const scenario = within(screen.getByRole('region', { name: 'Scenario A' }));
   expect(scenario.getByText('Baseline changed since this scenario was made')).toBeTruthy();
   expect(scenario.getByRole('button', { name: 'Update baseline' })).toBeTruthy();
@@ -117,8 +117,8 @@ it('registers multiple independent draft sources and removes only the unsubscrib
     return null;
   }
   const { App } = await import('@/ui/App');
-  renderApp(storage, { children: <><Sources /><App /></> }); await go('#/ingredients');
-  remote(storage).updateIngredient('ing_beef', { name: 'Remote beef' }); signal();
+  (await renderApp(storage, { children: <><Sources /><App /></> })); await go('#/ingredients');
+  (await (await remote(storage)).updateIngredient('ing_beef', { name: 'Remote beef' })); signal();
   expect(screen.getByText('Beef mince 80/20', { selector: 'td' })).toBeTruthy();
   act(stopFirst); signal();
   expect(screen.getByText('Beef mince 80/20', { selector: 'td' })).toBeTruthy();
@@ -128,22 +128,22 @@ it('registers multiple independent draft sources and removes only the unsubscrib
 
 it('clears an obsolete conflict after cancelling when storage returned to the original bytes', async () => {
   const storage = storageWith(demoCopy()), original = storage.getItem(STORAGE_KEY)!;
-  renderApp(storage); await go('#/ingredients');
+  (await renderApp(storage)); await go('#/ingredients');
   const dialog = await renameBeef();
-  remote(storage).updateIngredient('ing_beef', { name: 'Remote beef' }); signal();
+  (await (await remote(storage)).updateIngredient('ing_beef', { name: 'Remote beef' })); signal();
   storage.setItem(STORAGE_KEY, original); signal();
   await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   await waitFor(() => expect(screen.queryByText(/Your draft is still here/)).toBeNull());
 });
 
 it.each([false, true])('merges an untouched remote price into a renamed recipe (parked=%s)', async parked => {
-  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/recipe/dish_classic_burger');
+  const storage = storageWith(demoCopy()); (await renderApp(storage)); await go('#/recipe/dish_classic_burger');
   await userEvent.clear(screen.getByLabelText('Name')); await userEvent.type(screen.getByLabelText('Name'), 'Local name');
   if (parked) await go('#/help/dishes');
-  const other = remote(storage), recipe = other.getDocument().recipes.find(r => r.id === 'dish_classic_burger')!;
+  const other = (await remote(storage)), recipe = other.getDocument().recipes.find(r => r.id === 'dish_classic_burger')!;
   if (recipe.kind !== 'dish') throw new Error('Expected a dish');
-  other.saveRecipe({ ...recipe, menuPriceInclVatCents: 2599 }); signal();
-  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  (await other.saveRecipe({ ...recipe, menuPriceInclVatCents: 2599 })); signal();
+  await userEvent.click(await screen.findByRole('button', { name: 'Load latest data' }));
   if (parked) await go('#/recipe/dish_classic_burger');
   expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Local name');
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -151,11 +151,11 @@ it.each([false, true])('merges an untouched remote price into a renamed recipe (
 });
 
 it('requires a choice for the same changed field and keeps it through navigation', async () => {
-  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/recipe/dish_classic_burger');
+  const storage = storageWith(demoCopy()); (await renderApp(storage)); await go('#/recipe/dish_classic_burger');
   await userEvent.clear(screen.getByLabelText('Name')); await userEvent.type(screen.getByLabelText('Name'), 'Local name');
-  const other = remote(storage), recipe = other.getDocument().recipes.find(r => r.id === 'dish_classic_burger')!;
-  other.saveRecipe({ ...recipe, name: 'Remote name' }); signal();
-  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  const other = (await remote(storage)), recipe = other.getDocument().recipes.find(r => r.id === 'dish_classic_burger')!;
+  (await other.saveRecipe({ ...recipe, name: 'Remote name' })); signal();
+  await userEvent.click(await screen.findByRole('button', { name: 'Load latest data' }));
   await go('#/help/dishes'); await go('#/recipe/dish_classic_burger');
   expect(screen.getByRole('button', { name: 'Save changes' })).toHaveProperty('disabled', true);
   expect(screen.getByText(/Remote name/, { selector: 'pre' })).toBeTruthy();
@@ -165,10 +165,10 @@ it('requires a choice for the same changed field and keeps it through navigation
 });
 
 it('discards a parked draft for a remotely deleted recipe, then loads latest', async () => {
-  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/recipe/dish_classic_burger');
+  const storage = storageWith(demoCopy()); (await renderApp(storage)); await go('#/recipe/dish_classic_burger');
   await userEvent.type(screen.getByLabelText('Name'), ' draft'); await go('#/help/dishes');
-  remote(storage).deleteRecipe('dish_classic_burger', { deleteScenarios: true }); signal();
-  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  (await (await remote(storage)).deleteRecipe('dish_classic_burger', { deleteScenarios: true })); signal();
+  await userEvent.click(await screen.findByRole('button', { name: 'Load latest data' }));
   expect(screen.getByText(/cached recipe draft/)).toBeTruthy();
   await userEvent.click(screen.getByRole('button', { name: 'Discard cached drafts' }));
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Load latest data' })).toBeNull());
@@ -177,18 +177,18 @@ it('discards a parked draft for a remotely deleted recipe, then loads latest', a
 });
 
 it('can save the memory copy after clearing, but never overwrites a later remote save', async () => {
-  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/ingredients');
+  const storage = storageWith(demoCopy()); (await renderApp(storage)); await go('#/ingredients');
   storage.data.delete(STORAGE_KEY); signal();
   await userEvent.click(screen.getByRole('button', { name: 'Save this copy as new data' }));
   const dialog = screen.getByRole('alertdialog');
-  remote(storage).resetToEmpty();
+  (await (await remote(storage)).resetToEmpty());
   await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm and save' }));
   expect(savedDocument(storage).ingredients).toEqual([]);
   await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
 });
 
 it('continues editing after confirmed memory recovery from cleared storage', async () => {
-  const storage = storageWith(demoCopy()); renderApp(storage); await go('#/recipe/dish_classic_burger');
+  const storage = storageWith(demoCopy()); (await renderApp(storage)); await go('#/recipe/dish_classic_burger');
   await userEvent.clear(screen.getByLabelText('Name')); await userEvent.type(screen.getByLabelText('Name'), 'Surviving draft');
   storage.data.delete(STORAGE_KEY); signal();
   await userEvent.click(screen.getByRole('button', { name: 'Save this copy as new data' }));
@@ -201,14 +201,14 @@ it('continues editing after confirmed memory recovery from cleared storage', asy
 
 it.each(['Keep my value', 'Use latest value'])('resolves prep quantity and unit together with one choice: %s', async choice => {
   const storage = storageWith(demoCopy());
-  remote(storage).saveRecipe({ id: 'standalone', kind: 'prep', name: 'Standalone prep', outputMilli: 1_000_000, outputUnit: 'g', lines: [] });
-  renderApp(storage); await go('#/recipe/standalone');
+  (await (await remote(storage)).saveRecipe({ id: 'standalone', kind: 'prep', name: 'Standalone prep', outputMilli: 1_000_000, outputUnit: 'g', lines: [] }));
+  (await renderApp(storage)); await go('#/recipe/standalone');
   await userEvent.clear(screen.getByLabelText(/One batch makes/));
   await userEvent.type(screen.getByLabelText(/One batch makes/), '2');
-  const other = remote(storage), prep = other.getDocument().recipes.find(r => r.id === 'standalone')!;
+  const other = (await remote(storage)), prep = other.getDocument().recipes.find(r => r.id === 'standalone')!;
   if (prep.kind !== 'prep') throw new Error('Expected prep');
-  other.saveRecipe({ ...prep, outputMilli: 3_000_000, outputUnit: 'ml' }); signal();
-  await userEvent.click(screen.getByRole('button', { name: 'Load latest data' }));
+  (await other.saveRecipe({ ...prep, outputMilli: 3_000_000, outputUnit: 'ml' })); signal();
+  await userEvent.click(await screen.findByRole('button', { name: 'Load latest data' }));
   await go('#/help/dishes'); await go('#/recipe/standalone');
   expect(screen.getAllByRole('button', { name: choice })).toHaveLength(1);
   expect(screen.getByText('2 kg', { selector: 'pre' })).toBeTruthy();

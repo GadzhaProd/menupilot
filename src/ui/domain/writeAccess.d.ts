@@ -1,8 +1,4 @@
 declare module '@/store/writeAccess.js' {
-  export interface WriteAccess {
-    acquire(): Promise<void>;
-    release(): void;
-    assertWritable(): void;
-  }
-  export function createWriteAccess(locks: LockManager | null, onChange?: (held: boolean) => void): WriteAccess;
+  export const WRITE_LOCK: string;
+  export function withWriteLock<T>(locks: LockManager | null | undefined, work: () => T | Promise<T>): Promise<T>;
 }

@@ -1,3 +1,4 @@
+import { CommandButton } from '@/ui/data/CommandButton';
 import { VersionHistory } from '@/ui/data/VersionHistory';
 import { useSimulatorSessions } from '@/ui/simulator/session';
 import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
@@ -8,7 +9,6 @@ import { Surface } from '@/components/ui/surface';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCommands, useDataSafety } from '@/ui/data/DataProvider';
 import { demoForLocale } from '@/ui/data/demo';
-import { createStore } from '@/ui/domain/store';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useLocale } from '@/ui/i18n';
 import { downloadText } from '@/ui/data/downloadText';
@@ -19,7 +19,7 @@ type Pending = { kind: 'import'; text: string; fileName: string } | { kind: 'dem
 export function RecoveryPage() {
   const { t, locale } = useLocale();
   const { recoveryRaw, loadCode } = useDataSafety();
-  const { execute } = useCommands();
+  const { execute, commandStatus, previewImport } = useCommands();
   const recipes = useRecipeDrafts();
   const sessions = useSimulatorSessions();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -46,22 +46,17 @@ export function RecoveryPage() {
     let text: string;
     try { text = await file.text(); }
     catch { setError(t('data.fileUnreadable', { file: file.name })); return; }
-    // The normal store parser/schema checks the backup, but writes only to isolated memory.
-    // The real store validates once more, against its clock, on explicit confirmation.
-    try {
-      const probe = createStore({ getItem: () => null, setItem: () => {} }, { demo: demoForLocale(locale) });
-      probe.load(); probe.importJSON(text);
-    } catch { setError(t('recovery.invalidBackup')); return; }
+    if (!(await previewImport(text)).ok) { setError(t('recovery.invalidBackup')); return; }
     setError(null);
     dialog.open({ kind: 'import', text, fileName: file.name }, { currentTarget: importButton.current ?? input });
   }
 
-  function confirm() {
+  async function confirm() {
     const pending = dialog.state;
     if (!pending) return;
-    const result = pending.kind === 'import' ? execute(store => store.importJSON(pending.text), { report: false })
-      : pending.kind === 'empty' ? execute(store => store.resetToEmpty(), { report: false })
-        : execute(store => store.resetToDemo(demoForLocale(locale)), { report: false });
+    const result = pending.kind === 'import' ? (await execute(store => store.importJSON(pending.text), { report: false }))
+      : pending.kind === 'empty' ? (await execute(store => store.resetToEmpty(), { report: false }))
+        : (await execute(store => store.resetToDemo(demoForLocale(locale)), { report: false }));
     if (result.ok) { recipes.clearAll(); sessions.clear(); dialog.close(); }
     else if (['conflict', 'write-busy', 'write-unavailable'].includes(result.code)) setError(null);
     else setError(t('recovery.failed'));
@@ -88,7 +83,7 @@ export function RecoveryPage() {
       </div>
     </Surface>
     {error && !dialog.state && <InlineStatus tone="error">{error}</InlineStatus>}
-    {dialog.state && <Dialog open onOpenChange={open => { if (!open) dialog.close(); }}>
+    {dialog.state && <Dialog open onOpenChange={open => { if (!open && commandStatus !== 'saving') dialog.close(); }}>
       <DialogContent role="alertdialog" onCloseAutoFocus={dialog.onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{dialog.state.kind === 'import' ? t('data.confirmImport') : t('recovery.confirm')}</DialogTitle>
@@ -98,8 +93,8 @@ export function RecoveryPage() {
         {error && <InlineStatus tone="error">{error}</InlineStatus>}
         <Button type="button" variant="outline" className="whitespace-normal" onClick={download}>{t('recovery.download')}</Button>
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
-          <Button type="button" variant="destructive" className="whitespace-normal" onClick={confirm}>{dialog.state.kind === 'import' ? t('data.replaceBackup') : t('recovery.replace')}</Button>
+          <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
+          <CommandButton type="button" variant="destructive" className="whitespace-normal" onClick={confirm}>{dialog.state.kind === 'import' ? t('data.replaceBackup') : t('recovery.replace')}</CommandButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>}
