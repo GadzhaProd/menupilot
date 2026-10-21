@@ -61,4 +61,3 @@ export function storageAdapterContract(name, fixture) {
     await failWrites(false);const saved=await a.save(doc,first.revision,'retry');assert.ok(saved.revision>first.revision);
   });
 }
-

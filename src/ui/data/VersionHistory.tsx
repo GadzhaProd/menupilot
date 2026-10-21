@@ -1,3 +1,4 @@
+import { useLocalMode } from './localMode';
 import { CommandButton } from '@/ui/data/CommandButton';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ function changes(a: readonly { readonly id: string }[], b: readonly { readonly i
 /** The same list works in recovery without a valid current document. */
 export function VersionHistory() {
   const { t, locale } = useLocale();
+  const local = useLocalMode();
   const { document } = useDataState();
   const { recoveryRaw } = useDataSafety();
   const { listHistory, readHistory } = useVersionHistory();
@@ -50,7 +52,7 @@ export function VersionHistory() {
   }
   return <Surface className="space-y-4" aria-labelledby="history-title">
     <h2 id="history-title" className="text-xl font-semibold">{t('history.title')}</h2>
-    <p className="max-w-prose text-sm text-muted-foreground">{t('history.limit')}</p>
+    <p className="max-w-prose text-sm text-muted-foreground">{local ? (locale === 'nl' ? 'Maximaal 32 eerdere versies, binnen 64 MiB, op deze computer. Bewaar ook een aparte export.' : 'Up to 32 previous versions, within 64 MiB, on this computer. Keep a separate export too.') : t('history.limit')}</p>
     {!result.ok && <p role="alert">{t('history.readFailed')}</p>}
     {result.ok && entries.length === 0 && <p>{t('history.empty')}</p>}
     {restored && <p role="status">{t('history.success')}</p>}
