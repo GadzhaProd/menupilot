@@ -37,6 +37,7 @@ export function coordinateStorage(storage: StorageLike | null, surfaces: Browser
   return {
     storage: storage && access ? {
       getItem: (key: string) => storage.getItem(key),
+      removeItem(key: string) { access.assertWritable(); if (storage.removeItem) storage.removeItem(key); else storage.setItem(key, ''); },
       setItem(key: string, value: string) { access.assertWritable(); storage.setItem(key, value); },
     } : storage,
     activate,
