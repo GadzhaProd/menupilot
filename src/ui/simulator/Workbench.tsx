@@ -7,6 +7,7 @@ import { Surface } from '@/components/ui/surface';
 import { MoneyValue } from '@/components/ui/money-value';
 import './simulator.css';
 import { Input } from '@/components/ui/input';
+import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import {
   compareRuns, isStale, NO_CHANGES, rebaseOverrides, runScenario, takeBaseline, type Run, type ScenarioOverrides,
@@ -54,8 +55,8 @@ export function Workbench({ dish }: { dish: Dish }) {
   const { execute } = useCommands();
   const dishHasVolume = dish.monthlyVolume !== undefined && dish.monthlyVolume !== null;
 
-  // Baseline is a snapshot taken when the screen opens; it is never edited.
-  const [pageBaseline] = useState(() => takeBaseline(document, dish.id, new Date().toISOString()));
+  // The page compares against current real data; scenario snapshots stay unchanged.
+  const pageBaseline = useMemo(() => takeBaseline(document, dish.id, new Date().toISOString()), [document, dish.id]);
   // Coming back to the dish restores what was being edited (kept in memory only).
   const sessions = useSimulatorSessions();
   const [remembered] = useState<DishSession | undefined>(() => sessions.get(dish.id));
@@ -145,7 +146,7 @@ export function Workbench({ dish }: { dish: Dish }) {
       setProblem(draft.key, null);
       dispatch({ type: 'saved', key: draft.key, id: result.value.id, createdAt: input.createdAt, overrides });
     } else {
-      setProblem(draft.key, 'simulator.error.save'); // the typed values stay in the card
+      setProblem(draft.key, isSafetyError(result.code) ? null : 'simulator.error.save'); // the typed values stay in the card
     }
   }
 
@@ -165,7 +166,7 @@ export function Workbench({ dish }: { dish: Dish }) {
     if (draft.id !== null) {
       const id = draft.id;
       const result = execute((store) => store.deleteScenario(id), { report: false });
-      if (!result.ok) return t('simulator.error.save');
+      if (!result.ok) return isSafetyError(result.code) ? null : t('simulator.error.save');
     }
     dispatch({ type: 'removed', key: draft.key });
     deleting.close();

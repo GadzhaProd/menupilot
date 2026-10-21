@@ -1,4 +1,6 @@
 export const safetyEn = {
+  'safety.cleared': 'The saved data was removed in another tab. This tab still has its last copy. Download it before closing or reloading this tab.',
+  'safety.downloadMemory': 'Download the copy from this tab',
   'safety.removed': 'Another tab removed an item while this form was open. Your draft is still here. Copy anything you need, close the form, then load the latest data.',
   'safety.changed': 'Another tab changed the saved data. Your draft is still here. Load the latest data, review your draft and save again.',
   'safety.latest': 'Load latest data',

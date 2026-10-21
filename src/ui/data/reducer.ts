@@ -12,7 +12,8 @@ export interface DataState {
 export type DataAction =
   | { type: 'documentReplaced'; document: MenuDocument }
   | { type: 'commandFailed'; message: string }
-  | { type: 'errorDismissed' };
+  | { type: 'errorDismissed' }
+  | { type: 'loadFailed'; message: string };
 
 /** Pure: no store calls here (React may run reducers twice in StrictMode). */
 export function dataReducer(state: DataState, action: DataAction): DataState {
@@ -21,6 +22,8 @@ export function dataReducer(state: DataState, action: DataAction): DataState {
       return { ...state, document: action.document, loadError: null, commandError: null };
     case 'commandFailed':
       return { ...state, commandError: action.message };
+    case 'loadFailed':
+      return { ...state, loadError: action.message, commandError: null };
     case 'errorDismissed':
       return { ...state, commandError: null };
   }

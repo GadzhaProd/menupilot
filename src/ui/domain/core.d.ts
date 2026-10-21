@@ -127,7 +127,8 @@ declare module '@/store/store.js' {
 
   /** Every command returns the new, deep-frozen document. */
   export interface Store {
-    load(): T.MenuDocument;
+    load(options?: { beforeReplace?: (document: T.MenuDocument) => void }): T.MenuDocument;
+    getRevision(): string | null | undefined;
     getDocument(): T.MenuDocument;
     readRaw(): string | null;
     save(doc: T.MenuDocument): T.MenuDocument;

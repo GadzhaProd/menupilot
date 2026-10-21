@@ -1,3 +1,4 @@
+import { RecipeDraftProvider } from '@/ui/recipe/RecipeDraftProvider';
 import { DataSafetyNotice } from '@/ui/data/DataSafetyNotice';
 import { RecoveryPage } from '@/ui/recovery/RecoveryPage';
 import { useLocale, type TranslationKey } from '@/ui/i18n';
@@ -104,7 +105,7 @@ export function App() {
   return (
     <ErrorBoundary>
       {/* One provider above every route, so unsaved scenario drafts survive a visit to the guide. */}
-      <SimulatorSessionProvider>
+      <RecipeDraftProvider><SimulatorSessionProvider>
         <Shell route={route}>
           <DataSafetyNotice />
           {route.name === 'help' ? (
@@ -118,7 +119,7 @@ export function App() {
             <RecoveryPage />
           )}
         </Shell>
-      </SimulatorSessionProvider>
+      </SimulatorSessionProvider></RecipeDraftProvider>
     </ErrorBoundary>
   );
 }

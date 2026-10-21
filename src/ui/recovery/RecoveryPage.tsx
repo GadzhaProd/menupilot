@@ -1,3 +1,5 @@
+import { useSimulatorSessions } from '@/ui/simulator/session';
+import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
 import { useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { InlineStatus } from '@/components/ui/inline-status';
@@ -8,7 +10,7 @@ import { demoForLocale } from '@/ui/data/demo';
 import { createStore } from '@/ui/domain/store';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useLocale } from '@/ui/i18n';
-import { downloadText } from '@/ui/pages/DataPage';
+import { downloadText } from '@/ui/data/downloadText';
 
 type Pending = { kind: 'import'; text: string; fileName: string } | { kind: 'demo' | 'empty' };
 
@@ -17,6 +19,8 @@ export function RecoveryPage() {
   const { t, locale } = useLocale();
   const { recoveryRaw, loadCode } = useDataSafety();
   const { execute } = useCommands();
+  const recipes = useRecipeDrafts();
+  const sessions = useSimulatorSessions();
   const fileInput = useRef<HTMLInputElement>(null);
   const importButton = useRef<HTMLButtonElement>(null);
   const dialog = useDialogState<Pending>();
@@ -57,7 +61,7 @@ export function RecoveryPage() {
     const result = pending.kind === 'import' ? execute(store => store.importJSON(pending.text), { report: false })
       : pending.kind === 'empty' ? execute(store => store.resetToEmpty(), { report: false })
         : execute(store => store.resetToDemo(demoForLocale(locale)), { report: false });
-    if (result.ok) dialog.close();
+    if (result.ok) { recipes.clearAll(); sessions.clear(); dialog.close(); }
     else if (['conflict', 'write-busy', 'write-unavailable'].includes(result.code)) setError(null);
     else setError(t('recovery.failed'));
   }

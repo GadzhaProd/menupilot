@@ -5,14 +5,13 @@ import { createBaselineSnapshot } from '@/ui/domain/calc';
 import type { MenuDocument } from '@/ui/domain/types';
 import { formatQuantityLocale } from '@/ui/forms/numbers';
 import { vatOptions } from '@/ui/forms/recipeForm';
-import { clearRecipeDrafts } from '@/ui/recipe/sessionDrafts';
 import {
   demoCopy, go, memoryStorage, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
 
 const user = () => userEvent.setup();
 
-beforeEach(() => { window.location.hash = ''; clearRecipeDrafts(); });
+beforeEach(() => { window.location.hash = ''; });
 
 async function open(hash: string, storage = memoryStorage()) {
   renderApp(storage);

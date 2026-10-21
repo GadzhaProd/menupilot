@@ -1,5 +1,7 @@
 import type { safetyEn } from './safety.en';
 export const safetyNl = {
+  'safety.cleared': 'De opgeslagen gegevens zijn in een ander tabblad verwijderd. Dit tabblad heeft nog de laatste kopie. Download die voordat je dit tabblad sluit of vernieuwt.',
+  'safety.downloadMemory': 'Kopie uit dit tabblad downloaden',
   'safety.removed': 'Een ander tabblad heeft een item verwijderd terwijl dit formulier openstond. Je concept is er nog. Kopieer wat je wilt bewaren, sluit het formulier en laad daarna de nieuwste gegevens.',
   'safety.changed': 'Een ander tabblad heeft de opgeslagen gegevens gewijzigd. Je concept is er nog. Laad de nieuwste gegevens, controleer je concept en sla opnieuw op.',
   'safety.latest': 'Nieuwste gegevens laden',

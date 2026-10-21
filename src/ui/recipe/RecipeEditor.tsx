@@ -24,7 +24,8 @@ import { LineRow } from './LineRow';
 import { useLocale } from '@/ui/i18n';
 import { Surface } from '@/components/ui/surface';
 import { InlineStatus } from '@/components/ui/inline-status';
-import { clearRecipeDraft, readRecipeDraft, writeRecipeDraft } from './sessionDrafts';
+import { useRecipeDrafts } from './RecipeDraftProvider';
+import { isSafetyError } from '@/ui/data/safetyErrors';
 
 /** Stands in for the id of a recipe that is not saved yet, so its cost can still be calculated. */
 const UNSAVED_ID = 'unsaved';
@@ -39,13 +40,14 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const { t, locale } = useLocale();
   const document = useDocument();
   const { execute } = useCommands();
+  const draftCache = useRecipeDrafts();
   const draftKey = recipe?.id ?? `new:${kind}`;
   const sourceSnapshot = JSON.stringify(recipe ?? document) ?? '';
   const sourceSnapshotRef = useRef(sourceSnapshot);
   const sourceChanged = sourceSnapshotRef.current !== sourceSnapshot;
   const [initial] = useState(() => recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp));
   const [baseline, setBaseline] = useState<RecipeDraft>(initial);
-  const [draft, setDraft] = useState<RecipeDraft>(() => readRecipeDraft(draftKey, sourceSnapshot) ?? initial);
+  const [draft, setDraft] = useState<RecipeDraft>(() => draftCache.read(draftKey) ?? initial);
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -60,19 +62,18 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   useEffect(() => {
     if (!sourceChanged) return;
     sourceSnapshotRef.current = sourceSnapshot;
-    clearRecipeDraft(draftKey);
     const fresh = recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp);
-    setDraft(fresh);
+    if (!dirty) setDraft(fresh);
     setBaseline(fresh);
     setAttempt(0);
     setSaveError(null);
-  }, [sourceChanged, sourceSnapshot, draftKey, recipe, document, kind]);
+  }, [sourceChanged, sourceSnapshot, draftKey, recipe, document, kind, dirty]);
 
   useEffect(() => {
     if (sourceChanged) return;
-    if (dirty) writeRecipeDraft(draftKey, draft, sourceSnapshot);
-    else clearRecipeDraft(draftKey);
-  }, [sourceChanged, dirty, draft, draftKey, sourceSnapshot]);
+    if (dirty) draftCache.write(draftKey, draft);
+    else draftCache.clear(draftKey);
+  }, [sourceChanged, dirty, draft, draftKey, sourceSnapshot, draftCache]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -158,10 +159,10 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     const result = execute((store) => store.saveRecipe(toSave), { report: false });
     if (!result.ok) {
       // The draft stays exactly as typed; the saved data is unchanged.
-      setSaveError(localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
+      setSaveError(isSafetyError(result.code) ? null : localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
       return;
     }
-    clearRecipeDraft(draftKey);
+    draftCache.clear(draftKey);
     setSaveError(null);
     if (!recipe) {
       window.location.hash = hrefFor({ name: 'recipe', id: result.value.id });
@@ -195,7 +196,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
         <HelpLink section={kind === 'dish' ? 'dishes' : 'preps'} />
       </div>
 
-      <form ref={formRef} noValidate onSubmit={submit} className="space-y-6">
+      <form data-draft-kind={recipe ? "recipe" : undefined} data-draft-id={recipe?.id} ref={formRef} noValidate onSubmit={submit} className="space-y-6">
         <Surface aria-labelledby="recipe-details-title" className="space-y-4">
           <header className="space-y-1"><h2 id="recipe-details-title" className="text-xl font-semibold">{kind === 'dish' ? t('recipe.dish') : t('recipe.prep')}</h2><p className="text-muted-foreground">{t('recipe.vatNote')}</p></header>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -330,7 +331,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
           recipe={recipe}
           onClose={dialog.close}
           onCloseAutoFocus={dialog.onCloseAutoFocus}
-          onDeleted={() => { clearRecipeDraft(draftKey); dialog.close(); window.location.hash = hrefFor({ name: 'recipes' }); }}
+          onDeleted={() => { draftCache.clear(draftKey); dialog.close(); window.location.hash = hrefFor({ name: 'recipes' }); }}
         />
       ) : null}
     </section>

@@ -25,6 +25,8 @@ export interface SimulatorSessions {
   unsavedTotal(): number;
   /** Forget every draft (the data was replaced, so drafts of the old data no longer fit). */
   clear(): void;
+  draftTargets(): { kind: 'recipe'; id: string }[];
+  subscribe(listener: () => void): () => void;
 }
 
 const SessionContext = createContext<SimulatorSessions | null>(null);
@@ -33,12 +35,16 @@ const unsavedIn = (session: DishSession | undefined) => (session ? session.draft
 
 export function SimulatorSessionProvider({ children }: { children: ReactNode }) {
   const sessions = useRef(new Map<string, DishSession>());
+  const listeners = useRef(new Set<() => void>());
+  const changed = () => listeners.current.forEach(listener => listener());
   const api = useMemo<SimulatorSessions>(() => ({
     get: (dishId) => sessions.current.get(dishId),
-    set: (dishId, session) => { sessions.current.set(dishId, session); },
+    set: (dishId, session) => { sessions.current.set(dishId, session); changed(); },
     unsavedCount: (dishId) => unsavedIn(sessions.current.get(dishId)),
     unsavedTotal: () => [...sessions.current.values()].reduce((sum, session) => sum + unsavedIn(session), 0),
-    clear: () => { sessions.current.clear(); },
+    clear: () => { sessions.current.clear(); changed(); },
+    draftTargets: () => [...sessions.current].filter(([, value]) => unsavedIn(value) > 0).map(([id]) => ({ kind: 'recipe', id })),
+    subscribe: listener => { listeners.current.add(listener); return () => { listeners.current.delete(listener); }; },
   }), []);
 
   // Closing or reloading the tab would lose unsaved scenarios: ask first.
@@ -58,7 +64,7 @@ export function SimulatorSessionProvider({ children }: { children: ReactNode }) 
 
 /** Without a provider (a screen rendered alone) drafts are simply not remembered. */
 const NO_MEMORY: SimulatorSessions = {
-  get: () => undefined, set: () => {}, unsavedCount: () => 0, unsavedTotal: () => 0, clear: () => {},
+  get: () => undefined, set: () => {}, unsavedCount: () => 0, unsavedTotal: () => 0, clear: () => {}, draftTargets: () => [], subscribe: () => () => {},
 };
 
 export function useSimulatorSessions(): SimulatorSessions {

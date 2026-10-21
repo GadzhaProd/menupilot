@@ -1,4 +1,3 @@
-import { createSynchronizedStore, type SynchronizedStore } from './store';
 import { coordinateStorage } from './browserStorage';
 import { LocaleProvider, useLocale } from '@/ui/i18n';
 import { ThemeProvider } from '@/ui/theme/ThemeProvider';
@@ -6,7 +5,7 @@ import { demoForLocale, isBundledDemo } from './demo';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode,
 } from 'react';
-import { StoreError, STORAGE_KEY, type StorageLike, type Store } from '@/ui/domain/store';
+import { StoreError, createStore, STORAGE_KEY, type StorageLike, type Store } from '@/ui/domain/store';
 import type { MenuDocument } from '@/ui/domain/types';
 import { dataReducer, type DataState } from './reducer';
 
@@ -25,12 +24,15 @@ export interface ExecuteOptions {
   report?: boolean;
 }
 
+export type DraftTarget = { kind: 'ingredient' | 'recipe'; id: string };
+
 interface DataContextValue {
   state: DataState;
   safety: string | null;
   reloadLatest(): Promise<void>;
   activateEditing(): Promise<void>;
-  hasDrafts: { current: () => boolean };
+  registerDraftSource(source: () => boolean, targets?: () => readonly DraftTarget[]): () => void;
+  draftsChanged(): void;
   recoveryRaw: string | null;
   loadCode: string | null;
   /**
@@ -56,7 +58,7 @@ export interface DataProviderProps {
 }
 
 interface Loaded {
-  store: SynchronizedStore | null;
+  store: Store | null;
   state: DataState;
   raw: string | null;
   loadCode: string | null;
@@ -78,10 +80,10 @@ function openStore({ storage, demo, now, createId }: Omit<DataProviderProps, 'ch
       },
     };
   }
-  let store: SynchronizedStore | null = null;
+  let store: Store | null = null;
   let raw: string | null = null;
   try {
-    store = createSynchronizedStore(storage, { demo, ...(now && { now }), ...(createId && { createId }) });
+    store = createStore(storage, { demo, ...(now && { now }), ...(createId && { createId }) });
     const document = store.load();
     raw = store.getRevision() ?? null;
     return { store, raw, loadCode: null, state: { document, loadError: null, commandError: null } };
@@ -106,48 +108,78 @@ function DocumentProvider(props: DataProviderProps) {
   const [coordinator] = useState(() => coordinateStorage(props.storage));
   const [loaded] = useState(() => openStore({ ...props, storage: coordinator.storage }));
   const [safety, setSafety] = useState<string | null>(null);
-  const hasDrafts = useRef<() => boolean>(() => false);
+  const draftSources = useRef(new Set<() => boolean>());
+  const draftTargets = useRef(new Map<() => boolean, () => readonly DraftTarget[]>());
+  const recheck = useRef<() => void>(() => {});
+  const draftsChanged = useCallback(() => { queueMicrotask(() => recheck.current()); }, []);
+  const registerDraftSource = useCallback((source: () => boolean, targets?: () => readonly DraftTarget[]) => {
+    draftSources.current.add(source);
+    if (targets) draftTargets.current.set(source, targets);
+    return () => { draftSources.current.delete(source); draftTargets.current.delete(source); draftsChanged(); };
+  }, [draftsChanged]);
   const lastRaw = useRef(loaded.raw);
   const [state, dispatch] = useReducer(dataReducer, loaded.state);
-  const { store } = loaded;
+  const [store, setStore] = useState(loaded.store);
+  const [recoveryRaw, setRecoveryRaw] = useState(loaded.raw);
+  const [loadCode, setLoadCode] = useState(loaded.loadCode);
 
   useEffect(() => coordinator.start(), [coordinator]);
 
   const activateEditing = useCallback(async () => {
     try { await coordinator.activate(); setSafety(current => current === 'write-busy' ? null : current); }
-    catch { setSafety('write-unavailable'); }
+    catch (error) { setSafety(error instanceof StoreError ? error.code : 'write-unavailable'); }
   }, [coordinator]);
 
   const reloadLatest = useCallback(async () => {
     if (!store) return;
     try {
+      if (store.readRaw() === null && lastRaw.current !== null) { setSafety('storage-cleared'); return; }
       const document = store.load({ beforeReplace: next => {
-        const previous = state.document;
-        if (!previous || !window.document.querySelector('form, [role="dialog"], [role="alertdialog"]')) return;
-        // Existing editors unmount when their entity disappears. Refuse that refresh
-        // before advancing the store's token; the user can copy/cancel their draft first.
-        const missing = <T extends { readonly id: string }>(before: readonly T[], after: readonly T[]) =>
-          before.some(item => !after.some(other => other.id === item.id));
-        const removed = missing(previous.ingredients, next.ingredients) || missing(previous.recipes, next.recipes);
-        if (removed) throw new Error('draft-target-removed');
+        // Only a draft's own entity can unmount its editor. Unrelated deletions are safe.
+        const targets: DraftTarget[] = [];
+        window.document.querySelectorAll<HTMLElement>('[data-draft-kind][data-draft-id]').forEach(element => {
+          const kind = element.dataset.draftKind;
+          if ((kind === 'recipe' || kind === 'ingredient') && element.dataset.draftId) {
+            targets.push({ kind, id: element.dataset.draftId });
+          }
+        });
+        draftTargets.current.forEach((getTargets, source) => { if (source()) targets.push(...getTargets()); });
+        if (targets.some(target => !(target.kind === 'recipe' ? next.recipes : next.ingredients).some(item => item.id === target.id))) {
+          throw new Error('draft-target-removed');
+        }
       } });
       lastRaw.current = store.getRevision() ?? null;
       dispatch({ type: 'documentReplaced', document });
       setSafety(null);
       await activateEditing();
-    } catch (error) { setSafety(error instanceof Error && error.message === 'draft-target-removed' ? 'draft-target-removed' : 'read-failed'); }
-  }, [store, activateEditing, state.document]);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'draft-target-removed') { setSafety('draft-target-removed'); return; }
+      // A failed load deliberately does not advance a live store's CAS token. Open a
+      // recovery store against the damaged bytes so a confirmed restore can replace them.
+      const latest = openStore({ ...props, storage: coordinator.storage });
+      setStore(latest.store); setRecoveryRaw(latest.raw); setLoadCode(latest.loadCode);
+      lastRaw.current = latest.raw;
+      if (latest.state.document) dispatch({ type: 'documentReplaced', document: latest.state.document });
+      else dispatch({ type: 'loadFailed', message: latest.state.loadError! });
+      setSafety(null);
+    }
+  }, [store, activateEditing, props.demo, props.now, props.createId, coordinator]);
 
   useEffect(() => {
     function changed(event?: StorageEvent) {
       if (event && (event.key !== null && event.key !== STORAGE_KEY)) return;
       if (event?.storageArea && event.storageArea !== props.storage) return;
-      if (!store) return;
+      if (!store || state.loadError) return;
       try {
-        if (store.readRaw() === lastRaw.current) return;
-        // Treat a mounted editing form/dialog as an in-progress draft, even before
-        // its first keystroke. Existing local drafts must never be silently rebased.
-        if (hasDrafts.current() || document.querySelector('form, [role="dialog"], [role="alertdialog"]')) {
+        const hasDrafts = [...draftSources.current].some(source => source()) || !!document.querySelector('form, [role="dialog"], [role="alertdialog"]');
+        const raw = store.readRaw();
+        if (raw === lastRaw.current) {
+          if (!hasDrafts) setSafety(current => current && ['conflict', 'draft-target-removed', 'write-busy'].includes(current) ? null : current);
+          return;
+        }
+        if (raw === null && lastRaw.current !== null) { setSafety('storage-cleared'); return; }
+        // A mounted form is conservative protection, including an untouched editor.
+        if (hasDrafts) {
           setSafety('conflict');
         } else {
           const document = store.load();
@@ -157,11 +189,25 @@ function DocumentProvider(props: DataProviderProps) {
         }
       } catch { setSafety('read-failed'); }
     }
+    recheck.current = changed;
     const focus = () => changed();
+    // Recheck after Cancel/close, but not on unrelated text mutations from a notice.
+    const forms = () => [...document.querySelectorAll('form, [role="dialog"], [role="alertdialog"]')];
+    let previous = forms();
+    const observer = new MutationObserver(() => {
+      const next = forms();
+      if (previous.length !== next.length || previous.some((item, index) => item !== next[index])) {
+        previous = next; changed();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('storage', changed);
     window.addEventListener('focus', focus);
-    return () => { window.removeEventListener('storage', changed); window.removeEventListener('focus', focus); };
-  }, [store, props.storage]);
+    return () => {
+      observer.disconnect(); recheck.current = () => {};
+      window.removeEventListener('storage', changed); window.removeEventListener('focus', focus);
+    };
+  }, [store, props.storage, state.loadError]);
 
   const execute = useCallback(<R extends CommandOutput>(
     command: (store: Store) => R,
@@ -197,10 +243,10 @@ function DocumentProvider(props: DataProviderProps) {
 
   const exportBackup = useCallback((): CommandResult<string> => {
     try {
-      if (store === null) {
+      if (state.document === null) {
         throw new StoreError('not-loaded', 'Data is not loaded, so nothing can be read.');
       }
-      return { ok: true, value: store.exportJSON() };
+      return { ok: true, value: JSON.stringify(state.document, null, 2) };
     } catch (error) {
       return {
         ok: false,
@@ -209,12 +255,12 @@ function DocumentProvider(props: DataProviderProps) {
         details: error instanceof StoreError ? error.details : [],
       };
     }
-  }, [store]);
+  }, [state.document]);
 
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
   const value = useMemo(() => ({ state, execute, exportBackup, dismissError, safety, reloadLatest,
-    activateEditing, hasDrafts, recoveryRaw: loaded.raw, loadCode: loaded.loadCode }),
-  [state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, loaded]);
+    activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode }),
+  [state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -249,6 +295,6 @@ export function useCommands(): Pick<DataContextValue, 'execute' | 'exportBackup'
 
 /** Recovery and cross-tab controls; form command signatures remain synchronous. */
 export function useDataSafety() {
-  const { safety, reloadLatest, activateEditing, hasDrafts, recoveryRaw, loadCode } = useData();
-  return { safety, reloadLatest, activateEditing, hasDrafts, recoveryRaw, loadCode };
+  const { safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode } = useData();
+  return { safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode };
 }
