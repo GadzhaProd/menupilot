@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   batchCostMicro,
+  ingredientLineCostMicro,
   prepLineCostMicro,
   prepUnitCostDisplay,
   recipeCost,
 } from '../../src/calc/costing.js';
-import { ingredientLineCostMicro } from '../../src/calc/costing.js';
 import { roundDiv } from '../../src/calc/money.js';
 import { createBaselineSnapshot, simulate } from '../../src/calc/simulate.js';
 
@@ -236,8 +236,23 @@ test('does not mutate deep-frozen recipe, prep, ingredient, or document inputs',
 });
 
 function legacyCost(recipe, data, options = {}, path = [], depth = 0) {
-  if (depth > 5 || (recipe.kind === 'prep' && path.includes(recipe.id))) throw new Error('invalid generated graph');
-  if (recipe.kind === 'prep') normalizeUnit(recipe.outputUnit);
+  let currentDepth = depth;
+  let currentPath = path;
+  if (recipe.kind === 'prep') {
+    if (!recipe || typeof recipe.id !== 'string') throw new TypeError('Expected a prep recipe with an id.');
+    const cycleStart = path.findIndex((entry) => entry.id === recipe.id);
+    if (cycleStart !== -1) {
+      const cycle = path.slice(cycleStart).map((entry) => entry.name || entry.id);
+      cycle.push(recipe.name || recipe.id);
+      throw new Error(`Prep cycle detected: ${cycle.join(' -> ')}.`);
+    }
+    currentDepth = depth + 1;
+    if (currentDepth > 5) {
+      throw new Error(`Prep nesting exceeds maximum depth of 5 at ${recipe.name || recipe.id}.`);
+    }
+    normalizeUnit(recipe.outputUnit);
+    currentPath = [...path, recipe];
+  }
   if (recipe.lines.length === 0) return null;
   let total = 0n;
   let unknown = false;
@@ -248,7 +263,7 @@ function legacyCost(recipe, data, options = {}, path = [], depth = 0) {
       cost = ingredientLineCostMicro(source, entry, options);
     } else {
       const source = data.recipes.find((item) => item.id === entry.ref.id && item.kind === 'prep');
-      const batch = legacyCost(source, data, options, [...path, recipe.id], depth + 1);
+      const batch = legacyCost(source, data, options, currentPath, currentDepth);
       cost = batch === null ? null : roundDiv(batch * BigInt(entry.netQtyMilli) * 10_000n,
         BigInt(source.outputMilli) * BigInt(entry.yieldBp));
     }
@@ -307,6 +322,47 @@ test('matches the uncached algorithm on deterministic generated prep graphs', ()
     assert.equal(batchCostMicro(root, overrideData, { asOf: '2025-02-01T00:00:00.000Z' }),
       legacyCost(root, overrideData, { asOf: '2025-02-01T00:00:00.000Z' }));
   }
+});
+
+test('matches old depth and cycle errors on invalid prep graphs', () => {
+  const salt = ingredient('salt', 100, 1_000_000);
+  const depthRecipes = Array.from({ length: 6 }, (_, index) => prep(
+    `depth-${index}`,
+    1_000_000,
+    'g',
+    [index === 5 ? line('ingredient', 'salt', 1_000_000) : line('prep', `depth-${index + 1}`, 1_000_000)],
+  ));
+  const depthRoot = depthRecipes[0];
+  const depthData = document([salt], depthRecipes);
+  const cycleA = prep('cycle-A', 1_000_000, 'g', [line('prep', 'cycle-B', 1_000_000)]);
+  const cycleB = prep('cycle-B', 1_000_000, 'g', [line('prep', 'cycle-A', 1_000_000)]);
+  const cycleRoot = cycleA;
+  const cycleData = document([], [cycleA, cycleB]);
+
+  for (const [root, data] of [[depthRoot, depthData], [cycleRoot, cycleData]]) {
+    let actual;
+    let expected;
+    assert.throws(() => batchCostMicro(root, data), (error) => { actual = error.message; return true; });
+    assert.throws(() => legacyCost(root, data), (error) => { expected = error.message; return true; });
+    assert.equal(actual, expected);
+  }
+});
+
+test('checks max depth when a prep is reused at a deeper path', () => {
+  const salt = ingredient('salt', 100, 1_000_000);
+  const x = prep('X', 1_000_000, 'g', [line('prep', 'Y', 1_000_000)]);
+  const y = prep('Y', 1_000_000, 'g', [line('prep', 'Z', 1_000_000)]);
+  const z = prep('Z', 1_000_000, 'g', [line('prep', 'W', 1_000_000)]);
+  const w = prep('W', 1_000_000, 'g', [line('ingredient', 'salt', 1_000_000)]);
+  const p1 = prep('P1', 1_000_000, 'g', [line('prep', 'P2', 1_000_000)]);
+  const p2 = prep('P2', 1_000_000, 'g', [line('prep', 'X', 1_000_000)]);
+  const menuDish = dish([line('prep', 'X', 1_000_000), line('prep', 'P1', 1_000_000)]);
+  const data = document([salt], [x, y, z, w, p1, p2, menuDish]);
+
+  assert.throws(
+    () => recipeCost(menuDish, data),
+    /Prep nesting exceeds maximum depth of 5 at W\./,
+  );
 });
 
 test('keeps simulator ingredient price overrides consistent through shared prep levels', () => {
