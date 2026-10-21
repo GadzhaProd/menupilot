@@ -141,7 +141,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
         db.prepare('INSERT INTO document (id,record) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET record=excluded.record').run(JSON.stringify(next));
         const remaining = new Set(document.ingredients.map(i => i.id));
         const removedIngredients = current.document.ingredients.filter(i => !remaining.has(i.id))
-          .map(i => ({ id: i.id, priceEntries: i.prices.length }));
+          .map(i => ({ id: i.id, name: i.name, priceEntries: i.prices.length }));
         const entry = JSON.stringify({ ...receipt, kind: input.kind, source: actor, at: timestamp,
           ...(removedIngredients.length && { removedIngredients,
             description: `Deleted ${removedIngredients.length} ingredient(s), including their price history; the pre-change snapshot is retained in version history within its retention limits.` }) });

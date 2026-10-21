@@ -158,7 +158,7 @@ test('SQLite: deleting an unused ingredient with prices snapshots and describes 
   doc.ingredients = doc.ingredients.filter(i => i.id !== 'unused');
   s.write(request(saved, doc, 'delete-unused'));
   const entry = JSON.parse(s.db.prepare('SELECT entry FROM journal ORDER BY seq DESC LIMIT 1').get().entry);
-  assert.deepEqual(entry.removedIngredients, [{ id: 'unused', priceEntries: first.document.ingredients[0].prices.length }]);
+  assert.deepEqual(entry.removedIngredients, [{ id: 'unused', name: 'Removed flour', priceEntries: first.document.ingredients[0].prices.length }]);
   assert.match(entry.description, /Deleted 1 ingredient.*price history/);
   const prior = s.history.read(s.history.list()[0].id);
   assert.deepEqual(prior.document, saved.document);
