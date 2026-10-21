@@ -99,6 +99,19 @@ Linux `$XDG_DATA_HOME/menupilot` (default `~/.local/share/menupilot`). Override 
 Use a local disk folder, not a network or cloud-synced folder. The header shows the
 canonical data path. Updating the checkout does not replace this data.
 
+Lock recovery is automatic for a dead process, a reused PID, an incomplete lock
+older than 5 seconds, or an orphaned `lock.guard` older than 30 seconds. A separate
+`lock-coordinator.sqlite` serializes recovery; do not delete it. A live owner is
+never displaced merely because it stops answering HTTP. The console always gives
+**Data folder**, **Lock file**, and one next step:
+
+- **Already running** (verified matching instance): open the printed address.
+- **Lock looks stale or MenuPilot is still starting**: stop the existing MenuPilot
+  process, then run `npm start` again.
+- **Incomplete lock**: wait 5 seconds, then run `npm start` again.
+- **Lock maintenance interrupted**: wait 30 seconds, then run `npm start` again.
+- **Cannot verify process identity**: allow process inspection, then run `npm start` again.
+
 To migrate: Export in the browser version, then Data → Import backup locally.
 Review the counts and confirm replacement. A browser export gets a new local
 dataset identity; there is no merge or synchronization. Keep the original file.
@@ -119,6 +132,7 @@ browser extensions with page access or other processes running as your user.
 ```sh
 npm test          # test:core (node:test) + test:ui (Vitest, Testing Library, jsdom)
 npm run check     # typecheck + all tests + production build
+npm run test:mutations # six intentional defects must be caught (also in npm test)
 npm run test:server # SQLite/HTTP contract, process lock, transaction and security tests
 npm run test:e2e:local # Local server, desktop + 375 px, restart and migration
 npm run test:e2e  # Playwright on Chromium against production preview under /menupilot/
@@ -147,7 +161,7 @@ Money input accepts a decimal comma or point and rejects thousands separators.
 
 ## Requirements
 
-- **Node.js** `^24.15.0` or `^25.8.1` (local preview needs built-in SQLite with the WAL fix; CI uses Node 24).
+- **Node.js** `^24.15.0` or `^25.8.1` (local preview needs built-in SQLite with the WAL fix; CI uses Node 24.15.0).
 - **Browsers** (set by Tailwind CSS v4): Safari 16.4+, Chrome 111+, Firefox 128+.
 
 ## Deployment
