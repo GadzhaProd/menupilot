@@ -12,7 +12,7 @@ function printJson(value, error = false) { (error ? console.error : console.log)
 function exitCode(code) { return ({ usage: 2, 'invalid-argument': 2, 'invalid-unit': 2, 'not-found': 4, ambiguous: 4, unauthorized: 5, unavailable: 3 })[code] ?? 1; }
 function cliError(code, message) { return Object.assign(new Error(message), { code }); }
 function portFromAddress(address) { const match = /^http:\/\/127\.0\.0\.1:([1-9]\d{0,4})$/.exec(address ?? ''); return match ? Number(match[1]) : null; }
-async function connection(dir) {
+export async function connection(dir) {
   let lock;
   try { lock = JSON.parse(readFileSync(join(dir, 'lock'), 'utf8')); }
   catch { throw cliError('unavailable', 'MenuPilot is unavailable. Run npm start, then try the command again.'); }
@@ -29,10 +29,14 @@ async function connection(dir) {
     if (process.platform !== 'win32' && mode !== 0o600) throw cliError('unauthorized', 'The MenuPilot CLI token must have file permissions 0600. Restart MenuPilot to replace it safely.');
     token = readFileSync(path, 'utf8');
   } catch (error) { if (error.code === 'unauthorized') throw error; throw cliError('unauthorized', 'The MenuPilot CLI token is missing. Restart MenuPilot to create a private token.'); }
-  async function api(route) {
+  async function api(route, { method = 'GET', body, timeoutMs = method === 'GET' ? 15000 : 30000 } = {}) {
     let response;
-    try { response = await fetch(lock.address + '/api/' + route, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000), redirect: 'error' }); }
-    catch { throw cliError('unavailable', 'MenuPilot is unavailable. Run npm start, then try the command again.'); }
+    const headers = { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) };
+    try { response = await fetch(lock.address + '/api/' + route, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(timeoutMs), redirect: 'error' }); }
+    catch (error) {
+      if (method !== 'GET') throw cliError('response-lost', 'Response lost; the operation may have completed. Check MenuPilot status before retrying.');
+      throw cliError('unavailable', 'MenuPilot is unavailable. Run npm start, then try the command again.');
+    }
     let value; try { value = await response.json(); } catch { throw cliError('server-error', 'MenuPilot returned an invalid response.'); }
     if (response.status === 401) throw cliError('unauthorized', 'The MenuPilot CLI token was rejected. Restart MenuPilot, then try again.');
     if (!response.ok) throw cliError(value.code || 'server-error', value.message || 'MenuPilot could not complete the command.');
@@ -51,6 +55,7 @@ async function confirm(message, yes) {
 
 function displayValue(value) {
   if (value === null || value === undefined) return '—';
+  if (typeof value === 'object' && !Array.isArray(value) && typeof value.display === 'string') return value.display;
   if (typeof value !== 'object') return String(value);
   if (Array.isArray(value)) return value.length ? value.map(item => `- ${displayValue(item).replace(/\n/g, '\n  ')}`).join('\n') : '(none)';
   return Object.entries(value).map(([key, item]) => `${key}: ${displayValue(item)}`).join('\n');
@@ -61,18 +66,21 @@ function printHuman(result) {
     for (const item of data) console.log(`${item.name}  [${item.id}]${item.currentPrice ? `  ${item.currentPrice.packPrice} excl. VAT` : ''}`);
   } else if (command === 'what-changed') {
     console.log(`What changed since ${data.since}`);
-    for (const row of data.dishes) console.log(`${row.name}: ${row.comparisonCost ?? 'n/a'} → ${row.currentCost ?? 'n/a'} (${row.change ?? 'n/a'}); monthly impact ${row.monthlyImpact ?? '—'}${row.excludedReason ? `; excluded: ${row.excludedReason}` : ''}`);
-    console.log(`Menu monthly impact: ${data.totalMonthlyImpact ?? '—'}`);
+    for (const row of data.dishes) console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'} → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}); monthly impact ${displayValue(row.monthlyImpact)}${row.excludedReason ? `; excluded: ${row.excludedReason}` : ''}`);
+    console.log(`Menu monthly impact: ${displayValue(data.totalMonthlyImpact)}`);
+    console.log(`Excluded: ${data.excludedWithoutVolume} without volume; ${data.excludedWithVolume} with unknown/incomplete cost.`);
   } else if (command === 'simulate') {
-    console.log(`${data.name}: recipe-based ingredient cost ${data.recipeBasedIngredientCost ?? 'cost unknown'}; contribution ${data.contribution ?? 'n/a'} (${data.contributionDelta ?? 'no change'}); monthly contribution ${data.monthlyContribution ?? '—'} (${data.monthlyContributionDelta ?? '—'})`);
+    console.log(`${data.name}: recipe-based ingredient cost ${displayValue(data.recipeBasedIngredientCost) ?? 'cost unknown'}; contribution ${displayValue(data.contribution)} (${displayValue(data.contributionDelta) ?? 'no change'}); monthly contribution ${displayValue(data.monthlyContribution)} (${displayValue(data.monthlyContributionDelta)})`);
   } else if (command === 'status') {
-    console.log(`Mode: ${data.mode}\nData folder: ${data.dataDir}\nDocument: ${data.documentId ?? 'empty'}\nRevision: ${data.revision}\nLast backup: ${data.lastBackup ?? 'none'}\nLast external backup: ${data.lastExternalBackup ?? 'none'}`);
+    console.log(`Mode: ${data.mode}\nData folder: ${data.dataDir}\nDocument: ${result.documentId ?? 'empty'}\nRevision: ${result.revision}\nLast backup: ${data.lastBackup ?? 'none'}\nLast external backup: ${data.lastExternalBackup ?? 'none'}`);
   } else if (command === 'doctor') {
-    if (data.backupStatus) console.log(JSON.stringify(data.backupStatus, null, 2));
     for (const check of data.checks) console.log(`${check.ok ? 'OK' : 'CHECK'} ${check.name}: ${check.detail}${!check.ok && check.advice ? `\n  Advice: ${check.advice}` : ''}`);
+  } else if (command === 'backups') {
+    for (const entry of data.entries ?? []) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  DB v${entry.dbVersion}  ${entry.reason}`);
+    if (!(data.entries ?? []).length) console.log('No backups yet.');
   } else if (command === 'dish' || command === 'ingredient') console.log(displayValue(data));
   else console.log(displayValue(data));
-  for (const warning of warnings) console.log(`Warning: ${warning}`);
+  for (const warning of warnings) console.log(`Warning: ${typeof warning === 'string' ? warning : warning.message}`);
 }
 
 async function run(args) {
@@ -82,6 +90,7 @@ async function run(args) {
     process.umask(0o077);
     const dir = localDataPath();
     const command = args[0];
+    if (!command || command === 'help' || command === '--help' || command === '-h') { console.log(help); return; }
     if (command === 'doctor' && args[1] === '--recover-from-backup' && args[2] && (args.length === 3 || (args.length === 4 && args[3] === '--yes'))) {
       await confirm(`Emergency recovery from ${args[2]}. Stop the server first. Original database files will be preserved beside the recovered database.`, args[3] === '--yes');
       const { recoverFromBackup } = await import('./recovery.js');
@@ -97,28 +106,28 @@ async function run(args) {
     }
     if (command === 'doctor') {
       if (args.length > 2 || (args[1] && args[1] !== '--json')) throw cliError('usage', help);
-      let backupsStatus = null, version = { documentId: null, revision: 0 }, connected = false;
+      let backupsStatus = null, version = { documentId: null, revision: 0 }, connected = false, tokenIssue = null;
       try { const { api } = await connection(dir); connected = true;
         [backupsStatus, version] = await Promise.all([api('backups/status'), api('version')]);
-      } catch (error) { if (error.code !== 'unavailable') throw error; }
-      const data = await localDoctor(dir, connected, backupsStatus);
-      data.backupStatus = backupsStatus;
-      if (!connected) data.warnings.push('MenuPilot is not running. Start it with npm start to check live document and backup status.');
+      } catch (error) { if (error.code === 'unauthorized') tokenIssue = error.message; else if (error.code !== 'unavailable') throw error; }
+      const data = await localDoctor(dir, connected, backupsStatus, tokenIssue);
+      if (!connected && !tokenIssue) data.warnings.push({ code: 'server-unavailable', message: 'MenuPilot is not running. Start it with npm start to check live document and backup status.' });
       const result = { apiVersion: 1, command: 'doctor', documentId: version.documentId, revision: version.revision, data, warnings: data.warnings };
       if (wantJson) printJson(result); else printHuman(result);
+      if (data.checks.some(check => !check.ok)) process.exitCode = 1;
       return;
     }
     if (command === 'open-url' || command === 'backup') {
-      try { await runExistingServerCommand(args, dir); } catch (error) {
-        if (error.code === 'unavailable') error.code = 'command-failed';
-        throw error;
-      }
+      await runExistingServerCommand(args.filter(arg => arg !== '--json'), dir);
       return;
     }
     throw cliError('usage', help);
   } catch (error) {
     if (wantJson) printJson(serializeCliError(error), true);
-    else console.error(error.message || 'MenuPilot could not complete the command.');
+    else {
+      console.error(error.message || 'MenuPilot could not complete the command.');
+      for (const candidate of error.candidates ?? []) console.error(`- ${candidate.id}: ${candidate.name}${candidate.unit ? ` (${candidate.unit})` : ''}${candidate.packaging ? `; pack ${displayValue(candidate.packaging.packPrice)} ${candidate.packaging.packPriceLabel}` : ''}`);
+    }
     process.exitCode = exitCode(error.code);
   }
 }
@@ -131,21 +140,19 @@ async function runExistingServerCommand(args, dir) {
   if (!open && !list && !verify && !restore) throw cliError('usage', help);
   const { api, address } = await connection(dir);
   if (open) {
-    const result = await fetch(address + '/api/open-url', { method: 'POST', headers: { Authorization: `Bearer ${readFileSync(join(dir, 'token'), 'utf8')}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ revokeSessions: args[1] === '--revoke-sessions' }) });
-    const { url } = await result.json(); console.log(url);
+    const result = await api('open-url', { method: 'POST', body: { revokeSessions: args[1] === '--revoke-sessions' } });
+    if (typeof result.url !== 'string' || !result.url.startsWith(address + '/menupilot/#k=')) throw cliError('server-error', 'MenuPilot returned an invalid launch URL.');
+    console.log(result.url);
   } else if (list) {
     const entries = await api('backups'); for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
     if (!entries.length) console.log('No backups yet. A backup is created within five minutes of a change, and on normal shutdown.');
   } else if (verify) {
-    const result = await fetch(address + '/api/backups/verify', { method: 'POST', headers: { Authorization: `Bearer ${readFileSync(join(dir, 'token'), 'utf8')}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: args[2] }) });
-    const checked = await result.json(); if (!result.ok) throw cliError(checked.code, checked.message);
+    const checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } });
     console.log(`Verified by restoring to a temporary database: ${checked.id}, revision ${checked.revision}.`);
   } else {
-    const verification = await fetch(address + '/api/backups/verify', { method: 'POST', headers: { Authorization: `Bearer ${readFileSync(join(dir, 'token'), 'utf8')}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: args[2] }) });
-    const checked = await verification.json(); if (!verification.ok) throw cliError(checked.code, checked.message);
+    const checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } });
     const current = await api('version'); await confirm(`Replace current revision ${current.revision} with the document from backup ${checked.id} (revision ${checked.revision})? A verified copy of the current data will be created first.`, args[3] === '--yes');
-    const response = await fetch(address + '/api/backups/restore', { method: 'POST', headers: { Authorization: `Bearer ${readFileSync(join(dir, 'token'), 'utf8')}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: args[2], expectedDocumentId: current.documentId, expectedRevision: current.revision, opId: crypto.randomUUID() }) });
-    const result = await response.json(); if (!response.ok) throw cliError(result.code, result.message); if (result.conflict) throw cliError('conflict', 'Data changed while you were confirming. Nothing was restored.');
+    const result = await api('backups/restore', { method: 'POST', body: { id: args[2], expectedDocumentId: current.documentId, expectedRevision: current.revision, opId: crypto.randomUUID() } }); if (result.conflict) throw cliError('conflict', 'Data changed while you were confirming. Nothing was restored.');
     console.log(`Restored as new revision ${result.revision}. Operation receipt: ${result.receipt.opId}.`);
   }
 }

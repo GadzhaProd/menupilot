@@ -8,6 +8,8 @@ import { createSqliteStorage } from '../../server/sqlite.js';
 import { serveLocal } from '../../server/http.js';
 import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
 import { readFileSync as readDemoFile } from 'node:fs';
+import { dateFor, isSupportedNode, localDoctor } from '../../server/cliRead.js';
+import { createServer } from 'node:net';
 
 async function fixture(t, document) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-'));
@@ -47,9 +49,9 @@ test('CLI JSON what-changed matches the Dashboard gold values and has a stable e
   assert.equal(output.apiVersion, 1);
   assert.equal(output.command, 'what-changed');
   const burger = output.data.dishes.find(row => row.name === 'Classic Burger');
-  assert.equal(burger.comparisonCost, '€4.20');
-  assert.equal(burger.currentCost, '€4.85');
-  assert.equal(burger.monthlyImpact, '-€195.00');
+  assert.deepEqual(burger.comparisonCost, { micro: '4200000', display: '€4.20' });
+  assert.deepEqual(burger.currentCost, { micro: '4850000', display: '€4.85' });
+  assert.deepEqual(burger.monthlyImpact, { cents: '-19500', display: '-€195.00' });
   assert.equal(burger.monthlyVolume, 300);
 });
 
@@ -58,9 +60,9 @@ test('CLI simulate shares simulator values and decimal comma parsing', async t =
   const result = await invoke(f.dir, 'simulate', '--dish', 'Classic Burger', '--menu-price', '13,83', '--volume', '300', '--json');
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout);
-  assert.equal(output.data.contribution, '€7.84');
-  assert.equal(output.data.contributionDelta, '+€0.69');
-  assert.equal(output.data.monthlyContributionDelta, '+€206.42');
+  assert.deepEqual(output.data.contribution, { cents: '784', display: '€7.84' });
+  assert.deepEqual(output.data.contributionDelta, { cents: '69', display: '+€0.69' });
+  assert.deepEqual(output.data.monthlyContributionDelta, { cents: '20642', display: '+€206.42' });
 });
 
 test('CLI ingredient-price and quantity scenarios match the Simulator examples', async t => {
@@ -68,14 +70,14 @@ test('CLI ingredient-price and quantity scenarios match the Simulator examples',
   const price = await invoke(f.dir, 'simulate', '--dish', 'dish_classic_burger', '--ingredient-price', 'ing_beef=14', '--json');
   assert.equal(price.status, 0, price.stderr);
   const priceResult = JSON.parse(price.stdout).data;
-  assert.equal(priceResult.contributionDelta, '+€0.54');
-  assert.equal(priceResult.monthlyContributionDelta, '+€162.00');
+  assert.equal(priceResult.contributionDelta.display, '+€0.54');
+  assert.equal(priceResult.monthlyContributionDelta.display, '+€162.00');
   const quantity = await invoke(f.dir, 'simulate', '--dish', 'dish_classic_burger', '--qty', 'l1=160 g', '--json');
   assert.equal(quantity.status, 0, quantity.stderr);
   const quantityResult = JSON.parse(quantity.stdout).data;
-  assert.equal(quantityResult.recipeBasedIngredientCost, '€4.51');
-  assert.equal(quantityResult.contributionDelta, '+€0.34');
-  assert.equal(quantityResult.monthlyContributionDelta, '+€102.00');
+  assert.equal(quantityResult.recipeBasedIngredientCost.display, '€4.51');
+  assert.equal(quantityResult.contributionDelta.display, '+€0.34');
+  assert.equal(quantityResult.monthlyContributionDelta.display, '+€102.00');
 });
 
 test('CLI exact-name ambiguity and unavailable-server errors use JSON error contract', async t => {
@@ -88,6 +90,14 @@ test('CLI exact-name ambiguity and unavailable-server errors use JSON error cont
   const missing = await invoke(f.dir, 'dish', 'no such dish', '--json');
   assert.notEqual(missing.status, 0);
   assert.equal(JSON.parse(missing.stderr).error.code, 'not-found');
+});
+
+test('administrative commands keep unavailable-server exit code 3', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-offline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const result = await invoke(dir, 'open-url', '--json');
+  assert.equal(result.status, 3);
+  assert.equal(JSON.parse(result.stderr).error.code, 'unavailable');
 });
 
 test('CLI refuses duplicate exact names and returns candidate identities', async t => {
@@ -122,9 +132,10 @@ test('Dutch locale uses Dutch currency formatting for the same Dashboard data', 
   const result = await invoke(f.dir, 'what-changed', '--since', '30d', '--locale', 'nl', '--json');
   assert.equal(result.status, 0, result.stderr);
   const burger = JSON.parse(result.stdout).data.dishes.find(row => row.name === 'Klassieke burger');
-  assert.equal(burger.comparisonCost, '€ 4,20');
-  assert.equal(burger.currentCost, '€ 4,85');
-  assert.equal(burger.monthlyImpact, '-€ 195,00');
+  assert.equal(burger.comparisonCost.micro, '4200000');
+  assert.equal(burger.currentCost.micro, '4850000');
+  assert.equal(burger.monthlyImpact.cents, '-19500');
+  assert.equal(burger.currentCost.display, '€ 4,85');
 });
 
 test('all read commands return the versioned envelope through authenticated API routes', async t => {
@@ -151,7 +162,7 @@ test('offline doctor reports a bad database format without opening it for writin
   const db = new DatabaseSync(join(dir, 'menupilot.db'));
   db.exec('PRAGMA user_version=99'); db.close();
   const result = await invoke(dir, 'doctor', '--json');
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 1, result.stderr);
   const report = JSON.parse(result.stdout);
   assert.equal(report.command, 'doctor');
   assert.equal(report.data.databaseVersion, 99);
@@ -159,4 +170,129 @@ test('offline doctor reports a bad database format without opening it for writin
   assert.match(result.stdout, /npm start/);
   const checked = new DatabaseSync(join(dir, 'menupilot.db'), { readOnly: true });
   assert.equal(checked.prepare('PRAGMA user_version').get().user_version, 99); checked.close();
+});
+
+test('doctor accepts a healthy initialized SQLite database with no saved document row', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-doctor-empty-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const storage = createSqliteStorage(join(dir, 'menupilot.db'));
+  storage.close();
+  const report = await localDoctor(dir, false, null);
+  const check = report.checks.find(item => item.name === 'database-format');
+  assert.equal(check.ok, true);
+  assert.equal(report.documentFormat, 'empty');
+});
+
+test('date ranges use Dashboard UTC date and end-of-day semantics; future dates are rejected', () => {
+  const daysAgo = days => { const date = new Date(); date.setUTCHours(0, 0, 0, 0); date.setTime(date.getTime() - days * 86400000); return date.toISOString().slice(0, 10); };
+  assert.equal(dateFor('30d'), `${daysAgo(30)}T23:59:59.999Z`);
+  assert.equal(dateFor('7d'), `${daysAgo(7)}T23:59:59.999Z`);
+  assert.equal(dateFor('90d'), `${daysAgo(90)}T23:59:59.999Z`);
+  assert.throws(() => dateFor('2099-01-01'), error => error.code === 'invalid-argument');
+});
+
+test('doctor checks the supported Node boundaries, lock ownership, and occupied port', async t => {
+  assert.equal(isSupportedNode('24.15.0'), true); assert.equal(isSupportedNode('24.14.9'), false);
+  assert.equal(isSupportedNode('25.8.1'), true); assert.equal(isSupportedNode('25.8.0'), false);
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-doctor-state-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const server = createServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  writeFileSync(join(dir, 'lock'), JSON.stringify({ address: `http://127.0.0.1:${port}`, instanceId: 'stale' }));
+  const previous = process.env.MENUPILOT_PORT; process.env.MENUPILOT_PORT = String(port);
+  t.after(() => { if (previous === undefined) delete process.env.MENUPILOT_PORT; else process.env.MENUPILOT_PORT = previous; server.close(); });
+  const report = await localDoctor(dir, false, null);
+  assert.equal(report.checks.find(check => check.name === 'lock').ok, false);
+  assert.equal(report.checks.find(check => check.name === 'port').ok, false);
+});
+
+test('volume must be a safe integer and no-volume dishes do not contribute a menu total', async t => {
+  const f = await fixture(t, enDemo());
+  const invalid = await invoke(f.dir, 'simulate', '--dish', 'Classic Burger', '--volume', '9007199254740992', '--json');
+  assert.equal(invalid.status, 2); assert.equal(JSON.parse(invalid.stderr).error.code, 'invalid-argument');
+  const doc = enDemo(); for (const recipe of doc.recipes) if (recipe.kind === 'dish') recipe.monthlyVolume = null;
+  const empty = await fixture(t, doc);
+  const result = await invoke(empty.dir, 'what-changed', '--since', '30d', '--json');
+  assert.equal(JSON.parse(result.stdout).data.totalMonthlyImpact, null);
+});
+
+test('quantity decimal comma and substring lookup suggestions stay non-selecting', async t => {
+  const f = await fixture(t, enDemo());
+  const qty = await invoke(f.dir, 'simulate', '--dish', 'Classic Burger', '--qty', 'l1=0,16 kg', '--json');
+  assert.equal(qty.status, 0, qty.stderr);
+  const missing = await invoke(f.dir, 'ingredient', 'beef', '--json');
+  const error = JSON.parse(missing.stderr).error;
+  assert.equal(missing.status, 4);
+  assert.equal(error.code, 'not-found');
+  assert.ok(error.candidates.some(candidate => candidate.id === 'ing_beef'));
+});
+
+test('offline doctor fails on a present but unreadable SQLite file and advises backup recovery', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-doctor-corrupt-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, 'menupilot.db'), 'not a sqlite database');
+  const result = await invoke(dir, 'doctor', '--json');
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  const check = report.data.checks.find(item => item.name === 'database-format');
+  assert.equal(check.ok, false);
+  assert.match(check.advice, /restore a verified backup/i);
+});
+
+test('offline doctor fails on a readable SQLite file with an invalid document record', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-doctor-document-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(join(dir, 'menupilot.db'));
+  db.exec("CREATE TABLE document(id INTEGER PRIMARY KEY, record TEXT NOT NULL); CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL); PRAGMA user_version=2;");
+  db.prepare('INSERT INTO document(id,record) VALUES(1,?)').run('{"document":"bad"}'); db.close();
+  const result = await invoke(dir, 'doctor', '--json');
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.data.checks.find(item => item.name === 'database-format').ok, false);
+});
+
+test('doctor reports private token failures instead of exiting before a report', async t => {
+  const f = await fixture(t, enDemo());
+  chmodSync(join(f.dir, 'token'), 0o644);
+  const result = await invoke(f.dir, 'doctor', '--json');
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stdout);
+  const token = report.data.checks.find(item => item.name === 'cli-token');
+  assert.equal(token.ok, false);
+  assert.match(token.advice, /0600/);
+  rmSync(join(f.dir, 'token'));
+  const missing = await invoke(f.dir, 'doctor', '--json');
+  assert.equal(missing.status, 1);
+  assert.equal(JSON.parse(missing.stdout).data.checks.find(check => check.name === 'cli-token').ok, false);
+  writeFileSync(join(f.dir, 'token'), 'wrong-token'); chmodSync(join(f.dir, 'token'), 0o600);
+  const rejected = await invoke(f.dir, 'doctor', '--json');
+  assert.equal(rejected.status, 1);
+  assert.match(JSON.parse(rejected.stdout).data.checks.find(check => check.name === 'cli-token').detail, /rejected/);
+});
+
+test('help goes to stdout with exit 0; JSON amounts retain cents across locales', async t => {
+  const f = await fixture(t, enDemo());
+  const help = await invoke(f.dir, '--help');
+  assert.equal(help.status, 0); assert.match(help.stdout, /Usage:/); assert.equal(help.stderr, '');
+  const en = JSON.parse((await invoke(f.dir, 'dish', 'DISH_CLASSIC_BURGER', '--json')).stdout);
+  const nl = JSON.parse((await invoke(f.dir, 'dish', 'dish_classic_burger', '--locale', 'nl', '--json')).stdout);
+  assert.equal(en.data.menuPriceInclVatCents, nl.data.menuPriceInclVatCents);
+  assert.equal(en.data.recipeBasedIngredientCostMicro, nl.data.recipeBasedIngredientCostMicro);
+  assert.notEqual(en.data.menuPriceInclVat.display, nl.data.menuPriceInclVat.display);
+  assert.equal(typeof en.data.menuPriceInclVatCents, 'string');
+});
+
+test('multiple quantity and price overrides are accepted; normalized lookup and prep hint are clear', async t => {
+  const f = await fixture(t, enDemo());
+  const doc = enDemo(); const burger = doc.recipes.find(item => item.id === 'dish_classic_burger');
+  const line = burger.lines[0];
+  const target = doc.ingredients.find(item => item.id === line.ref.id) ?? doc.recipes.find(item => item.id === line.ref.id);
+  const unit = target.unit ?? target.outputUnit;
+  const result = await invoke(f.dir, 'simulate', '--dish', ' DISH_CLASSIC_BURGER ', '--ingredient-price', 'ing_beef=14', '--ingredient-price', 'ing_tomatoes=7', '--qty', `${line.id}=1 ${unit}`, '--qty', `${line.id}=2 ${unit}`, '--json');
+  assert.equal(result.status, 0, result.stderr);
+  const prep = doc.recipes.find(item => item.kind === 'prep');
+  const lookup = await invoke(f.dir, 'dish', prep.name, '--json');
+  assert.equal(JSON.parse(lookup.stderr).error.code, 'not-found');
+  assert.match(JSON.parse(lookup.stderr).error.message, /is a prep, not a dish/);
 });
