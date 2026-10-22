@@ -13,11 +13,11 @@ import { createHttpStorageAdapter } from '../../src/store/httpAdapter.js';
 import { storageAdapterContract } from '../store/adapterContract.js';
 import { smallDocument } from '../store/fixtures.js';
 
-async function fixture() {
+async function fixture(options = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-http-'));
   writeFileSync(join(dir, 'index.html'), '<html><head></head><body><div id="root"></div></body></html>');
   const storage = createSqliteStorage(join(dir, 'data.db'), { initialDocument: smallDocument() });
-  const server = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0 });
+  const server = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0, ...options });
   server.uiToken = (await signIn(server, dir)).token;
   const fetchUI = (url, options = {}) => fetch(url, { ...options, headers: { ...options.headers, Origin: server.address } });
   return { ...server, storage, dir, fetchUI, serverClose: server.close,
@@ -39,7 +39,10 @@ test('HTTP: Host, token, content type, routes; HTML returns no-store sign-in pag
   assert.equal(wrongHost, 403);
   const html = await fetch(`${f.address}/menupilot/`);
   assert.equal(html.headers.get('cache-control'), 'no-store');
-  assert.match(await html.text(), /open-url/);
+  const login = await html.text();
+  assert.match(login, /This sign-in link has expired or has already been used/);
+  assert.match(login, /Deze aanmeldlink is verlopen of al gebruikt/);
+  assert.match(login, /open-url/);
   assert.equal((await fetch(`${f.address}/api/write`, { method: 'POST', headers: { Authorization: `Bearer ${f.uiToken}`, Origin: f.address }, body: '{}' })).status, 415);
   assert.equal((await fetch(`${f.address}/menupilot/data.db`)).status, 404);
   assert.equal((await fetch(`${f.address}/api/unknown`, { headers: { Authorization: `Bearer ${f.uiToken}`, Origin: f.address } })).status, 404);
@@ -77,6 +80,18 @@ test('HTTP: non-ASCII token is denied and CLI token cannot bypass UI confirmatio
   const f = await fixture(); t.after(() => f.close());
   assert.equal((await fetch(`${f.address}/api/document`, { headers: { Authorization: 'Bearer ' + 'é'.repeat(64) } })).status, 401);
   assert.equal((await fetch(`${f.address}/api/write`, { method: 'POST', headers: { Authorization: `Bearer ${f.cliToken}`, 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
+});
+
+test('HTTP: stop is POST-only, CLI-only, and requests shutdown after its response', async t => {
+  let requested = false;
+  const f = await fixture({ requestStop: () => { requested = true; } }); t.after(() => f.close());
+  assert.equal((await fetch(f.address + '/api/stop', { headers: { Authorization: `Bearer ${f.cliToken}` } })).status, 404);
+  const ui = await fetch(f.address + '/api/stop', { method: 'POST', headers: { Authorization: `Bearer ${f.uiToken}`, Origin: f.address, 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(ui.status, 403);
+  assert.equal(requested, false);
+  const cli = await fetch(f.address + '/api/stop', { method: 'POST', headers: { Authorization: `Bearer ${f.cliToken}`, 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(cli.status, 200); assert.deepEqual(await cli.json(), { stopped: true });
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(requested, true);
 });
 
 

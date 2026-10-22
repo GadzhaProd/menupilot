@@ -39,10 +39,40 @@ test('process: second server refuses before opening DB; SIGTERM releases; killed
   assert.equal((await fetch(`http://127.0.0.1:${port}/api/document`,{headers:{Authorization:`Bearer ${token}`}})).status,200);
   const second=launch(dir,await unusedPort());children.push(second);const [code]=await once(second.child,'exit');
   assert.equal(code,1);assert.match(second.output(),new RegExp(`already running at http://127.0.0.1:${port}`));
+  assert.match(second.output(), /to open it run npm run menupilot -- open-url/);
   await stop(first);assert.throws(()=>statSync(join(dir,'lock')),{code:'ENOENT'});
   const third=launch(dir,port);children.push(third);await ready(third);
   const ended=once(third.child,'exit');third.child.kill('SIGKILL');await ended;
   const fourth=launch(dir,port);children.push(fourth);await ready(fourth);await stop(fourth);
+});
+
+test('process: CLI stop waits for writes, creates shutdown backup, releases lock, and reports JSON', {timeout:90000},async t=>{
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const exec = promisify(execFile);
+  const dir=mkdtempSync(join(tmpdir(),'menupilot-stop-')),port=await unusedPort();
+  const server=launch(dir,port);
+  t.after(async()=>{await stop(server);rmSync(dir,{recursive:true});});
+  await ready(server);
+  const openUrl=server.output().match(/http:\/\/127\.0\.0\.1:\d+\/menupilot\/#k=[a-f0-9]+/)?.[0];
+  const address=openUrl?.match(/^http:\/\/127\.0\.0\.1:\d+/)?.[0];
+  const { signIn } = await import('./session-helper.js');
+  const session=await signIn({address,openUrl});
+  const current=await (await fetch(address+'/api/document',{headers:{Authorization:`Bearer ${session.token}`} })).json();
+  const document={...current.document,settings:{...current.document.settings,defaultVatRateBp:910}};
+  const saved=await fetch(address+'/api/write',{method:'POST',headers:{Authorization:`Bearer ${session.token}`,Origin:address,'Content-Type':'application/json'},body:JSON.stringify({kind:'save',document,expectedDocumentId:current.documentId,expectedRevision:current.revision,opId:'stop-test-write'})});
+  assert.equal(saved.status,200);
+  const stopped=once(server.child,'exit');
+  const { stdout } = await exec(process.execPath,['server/cli.js','stop','--json'],{env:{...process.env,MENUPILOT_DATA_DIR:dir}});
+  const result=JSON.parse(stdout);
+  assert.equal(result.apiVersion,1); assert.equal(result.command,'stop'); assert.equal(result.data.stopped,true);
+  const [code]=await stopped; assert.equal(code,0);
+  assert.throws(()=>statSync(join(dir,'lock')),{code:'ENOENT'});
+  const { readdirSync } = await import('node:fs');
+  const { DatabaseSync } = await import('node:sqlite');
+  const db=new DatabaseSync(join(dir,'menupilot.db'),{readOnly:true});
+  const backups=readdirSync(join(dir,'backups')).filter(name=>name.endsWith('.sqlite'));
+  assert.ok(backups.length>0); assert.equal(db.prepare("SELECT value FROM meta WHERE key='backupDirty'").get().value,'0'); db.close();
 });
 
 test('process: simultaneous starters elect one writer and identify its live HTTP instance', {timeout:90000},async t=>{

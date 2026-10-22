@@ -29,7 +29,10 @@ async function stop(child: ChildProcess) {
 async function navigate(page: Page, name: string) {
   await expect(page.getByTestId('local-mode')).toBeVisible();
   const menu = page.getByRole('button', { name: 'Menu', exact: true });
-  if (await menu.isVisible() && await menu.getAttribute('aria-expanded') !== 'true') await menu.click();
+  if (await menu.isVisible() && await menu.getAttribute('aria-expanded') !== 'true') {
+    await menu.click();
+    await expect(menu).toHaveAttribute('aria-expanded', 'true');
+  }
   await page.getByRole('link', { name, exact: true }).click();
 }
 
@@ -98,13 +101,13 @@ test('local price history survives restart; session warning preserves a draft; b
     const { writeFile } = await import('node:fs/promises');
     await writeFile(join(dir, 'backups', `${Date.now()}-${crypto.randomUUID()}.sqlite`), 'damaged snapshot');
     child = await launch(dir, port);
-    await expect(page.getByText('The local server restarted. Copy any unsaved drafts, then reload this page.')).toBeVisible();
+    await expect(page.getByText('MenuPilot restarted. Copy any unsaved drafts, then open it again with npm run menupilot -- open-url.')).toBeVisible();
     await expect(page.getByRole('dialog').getByLabel(/Pack price/)).toHaveValue('4.00');
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.goto(launchUrls.get(child)!);
     // Fragment login exchanges the new key and then reloads asynchronously.
     // Wait for the previous session warning to disappear before opening the mobile menu.
-    await expect(page.getByText('The local server restarted. Copy any unsaved drafts, then reload this page.')).toHaveCount(0);
+    await expect(page.getByText('MenuPilot restarted. Copy any unsaved drafts, then open it again with npm run menupilot -- open-url.')).toHaveCount(0);
     await navigate(page, 'Ingredients');
     await page.getByRole('button', { name: 'Price history of Local flour', exact: true }).click();
     await expect(page.getByRole('dialog').getByRole('row')).toHaveCount(3);
@@ -203,5 +206,72 @@ test('agent proposes; owner confirms or rejects; Dashboard refreshes and dialog 
     await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Owner unsaved recipe');
     await expect(page.getByText(/Another tab changed|saved data changed|Data changed/i).first()).toBeVisible();
     expect(external).toEqual([]);
+  } finally { await stop(child); await rm(dir, { recursive: true }); }
+});
+
+test('owner acceptance: import, edit, compare CLI with Dashboard, approve price, verify backup, stop and restart', { timeout: 120000 }, async ({ page, context }, info) => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const { writeFile } = await import('node:fs/promises');
+  const { serializeBackup } = await import('../../src/store/serialization.js');
+  const demo = JSON.parse(await (await import('node:fs/promises')).readFile('data/demo.json', 'utf8'));
+  const exec = promisify(execFile);
+  const dir = await mkdtemp(join(tmpdir(), 'menupilot-acceptance-')), port = await freePort();
+  const origin = `http://127.0.0.1:${port}`, env = { ...process.env, MENUPILOT_DATA_DIR: dir, MENUPILOT_PORT: String(port) };
+  const exportPath = join(dir, 'browser-export.json');
+  await writeFile(exportPath, serializeBackup({ document: demo, documentId: 'browser-export', revision: 4 }, true));
+  const cli = async (args: string[]) => (await exec(process.execPath, ['server/cli.js', ...args], { env })).stdout.trim();
+  const cliJson = async (args: string[]) => JSON.parse((await cli([...args, '--json'])));
+  const outside: string[] = [];
+  await context.route('**/*', route => {
+    if (new URL(route.request().url()).origin === origin) return route.continue();
+    outside.push(route.request().url()); return route.abort();
+  });
+  let child = await launch(dir, port);
+  try {
+    await page.goto(launchUrls.get(child)!);
+    await expect(page.getByTestId('local-mode')).toBeVisible();
+    await page.goto(origin + '/menupilot/#/data');
+    await page.locator('input[type="file"]').setInputFiles(exportPath);
+    const preview = page.getByRole('alertdialog');
+    await expect(preview).toContainText('5 dishes');
+    await expect(preview).toContainText('12 ingredients');
+    await expect(preview).toContainText('without merging');
+    await preview.getByRole('button', { name: 'Replace with backup', exact: true }).click();
+    await expect(preview).toHaveCount(0);
+
+    await page.goto(origin + '/menupilot/#/recipe/dish_classic_burger');
+    await page.getByLabel('Name', { exact: true }).fill('Owner edited burger');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
+
+    await page.goto(origin + '/menupilot/');
+    await page.locator('input[type="date"]').fill('2026-10-04');
+    const before = await cliJson(['what-changed', '--since', '2026-10-04']);
+    const proposal = await cliJson(['propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '18,00', '--pack-size', '1', 'kg']);
+    const panel = page.getByTestId('plans-panel');
+    await expect(panel.getByRole('heading', { name: 'Awaiting your confirmation' })).toBeVisible();
+    await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await dialog.getByRole('button', { name: 'Confirm apply', exact: true }).click();
+    await expect(panel).toContainText('Price applied.');
+    const after = await cliJson(['what-changed', '--since', '2026-10-04']);
+    expect(after.data.totalMonthlyImpact.cents).not.toBe(before.data.totalMonthlyImpact.cents);
+    const dashboardTotal = page.getByRole('region', { name: /Monthly impact at your volume/ });
+    await expect(dashboardTotal.getByText(after.data.totalMonthlyImpact.display, { exact: true })).toBeVisible();
+
+    const entries = await cli(['backup', 'list']);
+    const backupId = entries.match(/^([0-9]{13}-[a-f0-9-]{36})\s/m)?.[1];
+    expect(backupId).toBeTruthy();
+    expect(await cli(['backup', 'verify', backupId!])).toContain('Verified by restoring to a temporary database');
+    const stopped = await cliJson(['stop']);
+    expect(stopped.data.stopped).toBe(true);
+    if (child.exitCode === null && child.signalCode === null) await once(child, 'exit');
+    child = await launch(dir, port);
+    await page.goto(launchUrls.get(child)!);
+    await expect(page.getByTestId('local-mode')).toBeVisible();
+    await expect(page.getByText('Owner edited burger', { exact: true }).first()).toBeVisible();
+    expect(outside).toEqual([]);
+    await page.screenshot({ path: info.outputPath('owner-acceptance.png'), fullPage: true });
   } finally { await stop(child); await rm(dir, { recursive: true }); }
 });

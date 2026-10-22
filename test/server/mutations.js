@@ -47,6 +47,11 @@ try {
     ['pre-replacement snapshot', 'server/backups.js', "await capture('before-' + input.kind)", 'undefined', 'test/server/backups.test.js'],
     ['startup dirty snapshot', 'server/backups.js', "await capture('startup')", 'undefined', 'test/server/backups.test.js'],
     ['shutdown dirty snapshot', 'server/backups.js', "await capture('shutdown')", 'undefined', 'test/server/backups.test.js'],
+    ['stop API requires POST', 'server/http.js', "req.method === 'POST' && path === '/api/stop'", "path === '/api/stop'", 'test/server/http.test.js'],
+    ['stop API requires CLI token', 'server/http.js', "else if (req.method === 'POST' && path === '/api/stop') {\n          if (source !== 'cli') { send(res, 403, { code: 'cli-required'", "else if (req.method === 'POST' && path === '/api/stop') {\n          if (false) { send(res, 403, { code: 'cli-required'", 'test/server/http.test.js'],
+    ['stop request initiates shutdown', 'server/http.js', 'setImmediate(requestStop);', 'undefined;', 'test/server/http.test.js'],
+    ['stop waits for writer close', 'server/startLocal.js', 'await storage?.close()', 'storage?.close()', 'test/server/process.test.js'],
+    ['stop releases writer lock', 'server/startLocal.js', 'await lock.release()', 'undefined', 'test/server/process.test.js'],
     ['backup restore revision', 'server/sqlite.js', 'revision: current.revision + 1', "revision: current.revision + (input.kind === 'backup-restore' ? 0 : 1)", 'test/server/backups.test.js'],
     ['snapshot integrity check', 'server/backupFiles.js', "integrity.length !== 1 || integrity[0].integrity_check !== 'ok'", 'false', 'test/server/backups.test.js'],
     ['snapshot retention budget', 'server/backupFiles.js', 'entries.length >= budget.count', 'false', 'test/server/backups.test.js'],
@@ -118,7 +123,8 @@ try {
       ["res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');", ''],
     ].map(([before, after], i) => [`CSP/isolation ${i + 1}`, 'server/http.js', before, after, 'test/server/review.test.js']),
   ];
-  for (const [name, file, before, after, test] of mutants) {
+  const filter = process.env.MENUPILOT_MUTATION_FILTER;
+  for (const [name, file, before, after, test] of mutants.filter(([name]) => !filter || name.toLowerCase().includes(filter.toLowerCase()))) {
     const path = join(dir,file), original = readFileSync(path,'utf8');
     if (!original.includes(before)) throw new Error(`Missing mutation target: ${name}`);
     const args = test.endsWith('.tsx')
