@@ -25,4 +25,13 @@ export const plansEn = {
   'plans.rejected': 'Proposal rejected.',
   'plans.error': 'Could not complete this action. Check the local server and plan status, then retry.',
   'plans.loadError': 'Could not load proposals. Check the local server; MenuPilot will retry.',
+  'plans.pendingCount': 'Awaiting confirmation: {count}',
+  'plans.inactive': 'Inactive proposals (outdated, rejected or replaced): {count}',
+  'plans.hide': 'Hide',
+  'plans.rejectAll': 'Reject all',
+  'plans.more': '{count} more',
+  'plans.first': 'First proposals',
+  'plans.selected': '{count} proposals',
+  'plans.zeroPrice': 'The proposed supplier price is zero. Check the invoice before confirming.',
+  'plans.largeChange': 'The price per kg/l/pc changes by more than ×3. Check the pack size and invoice before confirming.',
 } as const;

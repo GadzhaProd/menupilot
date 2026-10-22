@@ -57,3 +57,50 @@ Files: `en-desktop.jpg`, `nl-desktop.jpg`, `en-375.jpg`, `nl-375.jpg`, `dialog-n
 Pending plans expire at 24 hours. Terminal plan retention is bounded (200 plans, 2 MiB, seven days after expiry), so plan replay is guaranteed within retention, not forever. Lifecycle cleanup is lazy on access. Costs use the current pre-proposal catalog; comparing with Dashboard requires the matching comparison point, not necessarily its default 30-day date.
 
 CLI-vs-UI separation guards against agent mistakes and other browser sites. It is not a security boundary against a local process with full user privileges. Independent coordinator/reviewer review remains separate from this implementation report.
+
+## Coordinator review follow-up — 2026-10-22
+
+Status: complete. Security fix committed separately from plan/CLI and panel fixes.
+
+- CLI open-url returns `{opened}` only, invokes the OS launcher without a shell, and never returns a capability URL. Launch keys are no longer written to data files. An automated regression reads fixture files and probes routes using only CLI credentials; the capability-leak mutation is caught. E2E sign-in reads startup stdout.
+- New proposals supersede pending proposals for the same ingredient atomically. Invalid proposals preserve their predecessor. Agent prices are capped at €100,000; zero and exact unit-price ratios beyond ×3 produce EN/NL warnings. Journal includes plan/ingredient IDs; stale/expired refusals use HTTP 409.
+- CLI money objects follow D4 for propose/list/status, with one snapshot for list/version. Human quantities accept 1kg, show 2,5 kg and unit prices, and localize the owner-confirmation text. Ingredients no longer print object coercions.
+- Panel shows three pending cards at most, paging, confirmed Reject all and one dismissible inactive summary. One panel status region, timed success messages, shared VAT labels, Dutch Bijdrage terminology and non-wrapping money values. Zero/×3 warnings appear in card and dialog.
+
+Final actual output (all exit 0):
+
+```text
+VITEST_MAX_WORKERS=2 npm run check
+> tsc --noEmit
+ℹ tests 195 / pass 195 / fail 0
+Test Files 36 passed (36)
+Tests 399 passed (399)
+ℹ tests 132 / pass 132 / fail 0
+101 mutation checks: CAUGHT
+✓ 2117 modules transformed.
+✓ built in 267ms
+npm run test:e2e
+23 passed (14.8s)
+npm run test:e2e:local
+4 passed (30.8s)
+```
+
+Earlier check stopped on an obsolete mutation target for the removed launch-URL validator; replaced with a mutation allowing extra capability fields in `{opened}`. An earlier mobile local E2E exposed test navigation racing the asynchronous sign-in reload; it now waits for the old session warning to disappear. Final full runs above passed. Existing >500 kB chunk, Node localStorage and NO_COLOR warnings remain.
+
+Artifacts: `/Users/gadzha/.bb/thread-storage/thr_ae7jmeh9n6/d5-verification/review/` — complete logs and panel/dialog EN/NL screenshots at desktop/375 px, visible ×3 warning, NL expired refusal, inactive summary and keyboard focus. In Chromium, Tab stayed inside the dialog, Escape returned focus to Apply (or the panel heading once a card was inactive), 375 px had no horizontal overflow, and negative money stayed on one line. Expiry uses a controlled fixture only; no owner data was accessed.
+
+### Отчёт владельцу
+1. Исправлена граница CLI/UI, очередь предложений и панель подтверждения.
+2. Агент больше не получает ссылку входа через штатную команду; необычные цены заметны до подтверждения.
+3. Агент предлагает, владелец проверяет последствия и подтверждает в MenuPilot. Повторное предложение заменяет старое, не меняя цену само.
+4. В локальном режиме предложить цену через CLI, проверить карточку, открыть диалог и применить либо отклонить. Для нескольких ингредиентов доступно «Отклонить все». Цена 0 или изменение более ×3 показывает предупреждение.
+5. Все обязательные проверки прошли; фактические результаты указаны выше.
+6. Не осталось известных незакрытых пунктов ревью. Это защита от ошибок в штатном процессе, не изоляция от процесса с полными правами пользователя. Зависимости, формат документа и src/calc не менялись.
+
+| Кто | Что может штатно |
+|---|---|
+| CLI/агент | Читать и предлагать. Не получает UI-токен; не применяет и не отклоняет. Правила запрещают открывать свои планы и обращаться к файлам данных. |
+| Окно MenuPilot | Через UI-сеанс и правильный Origin подтверждать применение/отклонение. |
+| Другой сайт | Не читает и не подтверждает через браузер: мешают Origin/Host/сеанс. |
+
+Агент с полным shell-доступом теоретически может обойти процесс (например, изменив БД); это прямо отражено в README/CLI и AGENTS.md.

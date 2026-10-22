@@ -25,4 +25,13 @@ export const plansNl = {
   'plans.rejected': 'Voorstel afgewezen.',
   'plans.error': 'Deze actie is niet voltooid. Controleer de lokale server en de voorstelstatus en probeer opnieuw.',
   'plans.loadError': 'Voorstellen laden mislukt. Controleer de lokale server; MenuPilot probeert het opnieuw.',
+  'plans.pendingCount': 'Voorstellen in afwachting van bevestiging: {count}',
+  'plans.inactive': 'Inactieve voorstellen (verouderd, afgewezen of vervangen): {count}',
+  'plans.hide': 'Verbergen',
+  'plans.rejectAll': 'Alles afwijzen',
+  'plans.more': 'Nog {count}',
+  'plans.first': 'Eerste voorstellen',
+  'plans.selected': '{count} voorstellen',
+  'plans.zeroPrice': 'De voorgestelde leveranciersprijs is nul. Controleer de factuur voordat je bevestigt.',
+  'plans.largeChange': 'De prijs per kg/l/pc verandert met meer dan ×3. Controleer de verpakking en factuur voordat je bevestigt.',
 } as const;
