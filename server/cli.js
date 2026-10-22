@@ -4,10 +4,11 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { assertRuntime } from './runtime.js';
 import { executeReadCommand, localDataPath, localDoctor, serializeCliError } from './cliRead.js';
+import { executePlanCommand, printPlan } from './cliPlans.js';
 import { hasValidLaunchUrl } from './cliSecurity.js';
 
 const readCommands = new Set(['status', 'what-changed', 'dishes', 'dish', 'ingredients', 'ingredient', 'preps', 'simulate', 'history', 'journal', 'backups']);
-const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups> [options]';
+const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups|propose|plans|plan> [options]';
 function jsonRequested(args) { return args.includes('--json'); }
 function printJson(value, error = false) { (error ? console.error : console.log)(JSON.stringify(value)); }
 function exitCode(code) { return ({ usage: 2, 'invalid-argument': 2, 'invalid-unit': 2, 'not-found': 4, ambiguous: 4, unauthorized: 5, unavailable: 3 })[code] ?? 1; }
@@ -40,7 +41,7 @@ export async function connection(dir) {
     }
     let value; try { value = await response.json(); } catch { throw cliError('server-error', 'MenuPilot returned an invalid response.'); }
     if (response.status === 401) throw cliError('unauthorized', 'The MenuPilot CLI token was rejected. Restart MenuPilot, then try again.');
-    if (!response.ok) throw cliError(value.code || 'server-error', value.message || 'MenuPilot could not complete the command.');
+    if (!response.ok) throw Object.assign(cliError(value.code || 'server-error', value.message || 'MenuPilot could not complete the command.'), { candidates: value.candidates });
     return value;
   }
   return { api, address: lock.address };
@@ -97,6 +98,12 @@ async function run(args) {
       const { recoverFromBackup } = await import('./recovery.js');
       const result = await recoverFromBackup(dir, args[2]);
       console.log(`Recovered. Original files and report: ${result.reportPath}\nRun npm start. Emergency recovery uses a new dataset identity; changes after the backup are not recovered.`);
+      return;
+    }
+    if (['propose', 'plans', 'plan'].includes(command)) {
+      const { api } = await connection(dir);
+      const result = await executePlanCommand(command, args.slice(1), api);
+      if (wantJson) { const { locale, ...output } = result; printJson(output); } else printPlan(result);
       return;
     }
     if (readCommands.has(command)) {

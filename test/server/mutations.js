@@ -10,6 +10,17 @@ try {
   }
   writeFileSync(join(dir,'package.json'),'{"type":"module"}');
   const mutants = [
+    ['plan approval UI gate', 'server/http.js', "['apply', 'reject'].includes(action) && source !== 'ui'", 'false', 'test/server/plans.test.js'],
+    ['plan revision gate', 'server/plans.js', 'plan.revision !== current.revision', 'false', 'test/server/plans.test.js'],
+    ['plan identity gate', 'server/plans.js', 'plan.documentId !== current.documentId', 'false', 'test/server/plans.test.js'],
+    ['plan expiry', 'server/plans.js', 'Date.parse(plan.expiresAt) <= time', 'false', 'test/server/plans.test.js'],
+    ['plan replay', 'server/plans.js', "if (plan.status === 'applied') return", "if (false) return", 'test/server/plans.test.js'],
+    ['plan atomic commit', 'server/plans.js', "plan.status = 'applied';", "db.exec('COMMIT'); plan.status = 'applied';", 'test/server/plans.test.js'],
+    ['plan pending budget', 'server/plans.js', "plans.filter(p => p.status === 'pending').length >= PLAN_LIMITS.pending", 'false', 'test/server/plans.test.js'],
+    ['plan byte budget', 'server/plans.js', 'bytes > PLAN_LIMITS.singleBytes', 'false', 'test/server/plans.test.js'],
+    ['plan effect direction', 'server/planEffects.js', 'monthlyImpactCents(monthly(row), monthly(old))', 'monthlyImpactCents(monthly(old), monthly(row))', 'test/server/plans.test.js'],
+    ['plan compatible unit', 'server/plans.js', 'quantity.unit !== target.unit', 'false', 'test/server/plans.test.js'],
+
     ['retention restore-test', 'server/backupFiles.js', 'await verifyOrQuarantine(dir, entry.id)', '{ metadata: entry }', 'test/server/backup-retention.test.js'],
     ['retention verified spare', 'server/backupFiles.js', 'verified.slice(0, 2)', 'verified.slice(0, 1)', 'test/server/backup-retention.test.js'],
     ['retention clock pause', 'server/backups.js', 'observe(); return clockWarning;', 'observe(); return false;', 'test/server/backup-retention.test.js'],

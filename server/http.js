@@ -52,6 +52,7 @@ export function handleRequestError(req, res, error) {
       code: error instanceof StoreError ? error.code : 'server-error',
       message: error instanceof StoreError ? error.message : 'Local server could not complete the request.',
       details: error instanceof StoreError ? error.details : [],
+      ...(error?.candidates && { candidates: error.candidates }),
     });
   } catch { try { res.destroy(); } catch { /* Broken response cannot be reported again. */ } }
 }
@@ -157,6 +158,15 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
             if (source !== 'cli') { send(res, 403, { code: 'cli-required', message: 'Use backup restore in your terminal.' }); return; }
             value = await storage.backups.restore(body, source);
           }
+        }
+        else if (req.method === 'GET' && path === '/api/plans') value = await storage.plans.list();
+        else if (req.method === 'POST' && ['/api/plans/propose', '/api/plans/status', '/api/plans/apply', '/api/plans/reject'].includes(path)) {
+          const action = path.split('/').at(-1);
+          if (['apply', 'reject'].includes(action) && source !== 'ui') { send(res, 403, { code: 'ui-required', message: 'Only the owner in the MenuPilot window can apply or reject a plan.' }); return; }
+          const body = await jsonBody(req, 2048);
+          if (action !== 'propose' && (!body || Array.isArray(body) || typeof body.id !== 'string' || Object.keys(body).length !== 1)) throw new StoreError('invalid-argument', 'Provide a plan ID.');
+          value = action === 'propose' ? await storage.plans.propose(body, 'cli')
+            : await storage.plans[action === 'status' ? 'get' : action](body.id);
         }
         else if (req.method === 'GET' && path === '/api/document') value = storage.load();
         else if (req.method === 'GET' && path === '/api/version') value = storage.version();
