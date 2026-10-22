@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { connect } from 'node:net';
 import { createBaselineSnapshot, simulate } from '../src/calc/simulate.js';
-import { recipeCost, metrics } from '../src/calc/costing.js';
+import { recipeCost, metrics, packUnitPriceCents } from '../src/calc/costing.js';
 import { dashboardData } from '../src/calc/dashboard.js';
 import { formatEURFromCentsLocale, formatEURFromMicroLocale, formatPercentTenthsLocale, normalizeLocale, parseMoneyToCents } from '../src/calc/money.js';
 import { parseQuantityToMilli } from '../src/calc/units.js';
@@ -113,8 +113,42 @@ function parseNonNegativeInteger(raw, name) {
 function unitPackaging(ingredient, locale) {
   const price = ingredient.prices.at(-1);
   if (!price) return null;
-  return { packPrice: money(price.packPriceCents, locale), packPriceUnit: 'excl. VAT', packSizeMilli: price.packSizeMilli, unit: ingredient.unit,
+  return { packPrice: money(price.packPriceCents, locale), packPriceUnit: 'excl. VAT', packSizeMilli: price.packSizeMilli, packSize: quantityValue(price.packSizeMilli, ingredient.unit, locale),
+    unitPrice: unitPriceValue(price.packPriceCents, price.packSizeMilli, ingredient.unit, locale), unit: ingredient.unit,
     recordedAt: price.recordedAt, sequence: price.seq };
+}
+
+function quantityValue(milli, base, locale) {
+  const useLarge = base !== 'pc' && milli >= 1_000_000 && milli % 1_000 === 0;
+  const scale = useLarge ? 1_000_000 : 1_000;
+  const remainder = milli % scale;
+  const whole = String((milli - remainder) / scale);
+  const fraction = String(remainder).padStart(scale === 1_000 ? 3 : 6, '0').replace(/0+$/, '');
+  const value = fraction ? `${whole}.${fraction}` : whole;
+  const unit = useLarge ? (base === 'g' ? 'kg' : 'l') : base;
+  const displayUnit = locale === 'nl' && unit === 'pc' ? 'st' : unit;
+  return { value, display: `${value.replace('.', locale === 'nl' ? ',' : '.')} ${displayUnit}` };
+}
+function percentageValue(basisPoints, locale) {
+  const whole = Math.floor(basisPoints / 100), fraction = String(basisPoints % 100).padStart(2, '0').replace(/0+$/, '');
+  const value = fraction ? `${whole}.${fraction}` : String(whole);
+  return { value, display: `${value.replace('.', locale === 'nl' ? ',' : '.')}%` };
+}
+function unitPriceValue(packPriceCents, packSizeMilli, unit, locale) {
+  const price = packUnitPriceCents(packPriceCents, packSizeMilli, unit);
+  const per = locale === 'nl' && price.per === 'pc' ? 'st' : price.per;
+  return { value: { cents: price.cents.toString(), per: price.per }, display: `${formatEURFromCentsLocale(price.cents, locale)}/${per}` };
+}
+function recipeLineOutput(line, target, locale) {
+  return { id: line.id, ref: line.ref, netQtyMilli: line.netQtyMilli, yieldBp: line.yieldBp,
+    quantity: quantityValue(line.netQtyMilli, target?.unit ?? target?.outputUnit ?? 'g', locale),
+    yield: percentageValue(line.yieldBp, locale),
+    target: target ? { id: target.id, name: target.name, kind: line.ref.kind, unit: target.unit ?? target.outputUnit } : null };
+}
+function prepOutput(prep, doc, locale) {
+  return { id: prep.id, name: prep.name, outputMilli: prep.outputMilli, outputUnit: prep.outputUnit,
+    output: quantityValue(prep.outputMilli, prep.outputUnit, locale),
+    lines: prep.lines.map(line => recipeLineOutput(line, line.ref.kind === 'ingredient' ? doc.ingredients.find(i => i.id === line.ref.id) : doc.recipes.find(r => r.id === line.ref.id), locale)) };
 }
 
 function evaluateSimulation(doc, dishToken, values, locale) {
@@ -264,10 +298,10 @@ export async function executeReadCommand(command, args, api) {
     data = dashboardOutput(doc, dateFor(values.get('--since')), locale);
   } else if (command === 'dishes') {
     if (positional.length) throw cliError('usage', 'dishes accepts options only.');
-    data = doc.recipes.filter(item => item.kind === 'dish').map(item => ({ id: item.id, name: item.name, menuPriceInclVatCents: String(item.menuPriceInclVatCents), menuPriceInclVat: money(item.menuPriceInclVatCents, locale), menuPriceLabel: 'incl. VAT', monthlyVolume: item.monthlyVolume ?? null }));
+    data = doc.recipes.filter(item => item.kind === 'dish').map(item => ({ id: item.id, name: item.name, menuPriceInclVatCents: String(item.menuPriceInclVatCents), menuPriceInclVat: money(item.menuPriceInclVatCents, locale), menuPriceLabel: 'incl. VAT', vatRateBp: item.vatRateBp, vatRate: percentageValue(item.vatRateBp, locale), monthlyVolume: item.monthlyVolume ?? null }));
   } else if (command === 'preps') {
     if (positional.length) throw cliError('usage', 'preps accepts options only.');
-    data = doc.recipes.filter(item => item.kind === 'prep').map(item => ({ id: item.id, name: item.name, outputMilli: item.outputMilli, outputUnit: item.outputUnit }));
+    data = doc.recipes.filter(item => item.kind === 'prep').map(item => prepOutput(item, doc, locale));
   } else if (command === 'ingredients') {
     if (positional.length) throw cliError('usage', 'ingredients accepts options only.');
     data = doc.ingredients.map(item => ({ id: item.id, name: item.name, unit: item.unit, currentPrice: unitPackaging(item, locale) }));
@@ -278,15 +312,15 @@ export async function executeReadCommand(command, args, api) {
     catch (error) { const prep = doc.recipes.find(r => r.kind === 'prep' && normalized(r.id) === normalized(positional[0]) || r.kind === 'prep' && normalized(r.name) === normalized(positional[0])); if (prep) throw cliError('not-found', `“${prep.name}” is a prep, not a dish.`, exactCandidates([prep], locale)); throw error; }
     const cost = recipeCost(dish, doc);
     const m = metrics({ recipeCostPerPortionMicro: cost.costPerPortionMicro, menuPriceInclVatCents: dish.menuPriceInclVatCents, vatRateBp: dish.vatRateBp, monthlyVolume: dish.monthlyVolume });
-    data = { id: dish.id, name: dish.name, menuPriceInclVatCents: String(dish.menuPriceInclVatCents), menuPriceInclVat: money(dish.menuPriceInclVatCents, locale), menuPriceLabel: 'incl. VAT', vatRateBp: dish.vatRateBp,
+    data = { id: dish.id, name: dish.name, menuPriceInclVatCents: String(dish.menuPriceInclVatCents), menuPriceInclVat: money(dish.menuPriceInclVatCents, locale), menuPriceLabel: 'incl. VAT', vatRateBp: dish.vatRateBp, vatRate: percentageValue(dish.vatRateBp, locale),
       portions: dish.portions, monthlyVolume: dish.monthlyVolume ?? null, recipeBasedIngredientCostMicro: cost.costPerPortionMicro?.toString() ?? null,
       recipeBasedIngredientCost: money(cost.costPerPortionMicro, locale, true), contributionMicro: m.contributionMicro?.toString() ?? null,
-      contribution: money(m.contributionMicro, locale, true), lines: dish.lines.map(line => { const target = line.ref.kind === 'ingredient' ? doc.ingredients.find(i => i.id === line.ref.id) : doc.recipes.find(r => r.id === line.ref.id); return { id: line.id, ref: line.ref, netQtyMilli: line.netQtyMilli, yieldBp: line.yieldBp,
-        target: target ? { id: target.id, name: target.name, kind: line.ref.kind, unit: target.unit ?? target.outputUnit } : null }; }) };
+      contribution: money(m.contributionMicro, locale, true), lines: dish.lines.map(line => recipeLineOutput(line, line.ref.kind === 'ingredient' ? doc.ingredients.find(i => i.id === line.ref.id) : doc.recipes.find(r => r.id === line.ref.id), locale)) };
   } else if (command === 'ingredient') {
     if (positional.length !== 1) throw cliError('usage', 'Usage: ingredient <id|exact name>.');
     const ingredient = resolveOne(doc.ingredients, positional[0], 'ingredient', locale);
-    data = { id: ingredient.id, name: ingredient.name, unit: ingredient.unit, priceHistory: ingredient.prices.map(price => ({ sequence: price.seq, recordedAt: price.recordedAt, packPriceCents: String(price.packPriceCents), packPrice: money(price.packPriceCents, locale), packPriceLabel: 'excl. VAT', packSizeMilli: price.packSizeMilli })) };
+    data = { id: ingredient.id, name: ingredient.name, unit: ingredient.unit, priceHistory: ingredient.prices.map(price => ({ sequence: price.seq, recordedAt: price.recordedAt, packPriceCents: String(price.packPriceCents), packPrice: money(price.packPriceCents, locale), packPriceLabel: 'excl. VAT', packSizeMilli: price.packSizeMilli,
+      packSize: quantityValue(price.packSizeMilli, ingredient.unit, locale), unitPrice: unitPriceValue(price.packPriceCents, price.packSizeMilli, ingredient.unit, locale) })) };
   } else if (command === 'simulate') {
     if (positional.length) throw cliError('usage', 'simulate accepts named options only.');
     const dish = values.get('--dish'); if (!dish) throw cliError('usage', 'Usage: simulate --dish <id|exact name> [options].');
@@ -302,6 +336,8 @@ export async function executeReadCommand(command, args, api) {
       lastBackup: status.lastBackupAt, lastExternalBackup: status.lastExternalBackupAt };
     warnings = statusNotes;
   } else throw cliError('usage', `Unknown read command: ${command}.`);
+  if (command === 'backups') warnings = statusWarnings(data.status);
+  else if (command !== 'status') warnings = statusWarnings(await api('backups/status'));
   return { ...base, data: asRecord(data, locale), warnings };
 }
 

@@ -1,4 +1,5 @@
 import { formatEURFromCentsLocale, formatEURFromMicroLocale, formatPercentTenthsLocale } from '../src/calc/money.js';
+import { statusWarnings } from './cliRead.js';
 const usage = () => { throw Object.assign(new Error('Use propose add-price --ingredient <id|exact name> --pack-price <excl. VAT> --pack-size <quantity unit>, plans, or plan status <id> [--json] [--locale en|nl].'), { code: 'usage' }); };
 export async function executePlanCommand(command, args, api) {
   let locale = 'en'; const words = [];
@@ -24,7 +25,7 @@ export async function executePlanCommand(command, args, api) {
   const version = data;
   data = command === 'plans' ? data.plans : data;
   const formatted = formatPlan(data, locale);
-  const warnings = (Array.isArray(formatted) ? formatted : [formatted]).flatMap(p => p.warnings ?? []);
+  const warnings = [...(Array.isArray(formatted) ? formatted : [formatted]).flatMap(p => p.warnings ?? []), ...statusWarnings(await api('backups/status'))];
   return { apiVersion: 1, command, documentId: version.documentId, revision: version.revision, data: formatted, warnings, locale };
 }
 // CLI presentation only; persisted plans and the UI transport retain exact values.

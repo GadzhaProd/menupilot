@@ -36,6 +36,7 @@ describe('CLI Dashboard parity', () => {
         const since = index === 3 ? '30d' : date;
         const cli = await executeReadCommand('what-changed', ['--since', since, '--locale', locale, '--json'], async (route: string) => {
           if (route === 'document') return { document: scenarioDoc, documentId: 'parity', revision: index };
+          if (route === 'backups/status') return { overdue: false, externalOverdue: false, backupError: null, externalError: null, corruptBackups: 0, corruptExternalBackups: 0, clockWarning: false };
           throw new Error(`Unexpected API request: ${route}`);
         });
         expect(cli.documentId).toBe('parity');

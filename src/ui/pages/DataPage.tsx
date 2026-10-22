@@ -134,7 +134,7 @@ export function DataPage() {
     <section aria-labelledby="page-title" className="space-y-6">
       <div className="space-y-1">
         <h1 id="page-title" className="text-4xl font-semibold">{t('data.title')}</h1>
-        <p className="max-w-prose text-muted-foreground">{local ? (locale === 'nl' ? 'Je gegevens staan op deze computer. Exporteer regelmatig een back-up; automatische kopieën zijn nog niet beschikbaar in deze preview.' : 'Your data is stored on this computer. Export a backup regularly; automatic copies are not available in this preview yet.') : t('data.intro')}</p>
+        <p className="max-w-prose text-muted-foreground">{local ? (locale === 'nl' ? 'Je gegevens staan op deze computer. MenuPilot bewaart hier automatisch kopieën; de status staat bovenaan.' : 'Your data is stored on this computer. MenuPilot saves local copies automatically; see their status above.') : t('data.intro')}</p>
         <p className="text-sm text-muted-foreground">{t('data.currentCounts', {
           ingredients: plural('data.count.ingredients', document.ingredients.length),
           recipes: plural('data.count.recipes', document.recipes.length),

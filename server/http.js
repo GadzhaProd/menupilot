@@ -63,12 +63,13 @@ export function dispatchRequest(handle, req, res) {
 }
 
 /** No arbitrary filesystem paths or arbitrary adapter method dispatch are accepted. */
-export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now, openBrowser = launchBrowser, requestStop = () => {} }) {
+export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now, openBrowser = launchBrowser, requestStop = async () => ({ backupCreated: true }), finishStop = () => {} }) {
   const session = createSession(dataDir, now), log = createLogger(dataDir);
   const policy = { headersMs: 10000, bodyMs: 15000, keepAliveMs: 5000, connections: 32, ...limits };
   const loginPage = readFileSync(new URL('./login.html', import.meta.url));
   const loginScript = readFileSync(new URL('./login.js', import.meta.url));
   const headerTimers = new Map();
+  let stopping = false;
   const root = realpathSync(distDir), files = staticFiles(root);
   // Preserve the existing synchronous appearance bootstrap without allowing inline JS.
   // Sources come only from our trusted build, never a request or stored document.
@@ -138,6 +139,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
         const source = session.authorize(token) ? 'ui' : tokenMatches(token, cliToken) ? 'cli' : null;
         if (!source) { send(res, 401, { code: 'session-expired', message: 'The local server session changed. Copy any unsaved drafts, then reload this page.' }); return; }
         if (req.method !== 'GET' && req.headers.origin !== address && source !== 'cli') { send(res, 403, { code: 'origin', message: 'Same-origin request required.' }); return; }
+        if (stopping && req.method !== 'GET') { send(res, 503, { code: 'stopping', message: 'MenuPilot is stopping. Start npm start again to continue.' }); return; }
         let value;
         if (req.method === 'POST' && path === '/api/open-url') {
           if (source !== 'cli') { send(res, 403, { code: 'cli-required', message: 'Use open-url in your terminal.' }); return; }
@@ -150,9 +152,13 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
           if (source !== 'cli') { send(res, 403, { code: 'cli-required', message: 'Use the MenuPilot CLI to stop the server.' }); return; }
           const body = await jsonBody(req, 1024);
           if (body && (Array.isArray(body) || Object.keys(body).length)) throw new StoreError('invalid', 'Stop does not accept options.');
-          value = { stopped: true };
+          stopping = true;
+          const result = await requestStop();
+          value = result.backupCreated
+            ? { stopped: true, backupCreated: true }
+            : { stopped: true, backupCreated: false, code: result.code ?? 'shutdown-backup-failed', message: result.message };
+          res.once('finish', () => { void finishStop(result); });
           send(res, 200, value);
-          setImmediate(requestStop);
           return;
         }
         else if (req.method === 'GET' && path === '/api/backups/status' && storage.backups) value = storage.backups.status();
@@ -231,17 +237,23 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   address = `http://127.0.0.1:${server.address().port}`;
   log('started');
-  let closing;
+  let closing, accepting;
   return { address, cliToken, get openUrl() { return `${address}/menupilot/#k=${session.key}`; },
+    stopAccepting() {
+      return accepting ??= new Promise((resolve, reject) => {
+        server.close(error => { error ? reject(error) : resolve(); });
+      });
+    },
     close() {
-      return closing ??= new Promise((resolve, reject) => {
+      if (!closing) {
         // Unfinished bodies/keep-alive clients cannot hold the writer lock forever.
         // SQLite writes are synchronous, so no transaction can be interrupted here.
         const deadline = setTimeout(() => server.closeAllConnections(), 1000);
         deadline.unref();
-        server.close(error => { clearTimeout(deadline); log('stopped'); error ? reject(error) : resolve(); });
+        closing = this.stopAccepting().then(() => { clearTimeout(deadline); log('stopped'); }, error => { clearTimeout(deadline); throw error; });
         server.closeIdleConnections();
-      });
+      }
+      return closing;
     },
   };
 }

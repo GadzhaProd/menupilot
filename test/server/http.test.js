@@ -84,14 +84,31 @@ test('HTTP: non-ASCII token is denied and CLI token cannot bypass UI confirmatio
 
 test('HTTP: stop is POST-only, CLI-only, and requests shutdown after its response', async t => {
   let requested = false;
-  const f = await fixture({ requestStop: () => { requested = true; } }); t.after(() => f.close());
+  const f = await fixture({ requestStop: () => { requested = true; return { backupCreated: true }; } }); t.after(() => f.close());
   assert.equal((await fetch(f.address + '/api/stop', { headers: { Authorization: `Bearer ${f.cliToken}` } })).status, 404);
   const ui = await fetch(f.address + '/api/stop', { method: 'POST', headers: { Authorization: `Bearer ${f.uiToken}`, Origin: f.address, 'Content-Type': 'application/json' }, body: '{}' });
   assert.equal(ui.status, 403);
   assert.equal(requested, false);
   const cli = await fetch(f.address + '/api/stop', { method: 'POST', headers: { Authorization: `Bearer ${f.cliToken}`, 'Content-Type': 'application/json' }, body: '{}' });
-  assert.equal(cli.status, 200); assert.deepEqual(await cli.json(), { stopped: true });
+  assert.equal(cli.status, 200); assert.deepEqual(await cli.json(), { stopped: true, backupCreated: true });
   await new Promise(resolve => setImmediate(resolve)); assert.equal(requested, true);
+});
+
+test('HTTP: stop waits for shutdown snapshot result before responding and refuses later writes', async t => {
+  let release;
+  const completed = new Promise(resolve => { release = resolve; });
+  const f = await fixture({ requestStop: () => completed }); t.after(() => f.close());
+  let responseSettled = false;
+  const responsePromise = fetch(f.address + '/api/stop', { method: 'POST', headers: { Authorization: `Bearer ${f.cliToken}`, 'Content-Type': 'application/json' }, body: '{}' })
+    .then(response => { responseSettled = true; return response; });
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(responseSettled, false);
+  const rejectedWrite = await f.fetchUI(f.address + '/api/write', { method: 'POST', headers: { Authorization: `Bearer ${f.uiToken}`, 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(rejectedWrite.status, 503);
+  assert.equal((await rejectedWrite.json()).code, 'stopping');
+  release({ backupCreated: false, code: 'shutdown-backup-failed', message: 'Copy could not be created.' });
+  const response = await responsePromise;
+  assert.deepEqual(await response.json(), { stopped: true, backupCreated: false, code: 'shutdown-backup-failed', message: 'Copy could not be created.' });
 });
 
 

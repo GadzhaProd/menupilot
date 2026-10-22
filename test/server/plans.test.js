@@ -13,6 +13,7 @@ function fixture(t, document = smallDocument()) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-plans-'));
   let time = Date.parse('2026-10-22T12:00:00Z');
   const s = createSqliteStorage(join(dir, 'data.db'), { initialDocument: document, now: () => time });
+  s.backups = { list: () => [], status: () => ({ overdue: false, externalOverdue: false, backupError: null, externalError: null, corruptBackups: 0, corruptExternalBackups: 0, clockWarning: false }) };
   t.after(() => { s.close(); rmSync(dir, { recursive: true }); });
   return { s, dir, advance: ms => { time += ms; } };
 }
@@ -235,7 +236,7 @@ test('plans CLI: all money fields follow D4 and list version comes from the same
   for (const [command, args] of [['plans', []], ['plan', ['status', p.id]], ['propose', ['add-price', '--ingredient', 'i1', '--pack-price', '18', '--pack-size', '1kg']]]) {
     const calls = [];
     const result = await executePlanCommand(command, [...args, '--locale', 'nl'], async route => { calls.push(route); return route === 'plans' ? { documentId: 'snapshot', revision: 42, plans: [p] } : p; });
-    assert.equal(calls.length, 1);
+    assert.deepEqual(calls, command === 'plans' ? ['plans', 'backups/status'] : command === 'plan' ? ['plans/status', 'backups/status'] : ['plans/propose', 'backups/status']);
     if (command === 'plans') { assert.equal(result.documentId, 'snapshot'); assert.equal(result.revision, 42); }
     const plan = Array.isArray(result.data) ? result.data[0] : result.data;
     function check(value) {

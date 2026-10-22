@@ -62,15 +62,16 @@ function displayValue(value) {
   if (Array.isArray(value)) return value.length ? value.map(item => `- ${displayValue(item).replace(/\n/g, '\n  ')}`).join('\n') : '(none)';
   return Object.entries(value).map(([key, item]) => `${key}: ${displayValue(item)}`).join('\n');
 }
-function printHuman(result) {
+function printHuman(result, locale = 'en') {
   const { command, data, warnings = [] } = result;
   if (command === 'dishes' || command === 'preps' || command === 'ingredients') {
     for (const item of data) console.log(`${item.name}  [${item.id}]${item.currentPrice ? `  ${displayValue(item.currentPrice.packPrice)} excl. VAT` : ''}`);
   } else if (command === 'what-changed') {
-    console.log(`What changed since ${data.since}`);
-    for (const row of data.dishes) console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'} → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}); monthly impact ${displayValue(row.monthlyImpact)}${row.excludedReason ? `; excluded: ${row.excludedReason}` : ''}`);
-    console.log(`Menu monthly impact: ${displayValue(data.totalMonthlyImpact)}`);
-    console.log(`Excluded: ${data.excludedWithoutVolume} without volume; ${data.excludedWithVolume} with unknown/incomplete cost.`);
+    const nl = locale === 'nl';
+    console.log(`${nl ? 'Wat is er veranderd sinds' : 'What changed since'} ${data.since}`);
+    for (const row of data.dishes) console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'} → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}); ${nl ? 'maandelijkse verandering' : 'monthly impact'} ${displayValue(row.monthlyImpact)}${row.excludedReason ? `; ${nl ? 'uitgesloten' : 'excluded'}: ${nl && row.excludedReason === 'no-volume' ? 'zonder maandvolume' : row.excludedReason}` : ''}`);
+    console.log(`${nl ? 'Maandelijkse bijdrage van het menu' : 'Menu monthly impact'}: ${displayValue(data.totalMonthlyImpact)}`);
+    console.log(`${nl ? 'Uitgesloten' : 'Excluded'}: ${data.excludedWithoutVolume} ${nl ? 'zonder maandvolume' : 'without volume'}; ${data.excludedWithVolume} ${nl ? 'met onbekende/onvolledige kosten' : 'with unknown/incomplete cost'}.`);
   } else if (command === 'simulate') {
     console.log(`${data.name}: recipe-based ingredient cost ${displayValue(data.recipeBasedIngredientCost) ?? 'cost unknown'}; contribution ${displayValue(data.contribution)} (${displayValue(data.contributionDelta) ?? 'no change'}); monthly contribution ${displayValue(data.monthlyContribution)} (${displayValue(data.monthlyContributionDelta)})`);
   } else if (command === 'status') {
@@ -115,7 +116,9 @@ async function run(args) {
     if (readCommands.has(command)) {
       const { api } = await connection(dir);
       const result = await executeReadCommand(command, args.slice(1), api);
-      if (wantJson) printJson(result); else printHuman(result);
+      const localeIndex = args.indexOf('--locale');
+      const locale = localeIndex >= 0 ? args[localeIndex + 1] : 'en';
+      if (wantJson) printJson(result); else printHuman(result, locale);
       return;
     }
     if (command === 'doctor') {
@@ -156,10 +159,12 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
   const { api } = await connection(dir);
   if (stop) {
     const version = await api('version');
-    const result = await api('stop', { method: 'POST', body: {} });
-    if (result.stopped !== true) throw cliError('server-error', 'MenuPilot returned an invalid stop response.');
-    if (wantJson) printJson({ apiVersion: 1, command: 'stop', documentId: version.documentId, revision: version.revision, data: { stopped: true, dataDir: dir }, warnings: [] });
-    else console.log(`MenuPilot stopped. Your data is in ${dir}`);
+    const result = await api('stop', { method: 'POST', body: {}, timeoutMs: 120000 });
+    if (result.stopped !== true || typeof result.backupCreated !== 'boolean') throw cliError('server-error', 'MenuPilot returned an invalid stop response.');
+    const warnings = result.backupCreated ? [] : [{ code: result.code ?? 'shutdown-backup-failed', message: result.message ?? 'Shutdown backup failed.' }];
+    if (wantJson) printJson({ apiVersion: 1, command: 'stop', documentId: version.documentId, revision: version.revision, data: { stopped: result.backupCreated, dataDir: dir }, warnings });
+    else console.log(result.backupCreated ? `MenuPilot stopped. Your data is in ${dir}` : warnings[0].message);
+    if (!result.backupCreated) process.exitCode = 1;
   } else if (open) {
     const result = await api('open-url', { method: 'POST', body: { revokeSessions: args[1] === '--revoke-sessions' } });
     if (!hasValidOpenResult(result)) throw cliError('server-error', 'MenuPilot returned an invalid browser-open response.');
