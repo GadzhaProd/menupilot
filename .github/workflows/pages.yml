@@ -35,6 +35,7 @@ jobs:
           restore-keys: ${{ runner.os }}-playwright-
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - run: npm run test:e2e:local
       - uses: actions/upload-artifact@v6
         if: failure()
         with:
@@ -42,6 +43,7 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            test-results-local/
           if-no-files-found: warn
       - uses: actions/upload-pages-artifact@v5
         with:
