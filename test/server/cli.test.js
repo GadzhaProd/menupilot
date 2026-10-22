@@ -8,7 +8,8 @@ import { createSqliteStorage } from '../../server/sqlite.js';
 import { serveLocal } from '../../server/http.js';
 import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
 import { readFileSync as readDemoFile } from 'node:fs';
-import { dateFor, isSupportedNode, localDoctor } from '../../server/cliRead.js';
+import { assertQuickCheck, dateFor, isSupportedNode, localDoctor } from '../../server/cliRead.js';
+import { hasValidLaunchUrl } from '../../server/cliSecurity.js';
 import { createServer } from 'node:net';
 
 async function fixture(t, document) {
@@ -110,6 +111,10 @@ test('CLI refuses duplicate exact names and returns candidate identities', async
   const error = JSON.parse(result.stderr).error;
   assert.equal(error.code, 'ambiguous');
   assert.deepEqual(error.candidates.map(candidate => candidate.id), ['dish_classic_burger', 'dish_classic_burger_copy']);
+  const human = await invoke(f.dir, 'dish', 'CLASSIC BURGER');
+  assert.equal(human.status, 4);
+  assert.match(human.stderr, /dish_classic_burger: Classic Burger/);
+  assert.match(human.stderr, /dish_classic_burger_copy: Classic Burger/);
 });
 
 test('CLI rejects a wrong private token and incompatible quantity units', async t => {
@@ -252,6 +257,15 @@ test('offline doctor fails on a readable SQLite file with an invalid document re
   assert.equal(report.data.checks.find(item => item.name === 'database-format').ok, false);
 });
 
+test('doctor rejects quick_check failures and launch URLs must keep the expected local path prefix', () => {
+  assert.throws(() => assertQuickCheck([{ quick_check: 'row 3 missing' }]), /quick_check failed/);
+  assert.doesNotThrow(() => assertQuickCheck([{ quick_check: 'ok' }]));
+  const address = 'http://127.0.0.1:4710';
+  assert.equal(hasValidLaunchUrl(address, `${address}/menupilot/#k=secret`), true);
+  assert.equal(hasValidLaunchUrl(address, 'https://attacker.example/menupilot/#k=secret'), false);
+  assert.equal(hasValidLaunchUrl(address, `${address}/other/#k=secret`), false);
+});
+
 test('doctor reports private token failures instead of exiting before a report', async t => {
   const f = await fixture(t, enDemo());
   chmodSync(join(f.dir, 'token'), 0o644);
@@ -289,10 +303,34 @@ test('multiple quantity and price overrides are accepted; normalized lookup and 
   const line = burger.lines[0];
   const target = doc.ingredients.find(item => item.id === line.ref.id) ?? doc.recipes.find(item => item.id === line.ref.id);
   const unit = target.unit ?? target.outputUnit;
-  const result = await invoke(f.dir, 'simulate', '--dish', ' DISH_CLASSIC_BURGER ', '--ingredient-price', 'ing_beef=14', '--ingredient-price', 'ing_tomatoes=7', '--qty', `${line.id}=1 ${unit}`, '--qty', `${line.id}=2 ${unit}`, '--json');
-  assert.equal(result.status, 0, result.stderr);
+  const secondLine = burger.lines[1];
+  const secondTarget = doc.ingredients.find(item => item.id === secondLine.ref.id);
+  const multiple = await invoke(f.dir, 'simulate', '--dish', ' DISH_CLASSIC_BURGER ', '--ingredient-price', 'ing_beef=14', '--ingredient-price', 'ing_tomatoes=7', '--qty', `${line.id}=1 ${unit}`, '--qty', `${secondLine.id}=2 ${secondTarget.unit}`, '--json');
+  assert.equal(multiple.status, 0, multiple.stderr);
+  const duplicateByAlias = await invoke(f.dir, 'simulate', '--dish', burger.id, '--qty', `${line.id}=1 ${unit}`, '--qty', `${target.name}=2 ${unit}`, '--json');
+  assert.equal(duplicateByAlias.status, 2);
+  assert.match(JSON.parse(duplicateByAlias.stderr).error.message, /already set by an earlier --qty/);
+  const duplicateById = await invoke(f.dir, 'simulate', '--dish', burger.id, '--qty', `${line.id}=1 ${unit}`, '--qty', `${line.id}=2 ${unit}`, '--json');
+  assert.equal(duplicateById.status, 2);
+  assert.match(JSON.parse(duplicateById.stderr).error.message, /already set by an earlier --qty/);
+  const duplicatePrice = await invoke(f.dir, 'simulate', '--dish', burger.id, '--ingredient-price', 'ing_beef=14', '--ingredient-price', 'ING_BEEF=15', '--json');
+  assert.equal(duplicatePrice.status, 2);
+  assert.match(JSON.parse(duplicatePrice.stderr).error.message, /already set by an earlier --ingredient-price/);
+  const unusedDoc = enDemo(); unusedDoc.ingredients.push({ ...structuredClone(unusedDoc.ingredients[0]), id: 'ing_unused', name: 'Unused ingredient' });
+  const unusedFixture = await fixture(t, unusedDoc);
+  const unusedPrice = await invoke(unusedFixture.dir, 'simulate', '--dish', burger.id, '--ingredient-price', 'ing_unused=12', '--json');
+  assert.equal(unusedPrice.status, 4);
+  assert.equal(JSON.parse(unusedPrice.stderr).error.message, 'Ingredient not used in dish: “ing_unused”.');
   const prep = doc.recipes.find(item => item.kind === 'prep');
   const lookup = await invoke(f.dir, 'dish', prep.name, '--json');
   assert.equal(JSON.parse(lookup.stderr).error.code, 'not-found');
   assert.match(JSON.parse(lookup.stderr).error.message, /is a prep, not a dish/);
+});
+
+test('CLI refuses unsafe token permissions before making authenticated requests', async t => {
+  const f = await fixture(t, enDemo());
+  chmodSync(join(f.dir, 'token'), 0o644);
+  const result = await invoke(f.dir, 'dishes', '--json');
+  assert.equal(result.status, 5);
+  assert.match(JSON.parse(result.stderr).error.message, /permissions 0600/);
 });

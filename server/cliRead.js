@@ -10,6 +10,9 @@ import { parseQuantityToMilli } from '../src/calc/units.js';
 import { dataLocationWarning } from './recovery.js';
 
 export const API_VERSION = 1;
+export function assertQuickCheck(rows) {
+  if (rows.length !== 1 || rows[0].quick_check !== 'ok') throw new Error('SQLite quick_check failed');
+}
 const isMoney = key => /(?:Cents|Micro)$/.test(key);
 const money = (value, locale = 'en', micro = false) => value === null || value === undefined
   ? null : { [micro ? 'micro' : 'cents']: String(value), display: micro ? formatEURFromMicroLocale(value, locale) : formatEURFromCentsLocale(value, locale) };
@@ -127,13 +130,19 @@ function evaluateSimulation(doc, dishToken, values, locale) {
   const volume = parseOptions(values, '--volume');
   if (volume !== undefined) overrides.monthlyVolume = parseNonNegativeInteger(volume, '--volume');
   const rawPrices = parseOptions(values, '--ingredient-price') ?? [];
+  const seenPriceIds = new Set();
   for (const rawPrice of rawPrices) {
     const split = rawPrice.indexOf('='); if (split < 1) throw cliError('invalid-argument', 'Use --ingredient-price <ingredient>=<pack-price>.');
-    const ingredient = resolveOne(baseline.ingredients, rawPrice.slice(0, split), 'ingredient', locale);
+    const token = rawPrice.slice(0, split);
+    const ingredient = resolveOne(doc.ingredients, token, 'ingredient', locale);
+    if (!baseline.ingredients.some(entry => entry.id === ingredient.id)) throw cliError('not-found', `Ingredient not used in dish: “${token}”.`);
+    if (seenPriceIds.has(ingredient.id)) throw cliError('invalid-argument', `Ingredient “${ingredient.name}” was already set by an earlier --ingredient-price.`);
+    seenPriceIds.add(ingredient.id);
     try { overrides.ingredientPriceCents[ingredient.id] = parseMoneyToCents(rawPrice.slice(split + 1)); }
     catch (error) { throw cliError('invalid-argument', error.message); }
   }
   const rawQtys = parseOptions(values, '--qty') ?? [];
+  const seenLineIds = new Set();
   for (const rawQty of rawQtys) {
     const split = rawQty.indexOf('='); if (split < 1) throw cliError('invalid-argument', 'Use --qty <lineId|ingredient>=<quantity unit>.');
     const ref = rawQty.slice(0, split), quantityText = rawQty.slice(split + 1).trim();
@@ -144,6 +153,8 @@ function evaluateSimulation(doc, dishToken, values, locale) {
       .filter(({ line, target }) => line.id === ref || target?.id === ref || target?.name.toLowerCase() === ref.toLowerCase());
     if (line.length !== 1) throw cliError(line.length ? 'ambiguous' : 'not-found', line.length ? `More than one dish line matches “${ref}”. Use a line ID.` : `Ingredient not used in dish: “${ref}”.`, line.map(({ line: l, target }) => ({ id: l.id, name: target?.name,
       unit: target?.unit ?? target?.outputUnit, packaging: target?.prices?.length ? { packPrice: money(target.prices.at(-1).packPriceCents, locale), packPriceLabel: 'excl. VAT', packSizeMilli: target.prices.at(-1).packSizeMilli } : null })));
+    if (seenLineIds.has(line[0].line.id)) throw cliError('invalid-argument', `Dish line “${line[0].line.id}” was already set by an earlier --qty.`);
+    seenLineIds.add(line[0].line.id);
     let entered;
     try { entered = parseQuantityToMilli(match[1], match[2]); }
     catch (error) { throw cliError('invalid-unit', error.message); }
@@ -209,7 +220,7 @@ async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) 
   if (existsSync(dbPath)) { let db; try { const { DatabaseSync } = await import('node:sqlite'); const { assertValidDocument } = await import('../src/store/schema.js'); const { parseBackup } = await import('../src/store/serialization.js');
     db = new DatabaseSync(dbPath, { readOnly: true }); dbVersion = db.prepare('PRAGMA user_version').get().user_version;
     const integrity = db.prepare('PRAGMA quick_check').all();
-    if (integrity.length !== 1 || integrity[0].quick_check !== 'ok') throw new Error('SQLite quick_check failed');
+    assertQuickCheck(integrity);
     const record = db.prepare('SELECT record FROM document WHERE id=1').get()?.record;
     if (record === undefined) documentFormat = 'empty';
     else {

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { assertRuntime } from './runtime.js';
 import { executeReadCommand, localDataPath, localDoctor, serializeCliError } from './cliRead.js';
+import { hasValidLaunchUrl } from './cliSecurity.js';
 
 const readCommands = new Set(['status', 'what-changed', 'dishes', 'dish', 'ingredients', 'ingredient', 'preps', 'simulate', 'history', 'journal', 'backups']);
 const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups> [options]';
@@ -141,7 +142,7 @@ async function runExistingServerCommand(args, dir) {
   const { api, address } = await connection(dir);
   if (open) {
     const result = await api('open-url', { method: 'POST', body: { revokeSessions: args[1] === '--revoke-sessions' } });
-    if (typeof result.url !== 'string' || !result.url.startsWith(address + '/menupilot/#k=')) throw cliError('server-error', 'MenuPilot returned an invalid launch URL.');
+    if (!hasValidLaunchUrl(address, result.url)) throw cliError('server-error', 'MenuPilot returned an invalid launch URL.');
     console.log(result.url);
   } else if (list) {
     const entries = await api('backups'); for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
