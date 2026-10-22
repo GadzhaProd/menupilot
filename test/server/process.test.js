@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync, statSync, realpathSync, mkdirSync, utimesSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, statSync, realpathSync, mkdirSync, utimesSync, renameSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -73,6 +73,58 @@ test('process: CLI stop waits for writes, creates shutdown backup, releases lock
   const db=new DatabaseSync(join(dir,'menupilot.db'),{readOnly:true});
   const backups=readdirSync(join(dir,'backups')).filter(name=>name.endsWith('.sqlite'));
   assert.ok(backups.length>0); assert.equal(db.prepare("SELECT value FROM meta WHERE key='backupDirty'").get().value,'0'); db.close();
+});
+
+test('process: CLI stop reports shutdown backup failure and releases the lock', {timeout:90000},async t=>{
+  const dir=mkdtempSync(join(tmpdir(),'menupilot-stop-backup-fail-')),port=await unusedPort();
+  const backupDir=join(dir,'backups'), movedBackupDir=join(dir,'backups-held');
+  const server=launch(dir,port);
+  t.after(async()=>{await stop(server);try{unlinkSync(backupDir);}catch{}try{renameSync(movedBackupDir,backupDir);}catch{}rmSync(dir,{recursive:true});});
+  await ready(server);
+  const openUrl=server.output().match(/http:\/\/127\.0\.0\.1:\d+\/menupilot\/#k=[a-f0-9]+/)?.[0];
+  const address=openUrl?.match(/^http:\/\/127\.0\.0\.1:\d+/)?.[0];
+  const { signIn } = await import('./session-helper.js');
+  const session=await signIn({address,openUrl});
+  const current=await (await fetch(address+'/api/document',{headers:{Authorization:`Bearer ${session.token}`} })).json();
+  const document={...current.document,settings:{...current.document.settings,defaultVatRateBp:910}};
+  const saved=await fetch(address+'/api/write',{method:'POST',headers:{Authorization:`Bearer ${session.token}`,Origin:address,'Content-Type':'application/json'},body:JSON.stringify({kind:'save',document,expectedDocumentId:current.documentId,expectedRevision:current.revision,opId:'stop-backup-fail-write'})});
+  assert.equal(saved.status,200);
+  renameSync(backupDir,movedBackupDir); writeFileSync(backupDir,'not a directory');
+  const stopped=once(server.child,'exit');
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  let failure;
+  try { await promisify(execFile)(process.execPath,['server/cli.js','stop','--json'],{env:{...process.env,MENUPILOT_DATA_DIR:dir}}); }
+  catch (error) { failure=error; }
+  assert.ok(failure, 'CLI must fail when its shutdown backup fails');
+  assert.equal(failure.code,1);
+  const result=JSON.parse(failure.stdout);
+  assert.equal(result.data.stopped,false);
+  assert.deepEqual(result.warnings.map(warning=>warning.code),['shutdown-backup-failed']);
+  const [code]=await stopped; assert.equal(code,1);
+  assert.match(failure.stdout,/Data is saved in the database; the backup was not created — it will be made on the next start \(reason: .+\)/);
+  assert.throws(()=>statSync(join(dir,'lock')),{code:'ENOENT'});
+});
+
+test('process: Ctrl+C reports shutdown backup failure and releases the lock', {timeout:90000},async t=>{
+  const dir=mkdtempSync(join(tmpdir(),'menupilot-signal-backup-fail-')),port=await unusedPort();
+  const backupDir=join(dir,'backups'), movedBackupDir=join(dir,'backups-held');
+  const server=launch(dir,port);
+  t.after(async()=>{await stop(server);try{unlinkSync(backupDir);}catch{}try{renameSync(movedBackupDir,backupDir);}catch{}rmSync(dir,{recursive:true});});
+  await ready(server);
+  const openUrl=server.output().match(/http:\/\/127\.0\.0\.1:\d+\/menupilot\/#k=[a-f0-9]+/)?.[0];
+  const address=openUrl?.match(/^http:\/\/127\.0\.0\.1:\d+/)?.[0];
+  const { signIn } = await import('./session-helper.js');
+  const session=await signIn({address,openUrl});
+  const current=await (await fetch(address+'/api/document',{headers:{Authorization:`Bearer ${session.token}`} })).json();
+  const document={...current.document,settings:{...current.document.settings,defaultVatRateBp:910}};
+  const saved=await fetch(address+'/api/write',{method:'POST',headers:{Authorization:`Bearer ${session.token}`,Origin:address,'Content-Type':'application/json'},body:JSON.stringify({kind:'save',document,expectedDocumentId:current.documentId,expectedRevision:current.revision,opId:'signal-backup-fail-write'})});
+  assert.equal(saved.status,200);
+  renameSync(backupDir,movedBackupDir); writeFileSync(backupDir,'not a directory');
+  const ended=once(server.child,'exit'); server.child.kill('SIGINT');
+  const [code]=await ended; assert.equal(code,1,server.output());
+  assert.match(server.output(),/Data is saved in the database; the backup was not created — it will be made on the next start \(reason: .+\)/);
+  assert.throws(()=>statSync(join(dir,'lock')),{code:'ENOENT'});
 });
 
 test('process: simultaneous starters elect one writer and identify its live HTTP instance', {timeout:90000},async t=>{
