@@ -32,6 +32,15 @@ function Warnings({ plan }: { plan: PricePlan }) {
 }
 
 export function LocalPlans() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia?.('(max-width: 639px)').matches ?? false);
+  useEffect(() => {
+    const media = window.matchMedia?.('(max-width: 639px)');
+    if (!media) return;
+    const change = () => setNarrow(media.matches);
+    change(); media.addEventListener('change', change);
+    return () => media.removeEventListener('change', change);
+  }, []);
+  const pageSize = narrow ? 1 : 3;
   const local = useLocalMode(), { t, locale } = useLocale(), f = useFormatters();
   const client = useMemo(() => local?.token ? createHttpPlanAdapter(local.token) : null, [local?.token]);
   const [plans, setPlans] = useState<readonly PricePlan[]>([]);
@@ -47,7 +56,7 @@ export function LocalPlans() {
   const pending = plans.filter(p => p.status === 'pending');
   const recent = plans.filter(p => ['stale', 'expired', 'rejected', 'superseded'].includes(p.status) && !hidden.includes(p.id));
   const start = offset < pending.length ? offset : 0;
-  const shown = pending.slice(start, start + 3);
+  const shown = pending.slice(start, start + pageSize);
   if (!local || !client) return null;
   if (!pending.length && !recent.length && !failed && !done && !choice) return null;
   const per = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.money(BigInt(p.unitPrice.cents))}/{p.unitPrice.per}</span>;
@@ -90,7 +99,7 @@ export function LocalPlans() {
     </article>)}
     <div className="flex flex-wrap gap-2">
       {start > 0 && <Button variant="outline" onClick={() => { setDone(null); setOffset(0); }}>{t('plans.first')}</Button>}
-      {pending.length > start + 3 && <Button variant="outline" onClick={() => { setDone(null); setOffset(start + 3); }}>{t('plans.more', { count: pending.length - start - 3 })}</Button>}
+      {pending.length > start + pageSize && <Button variant="outline" onClick={() => { setDone(null); setOffset(start + pageSize); }}>{t('plans.more', { count: pending.length - start - pageSize })}</Button>}
     </div>
     {choice && <Dialog open onOpenChange={open => { if (!open && !busy) setChoice(null); }}>
       <DialogContent role="alertdialog" className="max-h-[90svh] overflow-y-auto" onCloseAutoFocus={event => { event.preventDefault(); (trigger.current?.isConnected ? trigger.current : heading.current)?.focus(); }}>

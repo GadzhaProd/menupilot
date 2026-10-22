@@ -180,3 +180,16 @@ test('review: CLI and readable data files disclose no UI capability', async t =>
   const failure = await fetch(failed.address + '/api/open-url', { method: 'POST', headers: { ...auth(failed.cliToken), 'Content-Type': 'application/json' }, body: '{}' });
   assert.deepEqual(await failure.json(), { opened: false });
 });
+
+test('review: startup deletes an obsolete launch-secret and refuses its key', async t => {
+  const { createSession } = await import('../../server/session.js');
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-old-launch-'));
+  t.after(() => rmSync(dir, { recursive: true }));
+  const old = 'a'.repeat(64);
+  writeFileSync(join(dir, 'launch-secret'), old, { mode: 0o600 });
+  const session = createSession(dir);
+  assert.ok(!readdirSync(dir).includes('launch-secret'));
+  assert.notEqual(session.key, old);
+  assert.equal(session.exchange(old, 'test'), null);
+  assert.ok(session.exchange(session.key, 'test'));
+});

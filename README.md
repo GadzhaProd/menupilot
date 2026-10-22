@@ -150,7 +150,9 @@ Use the server's `MENUPILOT_DATA_DIR` if set. Every `open-url` call uses the pri
 CLI token to ask the server to open the browser with a new one-use secret; the CLI
 receives only `{opened: true|false}`, never the URL or secret. Previous links become invalid. Existing
 sessions remain valid unless revoked or expired. Restart invalidates every session.
-Launch keys live only in server memory and the `npm start` terminal output.
+Launch keys are not saved in data files: the server holds them in memory and prints
+the initial key in the `npm start` terminal. Browser opening briefly passes the key
+in a process argument, visible to a process running as the same user.
 The CLI `token` file is replaced with mode 0600. At most 128
 sessions are retained; a further sign-in evicts the oldest remaining session.
 
@@ -387,13 +389,13 @@ This is the **Supplier price excl. VAT, as on the invoice**. The command creates
 
 If any data changed after the proposal, or it expired, ask the agent to propose again. Approval appends exactly one price; repeat approval returns the original receipt. Unsaved recipe/ingredient drafts retain the existing protection against external changes. The static browser version has no proposal panel or API calls.
 
-The CLI token cannot apply/reject plans. This workflow guards against agent mistakes and makes owner confirmation an explicit step. **It does not isolate a process with the user's full computer permissions**: an agent with shell access could modify the database or inspect process memory.
+The CLI token cannot apply/reject plans. This workflow guards against agent mistakes and makes owner confirmation an explicit step. **It does not isolate a process with the user's full computer permissions**: a process running as the same user could intercept the one-use launch key while the browser opens (it is briefly visible in the process list), inspect process memory, or modify data files. Normal commands and API responses do not disclose the window key; this is protection against agent mistakes, not malicious software.
 Agents must never open or apply their own plans or access data files directly (see AGENTS.md).
 If opening the browser fails, open the address in the terminal running `npm start`, or restart `npm start`. Other websites cannot approve through the browser: the API requires a UI session, exact Origin and local Host, and provides no CORS access. See [CLI commands and JSON contract](docs/cli.md).
 
 | Who | Normal local workflow |
 |---|---|
-| CLI / agent | Read and propose. Cannot obtain a UI token or apply/reject through the CLI API. |
+| CLI / agent | Read and propose. Normal commands/API responses do not disclose the window key; the CLI token cannot apply/reject. A same-user process could intercept the brief browser-launch process argument or modify data files. |
 | MenuPilot window | Review, confirm apply or reject using its UI session and same Origin. |
 | Another website | Cannot read or approve through the browser: Origin, Host and session checks reject it. |
 

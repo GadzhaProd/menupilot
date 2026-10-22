@@ -1,15 +1,18 @@
 // Run mutants in a disposable copy: never edit the checkout used by another test/server.
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 const dir = mkdtempSync(join(tmpdir(), 'menupilot-mutants-'));
 try {
-  for (const path of ['server', 'src', 'test/store', 'test/server', 'data', 'README.md', 'docs/planning']) {
+  for (const path of ['server', 'src', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'tsconfig.json', 'data', 'README.md', 'docs/planning']) {
     mkdirSync(join(dir, path, '..'), { recursive: true }); cpSync(path, join(dir,path), { recursive: true });
   }
   writeFileSync(join(dir,'package.json'),'{"type":"module"}');
+  symlinkSync(join(process.cwd(), 'node_modules'), join(dir, 'node_modules'), 'dir');
   const mutants = [
+    ['obsolete launch file cleanup', 'server/session.js', "unlinkSync(join(dir, 'launch-secret'));", '', 'test/server/review.test.js'],
+    ['plan card VAT label', 'src/ui/data/LocalPlans.tsx', " · {t('common.exclVat')}", '', 'test/ui/plans.test.tsx'],
     ['plan approval UI gate', 'server/http.js', "['apply', 'reject'].includes(action) && source !== 'ui'", 'false', 'test/server/plans.test.js'],
     ['plan revision gate', 'server/plans.js', 'plan.revision !== current.revision', 'false', 'test/server/plans.test.js'],
     ['plan identity gate', 'server/plans.js', 'plan.documentId !== current.documentId', 'false', 'test/server/plans.test.js'],
@@ -118,10 +121,17 @@ try {
   for (const [name, file, before, after, test] of mutants) {
     const path = join(dir,file), original = readFileSync(path,'utf8');
     if (!original.includes(before)) throw new Error(`Missing mutation target: ${name}`);
+    const args = test.endsWith('.tsx')
+      ? [join(dir, 'node_modules/vitest/vitest.mjs'), 'run', test, '-t', 'plan card labels'] : ['--test', test];
+    const options = { cwd: dir, encoding: 'utf8', timeout: 30000, env: { ...process.env, VITEST_MAX_WORKERS: '2' } };
+    if (test.endsWith('.tsx')) {
+      const baseline = spawnSync(process.execPath, args, options);
+      if (baseline.status !== 0) throw new Error(`UI mutation baseline failed: ${baseline.stdout}\n${baseline.stderr}`);
+    }
     writeFileSync(path, original.replace(before,after));
-    const result = spawnSync(process.execPath,['--test',test],{cwd:dir,encoding:'utf8',timeout:30000});
+    const result = spawnSync(process.execPath, args, options);
     writeFileSync(path, original);
-    if (result.status === 0 || result.error || !result.stdout.includes('fail')) throw new Error(`Mutation not caught: ${name}\n${result.stdout}\n${result.stderr}`);
+    if (result.status === 0 || result.error || !result.stdout.toLowerCase().includes('fail')) throw new Error(`Mutation not caught: ${name}\n${result.stdout}\n${result.stderr}`);
     console.log(`CAUGHT: ${name}`);
   }
 } finally { rmSync(dir,{recursive:true}); }

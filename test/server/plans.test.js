@@ -128,6 +128,9 @@ test('plans CLI: propose comma price, read status/list, human confirmation and c
     assert.match((await cli(['propose', 'add-price', '--ingredient', 'i1', '--pack-price', '19', '--pack-size', '1 kg'])).stdout, /Waiting for owner confirmation in MenuPilot/);
     await assert.rejects(cli(['propose', 'add-price', '--ingredient', 'missing', '--pack-price', '18', '--pack-size', '1 kg', '--json']), e => e.code === 4 && JSON.parse(e.stderr).error.candidates.length === 2);
     const nl = (await cli(['propose', 'add-price', '--ingredient', 'i1', '--pack-price', '20', '--pack-size', '2,5kg', '--locale', 'nl'])).stdout;
+    assert.doesNotMatch(nl, /food cost|excluded:|without volume|with unknown cost|no-volume/);
+    assert.match(nl, /Foodcostpercentage/); assert.match(nl, /uitgesloten: zonder maandvolume/);
+    assert.match(nl, /€\s5,00\/kg → €\s8,00\/kg/);
     assert.match(nl, /2,5 kg/); assert.match(nl, /€\s8,00\/kg/); assert.match(nl, /Wacht op bevestiging/);
     await assert.rejects(cli(['plan', 'apply', result.data.id, '--json']), e => e.code === 2);
   } finally { await server.close(); }

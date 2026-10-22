@@ -104,3 +104,37 @@ Artifacts: `/Users/gadzha/.bb/thread-storage/thr_ae7jmeh9n6/d5-verification/revi
 | Другой сайт | Не читает и не подтверждает через браузер: мешают Origin/Host/сеанс. |
 
 Агент с полным shell-доступом теоретически может обойти процесс (например, изменив БД); это прямо отражено в README/CLI и AGENTS.md.
+
+## Final review polish — 2026-10-22
+
+README, CLI docs and the permissions table now distinguish the supported API from same-user OS access: normal responses do not disclose the window key, but a process with the user's permissions can intercept its brief browser-launch process argument or modify data files. Agent rules and mandatory UI confirmation protect against mistakes, not malicious same-user software.
+
+Added regression tests for both pack/unit VAT labels in EN/NL and startup removal of an existing legacy launch-secret. Both mutants are caught; the new UI mutation first runs a clean baseline in the disposable copy. NL human output uses Foodcostpercentage/uitgesloten and Dutch exclusion reasons; both old and new unit prices show /kg, /l or /pc. Mobile below 640 px shows one pending card with paging; desktop retains three. The resize/paging test reproduced the former mobile behavior before the fix.
+
+Final clean `VITEST_MAX_WORKERS=2 npm run check` exited 0:
+
+```text
+> tsc --noEmit
+ℹ tests 195 / pass 195 / fail 0
+Test Files 36 passed (36)
+Tests 402 passed (402)
+ℹ tests 133 / pass 133 / fail 0
+103 mutation checks: CAUGHT
+✓ 2117 modules transformed.
+✓ built in 264ms
+```
+
+The initial attempt stopped because the new UI mutation copied `vitest.config.ts` instead of the repository's `vitest.config.js`; the corrected full run above passed. Existing chunk-size/Node warnings remain.
+
+Browser verification used four isolated proposals: desktop rendered three cards, 375 px rendered one, “3 more” advanced to the next card and “2 more”, NL VAT labels remained visible, and no horizontal overflow occurred. Tab remained in the confirmation dialog; Escape restored focus to Toepassen. Screenshots, focus output and complete command logs are in `/Users/gadzha/.bb/thread-storage/thr_ae7jmeh9n6/d5-verification/final-polish/`. The browser and fixture server were stopped and the temporary data directory removed.
+
+Sequential final browser suites both exited 0:
+
+```text
+npm run test:e2e
+23 passed (8.7s)
+npm run test:e2e:local
+4 passed (30.3s)
+```
+
+All final-review requests are complete. No calculation code, data schema or dependencies changed. No push/merge.

@@ -148,3 +148,32 @@ test('success notice disappears after its timeout', async () => {
   await screen.findByText('Price applied.');
   await waitFor(() => expect(screen.queryByText('Price applied.')).toBeNull(), { timeout: 6000 });
 }, 8000);
+
+test.each(['en', 'nl'])('plan card labels both pack and unit prices excluding VAT (%s)', async locale => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ plans: [plan] }))));
+  mount(locale);
+  const card = await screen.findByRole('article');
+  const label = locale === 'nl' ? 'excl. btw' : 'excl. VAT';
+  for (const text of [locale === 'nl' ? 'per verpakking' : 'per pack', '/kg']) {
+    const paragraph = within(card).getByText((_content, el) => el?.tagName === 'P' && Boolean(el.textContent?.includes(text)));
+    expect(paragraph.textContent).toContain(label);
+  }
+});
+
+test('mobile plans show one card per page and respond to desktop resizing', async () => {
+  const user = userEvent.setup();
+  let listener!: () => void;
+  const media = { matches: true, addEventListener: (_event: string, callback: () => void) => { listener = callback; }, removeEventListener: vi.fn() };
+  vi.stubGlobal('matchMedia', vi.fn(() => media));
+  const plans = Array.from({ length: 4 }, (_, i) => ({ ...plan, id: 'p' + i, ingredient: { ...plan.ingredient, name: 'Flour ' + i } }));
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ plans }))));
+  const rendered = mount();
+  await screen.findByRole('button', { name: '3 more' });
+  expect(screen.getAllByRole('article')).toHaveLength(1);
+  await user.click(screen.getByRole('button', { name: '3 more' }));
+  expect(screen.getByRole('article').textContent).toContain('Flour 1');
+  expect(screen.getByRole('button', { name: '2 more' })).toBeTruthy();
+  act(() => { media.matches = false; listener(); });
+  expect(screen.getAllByRole('article')).toHaveLength(3);
+  rendered.unmount(); expect(media.removeEventListener).toHaveBeenCalled();
+});
