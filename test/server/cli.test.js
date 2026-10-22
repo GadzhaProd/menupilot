@@ -148,7 +148,7 @@ test('CLI what-changed human output localizes labels in Dutch', async t => {
   const result = await invoke(f.dir, 'what-changed', '--since', '30d', '--locale', 'nl');
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Wat is er veranderd sinds/);
-  assert.match(result.stdout, /Maandelijkse bijdrage van het menu:/);
+  assert.match(result.stdout, /Verandering in maandelijkse bijdrage van het menu:/);
   assert.match(result.stdout, /Uitgesloten:/);
   assert.doesNotMatch(result.stdout, /What changed|Menu monthly impact|Excluded:/);
 });
@@ -188,6 +188,27 @@ test('read and propose responses carry current backup and health warnings', asyn
   const planStatus = await invoke(f.dir, 'plan', 'status', planId, '--json');
   assert.equal(planStatus.status, 0, planStatus.stderr);
   assert.deepEqual(JSON.parse(planStatus.stdout).warnings.map(item => item.code), expected);
+});
+
+test('plain plans, propose and plan status print backup warnings once, EN and NL', async t => {
+  const f = await fixture(t, enDemo(), { overdue: true, externalOverdue: true, backupError: 'denied', externalError: 'offline' });
+  const messages = ['Latest backup is overdue.', 'External backup is overdue.', 'A backup operation reported an error.'];
+  const once = (stdout, label) => { for (const message of messages) assert.equal(stdout.split(message).length - 1, 1, `${label}: ${message}\n${stdout}`); };
+  const empty = await invoke(f.dir, 'plans');
+  assert.equal(empty.status, 0, empty.stderr);
+  assert.match(empty.stdout, /No price proposals\./);
+  once(empty.stdout, 'empty plans');
+  const proposed = await invoke(f.dir, 'propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '60', '--pack-size', '1 kg');
+  assert.equal(proposed.status, 0, proposed.stderr);
+  once(proposed.stdout, 'propose');
+  assert.match(proposed.stdout, /⚠ The price per kg\/l\/pc changes by more than ×3/);
+  const planId = proposed.stdout.match(/^Plan (\S+):/m)[1];
+  for (const [label, args] of [['plan status', ['plan', 'status', planId]], ['plans', ['plans']], ['nl plans', ['plans', '--locale', 'nl']]]) {
+    const result = await invoke(f.dir, ...args);
+    assert.equal(result.status, 0, result.stderr);
+    once(result.stdout, label);
+  }
+  assert.match((await invoke(f.dir, 'plans', '--locale', 'nl')).stdout, /Waarschuwing: Latest backup is overdue\./);
 });
 
 test('all read commands return the versioned envelope through authenticated API routes', async t => {

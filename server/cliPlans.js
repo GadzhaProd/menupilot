@@ -50,7 +50,9 @@ export function printPlan(result) {
   const money = v => v === null ? '—' : v.display;
   const cost = v => v === null ? (nl ? 'kosten onbekend' : 'cost unknown') : v.display;
   const pct = v => v === null ? '—' : formatPercentTenthsLocale(BigInt(v), result.locale);
-  for (const plan of Array.isArray(result.data) ? result.data : [result.data]) {
+  const plans = Array.isArray(result.data) ? result.data : [result.data];
+  if (!plans.length) console.log(nl ? 'Geen prijsvoorstellen.' : 'No price proposals.');
+  for (const plan of plans) {
     const unit = plan.ingredient.unit;
     const big = unit !== 'pc' && plan.price.packSizeMilli >= 1000000;
     const size = new Intl.NumberFormat(result.locale, { maximumFractionDigits: 5 }).format(plan.price.packSizeMilli / (big ? 1000000 : 1000));
@@ -64,4 +66,7 @@ export function printPlan(result) {
     if (plan.status === 'pending') console.log(nl ? 'Wacht op bevestiging van de eigenaar in MenuPilot' : 'Waiting for owner confirmation in MenuPilot');
     if (['stale', 'expired'].includes(plan.status)) console.log(nl ? 'Vraag de agent om een nieuw voorstel.' : 'Ask the agent to propose again.');
   }
+  // Plan warnings print with their plan above; backup and health warnings print once.
+  const planWarnings = new Set(plans.flatMap(plan => plan.warnings ?? []));
+  for (const warning of result.warnings ?? []) if (!planWarnings.has(warning)) console.log(`${nl ? 'Waarschuwing' : 'Warning'}: ${warning.message}`);
 }

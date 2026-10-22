@@ -70,7 +70,7 @@ function printHuman(result, locale = 'en') {
     const nl = locale === 'nl';
     console.log(`${nl ? 'Wat is er veranderd sinds' : 'What changed since'} ${data.since}`);
     for (const row of data.dishes) console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'} → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}); ${nl ? 'maandelijkse verandering' : 'monthly impact'} ${displayValue(row.monthlyImpact)}${row.excludedReason ? `; ${nl ? 'uitgesloten' : 'excluded'}: ${nl && row.excludedReason === 'no-volume' ? 'zonder maandvolume' : row.excludedReason}` : ''}`);
-    console.log(`${nl ? 'Maandelijkse bijdrage van het menu' : 'Menu monthly impact'}: ${displayValue(data.totalMonthlyImpact)}`);
+    console.log(`${nl ? 'Verandering in maandelijkse bijdrage van het menu' : 'Menu monthly impact'}: ${displayValue(data.totalMonthlyImpact)}`);
     console.log(`${nl ? 'Uitgesloten' : 'Excluded'}: ${data.excludedWithoutVolume} ${nl ? 'zonder maandvolume' : 'without volume'}; ${data.excludedWithVolume} ${nl ? 'met onbekende/onvolledige kosten' : 'with unknown/incomplete cost'}.`);
   } else if (command === 'simulate') {
     console.log(`${data.name}: recipe-based ingredient cost ${displayValue(data.recipeBasedIngredientCost) ?? 'cost unknown'}; contribution ${displayValue(data.contribution)} (${displayValue(data.contributionDelta) ?? 'no change'}); monthly contribution ${displayValue(data.monthlyContribution)} (${displayValue(data.monthlyContributionDelta)})`);

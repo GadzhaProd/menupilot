@@ -112,6 +112,31 @@ test('HTTP: stop waits for shutdown snapshot result before responding and refuse
 });
 
 
+test('HTTP: a write whose body finishes after the listener closes gets 503 stopping, also on keep-alive', { timeout: 5000 }, async t => {
+  const f = await fixture(); t.after(() => f.close());
+  const { host, port } = new URL(f.address);
+  const socket = connect(Number(port), '127.0.0.1'); t.after(() => socket.destroy());
+  await once(socket, 'connect');
+  let received = '';
+  socket.on('data', chunk => { received += chunk; });
+  const before = f.readSaved();
+  const body = JSON.stringify({ kind: 'save', document: smallDocument(), opId: 'late' });
+  const headers = path => `POST ${path} HTTP/1.1\r\nHost: ${host}\r\nAuthorization: Bearer ${f.uiToken}\r\nOrigin: ${f.address}\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n`;
+  socket.write(headers('/api/write') + body.slice(0, 1));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  void f.stopAccepting();
+  const refused = await new Promise(resolve => { const probe = connect(Number(port), '127.0.0.1'); probe.on('error', () => resolve(true)); probe.on('connect', () => { probe.destroy(); resolve(false); }); });
+  assert.equal(refused, true);
+  socket.write(body.slice(1) + headers('/api/write') + body);
+  const deadline = Date.now() + 2000;
+  while ((received.match(/HTTP\/1\.1 /g) ?? []).length < 2 && !socket.destroyed && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+  const statuses = [...received.matchAll(/HTTP\/1\.1 (\d+)/g)].map(match => Number(match[1]));
+  assert.equal(statuses[0], 503);
+  assert.ok(statuses.every(status => status === 503), `statuses: ${statuses}`);
+  assert.equal((received.match(/"code":"stopping"/g) ?? []).length, statuses.length);
+  assert.equal(f.readSaved(), before);
+});
+
 test('HTTP: graceful shutdown bounds unfinished request connections', { timeout: 5000 }, async t => {
   const f = await fixture();
   const socket = connect(Number(new URL(f.address).port), '127.0.0.1');

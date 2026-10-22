@@ -66,7 +66,7 @@ export async function manageBackups(raw, dir, { now = Date.now, monotonic = () =
   if (latestAt > lastWall) markClockJump();
   const retentionPaused = () => { observe(); return clockWarning; };
   const enqueue = fn => {
-    if (closed) return Promise.reject(new StoreError('stopping', 'MenuPilot is stopping. Start npm start and retry.'));
+    if (closed) return Promise.reject(Object.assign(new StoreError('stopping', 'MenuPilot is stopping. Start npm start and retry.'), { status: 503 }));
     const result = queue.then(fn); queue = result.catch(() => {}); return result;
   };
   const dirty = () => meta(db, 'backupDirty') === '1';
