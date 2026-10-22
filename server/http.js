@@ -63,7 +63,7 @@ export function dispatchRequest(handle, req, res) {
 }
 
 /** No arbitrary filesystem paths or arbitrary adapter method dispatch are accepted. */
-export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now, openBrowser = launchBrowser }) {
+export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now, openBrowser = launchBrowser, requestStop = () => {} }) {
   const session = createSession(dataDir, now), log = createLogger(dataDir);
   const policy = { headersMs: 10000, bodyMs: 15000, keepAliveMs: 5000, connections: 32, ...limits };
   const loginPage = readFileSync(new URL('./login.html', import.meta.url));
@@ -145,6 +145,15 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
           if (!body || Array.isArray(body) || Object.keys(body).some(k => k !== 'revokeSessions') || (body.revokeSessions !== undefined && typeof body.revokeSessions !== 'boolean')) throw new StoreError('invalid', 'Invalid open-url options.');
           const key = session.rotate(body.revokeSessions === true);
           value = { opened: await openBrowser(`${address}/menupilot/#k=${key}`) };
+        }
+        else if (req.method === 'POST' && path === '/api/stop') {
+          if (source !== 'cli') { send(res, 403, { code: 'cli-required', message: 'Use the MenuPilot CLI to stop the server.' }); return; }
+          const body = await jsonBody(req, 1024);
+          if (body && (Array.isArray(body) || Object.keys(body).length)) throw new StoreError('invalid', 'Stop does not accept options.');
+          value = { stopped: true };
+          send(res, 200, value);
+          setImmediate(requestStop);
+          return;
         }
         else if (req.method === 'GET' && path === '/api/backups/status' && storage.backups) value = storage.backups.status();
         else if (req.method === 'GET' && path === '/api/backups' && storage.backups) value = storage.backups.list();

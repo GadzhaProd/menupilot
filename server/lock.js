@@ -109,7 +109,7 @@ export async function acquireLock(dir, address, { waitMs = 10000 } = {}) {
       throw error instanceof StoreError ? error : problem(dir, 'lock', 'lock-uncertain', 'Cannot safely maintain the MenuPilot lock.');
     }
     if (!previous) break;
-    if (await probe(previous)) throw problem(dir, 'lock', 'already-running', `MenuPilot is already running at ${previous.address}.`, `Open ${previous.address}/menupilot/ in your browser.`);
+    if (await probe(previous)) throw problem(dir, 'lock', 'already-running', `MenuPilot is already running at ${previous.address}; to open it run npm run menupilot -- open-url.`, 'The existing server remains in use.');
     if (Date.now() >= deadline) throw problem(dir, 'lock', 'lock-uncertain', `The lock looks stale or MenuPilot is still starting at ${previous.address}; no matching MenuPilot instance responded. Its process may still be alive, so the lock was kept.`);
     await delay(100);
   }

@@ -67,6 +67,34 @@ test('backups: startup after abrupt close snapshots durable dirty data; shutdown
   await reopened.close();
 });
 
+test('backups: graceful close waits for a queued write before its shutdown snapshot', async t => {
+  const { raw, service } = await fixture(t);
+  const write = raw.write.bind(raw);
+  let release;
+  raw.write = async (...args) => { await new Promise(resolve => { release = resolve; }); return write(...args); };
+  const pending = service.write(request(service.load()));
+  await new Promise(resolve => setImmediate(resolve));
+  let closed = false;
+  const closing = service.close().then(() => { closed = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(closed, false);
+  release(); await pending; await closing;
+  assert.equal(service.backups.list()[0].reason, 'shutdown');
+});
+
+test('backups: an older program refuses a newer database without changing it', async t => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-future-db-'));
+  t.after(() => rmSync(dir, { recursive: true }));
+  const path = join(dir, 'menupilot.db');
+  const storage = createSqliteStorage(path); storage.write(request(storage.load())); storage.db.exec('PRAGMA user_version=3'); storage.close();
+  await assert.rejects(backups.openLocalStorage(dir, { timers: false }), error => error.code === 'unsupported-version' && /newer MenuPilot/i.test(error.message));
+  const reopened = new DatabaseSync(path, { readOnly: true });
+  assert.equal(reopened.prepare('PRAGMA user_version').get().user_version, 3);
+  assert.equal(JSON.parse(reopened.prepare('SELECT record FROM document').get().record).revision, 1);
+  reopened.close();
+});
+
 test('backups: ENOSPC copying blocks import, keeps dirty and previous data, then retries', async t => {
   const { backup } = await import('node:sqlite');
   let full = true;

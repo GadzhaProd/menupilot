@@ -16,6 +16,7 @@ npm run menupilot -- simulate --dish dish_classic_burger --ingredient-price ing_
 npm run menupilot -- history
 npm run menupilot -- journal --json
 npm run menupilot -- backups
+npm run menupilot -- stop
 npm run menupilot -- doctor --json
 ```
 
@@ -73,6 +74,8 @@ Stable error codes include `usage`, `invalid-argument`, `invalid-unit`, `not-fou
 ## Existing administrative commands
 
 `open-url` asks the server to open the browser; the API returns only `{opened: true|false}`, never a launch URL or UI token. The CLI prints whether it opened. On failure, open the address from the terminal window running `npm start`, or restart `npm start`. Normal commands and API responses do not disclose the window key. The key is held in server memory and printed in the startup terminal; opening the browser also briefly exposes it as a process argument. `--revoke-sessions` also revokes existing UI sessions.
+
+`stop` requests a graceful server shutdown through the authenticated local API. It waits for accepted requests to finish, creates a shutdown backup when data changed, closes the database, and releases the server lock. The terminal prints `MenuPilot stopped. Your data is in <data-folder>`. JSON output uses command `stop` and `data: {stopped:true,dataDir}`. Exit codes follow the common table: `0` success, `2` invalid command, `3` server unavailable, `5` rejected CLI token, and `1` other failures. Ctrl+C in the `npm start` window uses the same backup and lock cleanup.
 
 Agents must never open or apply their own plans, or access data files directly (AGENTS.md). This guards against agent mistakes in normal operation; a process running as the same user could intercept the one-use key from the process list during browser opening (even if visible only for a fraction of a second), or modify data files. This is not protection against malicious software with the user’s permissions.
 

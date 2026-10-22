@@ -16,7 +16,7 @@ export async function start() {
   const lock = await acquireLock(dir, `http://127.0.0.1:${port}`);
   let storage, http, stopping = false;
   const abort = new AbortController();
-  const onSignal = () => { stopping = true; abort.abort(); if (http) void close().catch(error => console.error(error.message)); };
+  const onSignal = () => { stopping = true; abort.abort(); if (http) requestStop(); };
   let closing;
   function close() {
     return closing ??= (async () => {
@@ -27,6 +27,7 @@ export async function start() {
       }
     })();
   }
+  const requestStop = () => { stopping = true; void close().then(() => console.log(`MenuPilot stopped. Your data is in ${dir}`), error => { console.error(error.message); process.exitCode = 1; }); };
   process.on('SIGTERM', onSignal); process.on('SIGINT', onSignal);
   try {
     const root = fileURLToPath(new URL('../', import.meta.url));
@@ -37,7 +38,7 @@ export async function start() {
     storage = await openLocalStorage(dir);
     const cliToken = randomBytes(32).toString('hex');
     privateFile(dir, 'token', cliToken);
-    http = await serveLocal({ storage, dataDir: dir, distDir: join(root, 'dist'), port, cliToken, instanceId: lock.owner.instanceId });
+    http = await serveLocal({ storage, dataDir: dir, distDir: join(root, 'dist'), port, cliToken, instanceId: lock.owner.instanceId, requestStop });
     if (stopping) { await close(); return; }
     console.log(`MenuPilot: ${http.openUrl}\nData: ${dir}\nStop: Ctrl+C`);
   } catch (error) { await close(); if (!stopping) throw error; }

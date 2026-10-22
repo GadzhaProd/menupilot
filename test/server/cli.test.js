@@ -341,3 +341,13 @@ test('CLI ingredients human output formats money instead of object coercion', as
   assert.equal(result.status, 0); assert.doesNotMatch(result.stdout, /\[object Object\]/);
   assert.match(result.stdout, /€/); assert.match(result.stdout, /excl. VAT/);
 });
+
+test('CLI dish human output uses formatted money and never prints raw micro-euro fields', async t => {
+  const f = await fixture(t, enDemo());
+  const result = await invoke(f.dir, 'dish', 'dish_classic_burger');
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Recipe-based ingredient cost: .*excl\. VAT/);
+  assert.match(result.stdout, /Contribution: .*excl\. VAT/);
+  assert.match(result.stdout, /Menu price: .*incl\. VAT/);
+  assert.doesNotMatch(result.stdout, /(?:Micro|Cents)\b/);
+});
