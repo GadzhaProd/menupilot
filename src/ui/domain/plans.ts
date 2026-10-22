@@ -1,5 +1,5 @@
 import type { OperationReceipt, StoredDocument } from './storageAdapter';
-export type PlanStatus = 'pending' | 'applied' | 'rejected' | 'expired' | 'stale';
+export type PlanStatus = 'pending' | 'applied' | 'rejected' | 'expired' | 'stale' | 'superseded';
 export interface PlanPrice {
   readonly seq: number;
   readonly recordedAt: string;
@@ -16,6 +16,8 @@ export interface PricePlan {
   readonly documentId: string | null;
   readonly revision: number;
   readonly status: PlanStatus;
+  readonly warnings?: readonly { readonly code: string; readonly message: string }[];
+  readonly supersedes?: readonly string[];
   readonly source: 'cli' | 'agent';
   readonly createdAt: string;
   readonly expiresAt: string;

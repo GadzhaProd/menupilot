@@ -18,13 +18,13 @@ export function createHttpPlanAdapter(token: string, pollMs = 2000): PlanAdapter
     }
   }
   return {
-    list: () => request(''), apply: id => request('/apply', id), reject: id => request('/reject', id),
+    list: async () => (await request<{ plans: readonly PricePlan[] }>('')).plans, apply: id => request('/apply', id), reject: id => request('/reject', id),
     subscribe(changed) {
       let active = true, timer: ReturnType<typeof setTimeout>;
       let last = '';
       async function poll() {
         try {
-          const plans = await request<readonly PricePlan[]>('');
+          const { plans } = await request<{ plans: readonly PricePlan[] }>('');
           if (!Array.isArray(plans)) throw new Error('Invalid plans response');
           const signature = JSON.stringify(plans);
           if (active && signature !== last) { last = signature; changed(plans); }

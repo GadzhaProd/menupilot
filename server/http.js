@@ -160,7 +160,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
             value = await storage.backups.restore(body, source);
           }
         }
-        else if (req.method === 'GET' && path === '/api/plans') value = await storage.plans.list();
+        else if (req.method === 'GET' && path === '/api/plans') value = await storage.plans.snapshot();
         else if (req.method === 'POST' && ['/api/plans/propose', '/api/plans/status', '/api/plans/apply', '/api/plans/reject'].includes(path)) {
           const action = path.split('/').at(-1);
           if (['apply', 'reject'].includes(action) && source !== 'ui') { send(res, 403, { code: 'ui-required', message: 'Only the owner in the MenuPilot window can apply or reject a plan.' }); return; }

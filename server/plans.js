@@ -8,7 +8,7 @@ import { encodePlan, packaging, planEffects } from './planEffects.js';
 
 export const PLAN_LIMITS = { pending: 50, count: 200, bytes: 2 * 1024 * 1024, singleBytes: 256 * 1024, ttl: 86400000, retention: 7 * 86400000 };
 const normalize = value => value.trim().normalize('NFC').toLocaleLowerCase('en');
-const fail = (code, message, candidates) => { throw Object.assign(new StoreError(code, message), candidates ? { candidates } : {}); };
+const fail = (code, message, candidates) => { throw Object.assign(new StoreError(code, message), { ...(candidates && { candidates }), ...(['plan-stale', 'plan-expired'].includes(code) && { status: 409 }) }); };
 function findIngredient(entries, token) {
   const needle = normalize(token);
   const ids = entries.filter(i => normalize(i.id) === needle);
@@ -63,21 +63,33 @@ export function createPlans(storage, now) {
   }
   return {
     list: () => transaction(refresh),
+    snapshot: () => transaction(() => ({ ...storage.version(), plans: refresh() })),
     get: id => transaction(() => get(id)),
     propose(input, source = 'cli') {
       return transaction(() => {
         const plans = refresh();
-        if (plans.filter(p => p.status === 'pending').length >= PLAN_LIMITS.pending) fail('plan-budget', 'Too many pending plans. Review pending plans first.');
         if (!input || Object.keys(input).some(k => !['ingredient', 'packPrice', 'packSize'].includes(k)) ||
           !['ingredient', 'packPrice', 'packSize'].every(k => typeof input[k] === 'string' && input[k].trim() && input[k].length <= 200)) fail('invalid-argument', 'Provide ingredient, packPrice and packSize as text.');
         if (!['cli', 'agent'].includes(source)) fail('invalid-argument', 'Invalid proposal source.');
         const current = storage.load(), target = findIngredient(current.document.ingredients, input.ingredient);
         let packPriceCents, quantity;
         try { packPriceCents = parseMoneyToCents(input.packPrice); } catch (e) { fail('invalid-argument', e.message); }
-        const match = /^(\d+(?:[.,]\d+)?)\s+(g|kg|ml|l|pc)$/i.exec(input.packSize.trim());
+        if (packPriceCents > 10_000_000) fail('price-limit', 'Agent proposals are limited to a pack price of €100,000 excl. VAT.');
+        const match = /^(\d+(?:[.,]\d+)?)\s*(g|kg|ml|l|pc)$/i.exec(input.packSize.trim());
         if (!match) fail('invalid-unit', 'Pack size must include g, kg, ml, l or pc.');
         try { quantity = parseQuantityToMilli(match[1], match[2]); } catch (e) { fail('invalid-unit', e.message); }
         if (quantity.unit !== target.unit) fail('invalid-unit', `This ingredient uses ${target.unit}; ${match[2]} is incompatible.`);
+        const supersedes = plans.filter(p => p.status === 'pending' && p.ingredient.id === target.id);
+        if (plans.filter(p => p.status === 'pending').length - supersedes.length >= PLAN_LIMITS.pending) fail('plan-budget', 'Too many pending plans. Review pending plans first.');
+        const warnings = [];
+        if (packPriceCents === 0) warnings.push({ code: 'zero-price', message: 'The proposed supplier price is zero. Check the invoice before confirming.' });
+        const oldPrice = target.prices.at(-1);
+        // Exact ratio comparison for the approval guardrail, without rounding either unit price.
+        if (oldPrice) {
+          const next = BigInt(packPriceCents) * BigInt(oldPrice.packSizeMilli);
+          const previous = BigInt(oldPrice.packPriceCents) * BigInt(quantity.quantityMilli);
+          if (next > previous * 3n || previous > next * 3n) warnings.push({ code: 'large-price-change', message: 'The price per kg/l/pc changes by more than ×3. Check the pack size and invoice before confirming.' });
+        }
         const createdAt = timestamp(), document = structuredClone(current.document);
         const price = appendPrice(document, target.id, { packPriceCents, packSizeMilli: quantity.quantityMilli }, createdAt);
         assertValidDocument(document, { now: createdAt });
@@ -86,7 +98,8 @@ export function createPlans(storage, now) {
           expiresAt: new Date(Date.parse(createdAt) + PLAN_LIMITS.ttl).toISOString(),
           ingredient: { id: target.id, name: target.name, unit: target.unit }, price,
           previousPrice: packaging(target.prices.at(-1), target.unit), proposedPrice: packaging(price, target.unit),
-          effects: planEffects(current.document, document, target.id, createdAt) });
+          effects: planEffects(current.document, document, target.id, createdAt), warnings, supersedes: supersedes.map(p => p.id) });
+        for (const old of supersedes) { old.status = 'superseded'; old.supersededBy = plan.id; save(old); }
         const raw = JSON.stringify(plan), bytes = Buffer.byteLength(raw);
         if (bytes > PLAN_LIMITS.singleBytes) fail('plan-budget', 'Too many pending plans or this plan is too large. Review pending plans first.');
         // Evict oldest terminal plans only; pending plans are never silently discarded.
@@ -115,7 +128,7 @@ export function createPlans(storage, now) {
         const current = storage.load(), document = structuredClone(current.document);
         const price = appendPrice(document, plan.ingredient.id, { packPriceCents: Number(plan.price.packPriceCents), packSizeMilli: plan.price.packSizeMilli }, plan.price.recordedAt);
         if (JSON.stringify(encodePlan(price)) !== JSON.stringify(plan.price)) fail('plan-stale', 'Price history changed. Ask the agent to propose again.');
-        const result = storage.write({ kind: 'save', document, expectedDocumentId: plan.documentId, expectedRevision: plan.revision, opId: plan.opId }, 'agent', { withinTransaction: true });
+        const result = storage.write({ kind: 'save', document, expectedDocumentId: plan.documentId, expectedRevision: plan.revision, opId: plan.opId }, 'agent', { withinTransaction: true, planId: plan.id, ingredientId: plan.ingredient.id });
         if (result.conflict) fail('plan-stale', 'Data changed. Ask the agent to propose again.');
         plan.status = 'applied'; plan.receipt = result.receipt; plan.appliedAt = timestamp(); save(plan);
         return result;

@@ -102,6 +102,9 @@ test('local price history survives restart; session warning preserves a draft; b
     await expect(page.getByRole('dialog').getByLabel(/Pack price/)).toHaveValue('4.00');
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.goto(launchUrls.get(child)!);
+    // Fragment login exchanges the new key and then reloads asynchronously.
+    // Wait for the previous session warning to disappear before opening the mobile menu.
+    await expect(page.getByText('The local server restarted. Copy any unsaved drafts, then reload this page.')).toHaveCount(0);
     await navigate(page, 'Ingredients');
     await page.getByRole('button', { name: 'Price history of Local flour', exact: true }).click();
     await expect(page.getByRole('dialog').getByRole('row')).toHaveCount(3);
@@ -182,7 +185,7 @@ test('agent proposes; owner confirms or rejects; Dashboard refreshes and dialog 
     // Polling updates the existing Dashboard; its displayed cost matches shared calc output.
     const effects = proposal.data.effects.dishes.find((d: { id: string }) => d.id === 'dish_classic_burger');
     const { formatEURFromMicroLocale } = await import('../../src/calc/money.js');
-    const cost = formatEURFromMicroLocale(BigInt(effects.currentCostMicro), 'en');
+    const cost = formatEURFromMicroLocale(BigInt(effects.currentCostMicro.micro), 'en');
     await expect(page.locator('main').getByText(cost, { exact: true }).first()).toBeVisible();
     const rejected = await cli(['propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '19', '--pack-size', '1 kg']);
     await expect(panel.getByRole('button', { name: 'Reject', exact: true })).toBeVisible();

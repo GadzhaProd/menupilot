@@ -547,7 +547,8 @@ conflict. Для строгого повтора HTTP сохраняет вес�
 HTML — no-store. D2: одноразовый секрет `#k=…` действует 15 минут. Внешний
 login.js заменяет текущую запись session history через replaceState до JSON POST
 `/menupilot/session`; гарантии удаления из browser history или sync нет. Секрет
-находится в терминале и файле launch-secret (0600); успешный обмен меняет его.
+после D5 находится только в памяти сервера и выводе npm start; файла launch-secret
+нет. Успешный обмен меняет секрет.
 
 Обмен выдаёт уникальный токен на сеанс в JSON. login.js хранит токен только в
 sessionStorage (origin включает порт). Local-config.json и весь API требуют
@@ -560,8 +561,9 @@ SameSite=Strict, Path=/menupilot/, Max-Age=36000 открывает только
 но восстановление сеанса браузера может вернуть его. Рестарт отзывает все сеансы.
 
 `npm run menupilot -- open-url` с CLI token через POST `/api/open-url` выпускает
-новый секрет, инвалидируя прежний; `--revoke-sessions` дополнительно отзывает все
-сеансы. Чтение файла cookie или открытие новой вкладки не заменяет обмен секрета.
+новый секрет, инвалидируя прежний, и сервер сам открывает браузер через execFile
+без shell. CLI получает только `{opened: true|false}`, без URL/ключа.
+`--revoke-sessions` дополнительно отзывает все сеансы. Чтение файла cookie или открытие новой вкладки не заменяет обмен секрета.
 CLI token остаётся отдельным файлом 0600; raw write через него запрещён.
 
 Host строго 127.0.0.1:port; localhost на URL страницы получает HTML-инструкцию
@@ -729,10 +731,16 @@ The existing DB v2 `plans(id, expiresAt, plan)` table stores protocol-v1 JSON; n
 
 Apply runs in one SQLite `BEGIN IMMEDIATE`: check current documentId/revision and expiry; append the fixed price with shared validation; execute the existing write path under the same transaction; save revision/history/journal (`source: agent`, `confirmedBy: ui`), receipt and applied plan; COMMIT. A failure even at the final plans UPDATE rolls everything back. The internal `withinTransaction` option is server-only and cannot be passed through HTTP. Reapplying an applied plan returns its original receipt and the current document, before stale checks, including after a restart. Plan mutations mark the database dirty for D3 backups. All plan access (including lazy lifecycle cleanup) shares D3's writer/backup queue, preventing mutations between a pre-replacement snapshot and its replacement.
 
-Statuses: pending → applied/rejected, or stale when document identity/revision differs, or expired at the 24-hour boundary. Refresh persists stale/expired before returning the refusal. Terminal plans are kept until seven days after expiry, subject to 200 total/2 MiB retention; pending count is limited to 50 and each proposed JSON to 256 KiB. Terminal plans may be evicted oldest first; pending plans cannot be evicted to accommodate another proposal. Plan endpoint replay is bounded by this retention. The independently bounded `ops` table retains its existing contract.
+Statuses: pending → applied/rejected/superseded, or stale when document identity/revision differs, or expired at the 24-hour boundary. Refresh persists stale/expired before returning the refusal. Terminal plans are kept until seven days after expiry, subject to 200 total/2 MiB retention; pending count is limited to 50 and each proposed JSON to 256 KiB. Terminal plans may be evicted oldest first; pending plans for other ingredients cannot be evicted to accommodate another proposal. Plan endpoint replay is bounded by this retention. The independently bounded `ops` table retains its existing contract.
 
 Consequences use Dashboard results for before/after catalogs, `costChangeCents`, `foodCostChangeTenths`, `monthlyContributionCents`, `monthlyImpactCents` and `menuMonthlyImpactCents`. Dependency traversal includes all parent prep levels. Comparison is the actual pre-proposal catalog (not a timestamp approximation, which could select a same-millisecond price incorrectly). Unknown is null; no-volume dishes are excluded, and excluded unknown counts accompany the known-only total. No calculations are duplicated in UI.
 
 `httpPlanAdapter.ts` provides typed, authenticated plan reads/actions and `subscribe` polling, including initial loading and error recovery. `LocalPlans` exists only in local mode; EN/NL confirmation dialogs use the existing Radix focus/keyboard primitives. Document revision polling continues through the existing HTTP StorageAdapter → store.load/beforeReplace → documentReplaced flow. Plan notifications do not create false document conflicts; after approval existing draft protection defers document replacement when a form/dialog is open. A lost action response is reported; reapproval is safe and queue polling recovers the status.
 
 Apply/reject require the session registry's UI bearer identity plus the exact Origin; supplying CLI bearer with the correct Origin is still forbidden (403 `ui-required`). No body field can claim UI authority. Read/propose are available to CLI. This is protection against errors and hostile websites, not isolation from a local process with full user privileges.
+
+D5 review hardening: launch capabilities are held only in server memory and printed by startup. The CLI `open-url` endpoint invokes the OS browser launcher via execFile and returns only `{opened}`. No launch-secret file remains. This enforces UI confirmation in normal operation; shell access is not isolated from direct database/process access.
+
+A valid new proposal atomically supersedes a pending proposal for the same ingredient (`supersedes` / `supersededBy`). Invalid proposals preserve the old one. Agent pack prices are capped at €100,000; zero prices and exact unit-price ratios exceeding ×3 in either direction produce warnings. These guardrails do not change manual price validation or costing formulas. Price ratio warnings compare integer cross-products without rounding. Stale/expired apply/reject returns HTTP 409. Journal entries include planId and ingredientId. Plan listing returns the document version and plans in one writer-queue snapshot; CLI presentation converts money to the D4 `{cents|micro,display}` contract.
+
+The local panel shows at most three pending cards at once with paging and a confirmed Reject all action. Stale/expired/rejected/superseded entries occupy one dismissible summary line; one status region announces queue changes. Warning text appears in both card and confirmation dialog. Success messages clear on the next action or after five seconds.

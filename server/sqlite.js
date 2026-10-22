@@ -89,7 +89,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
       if (i >= budget.count || bytes > budget.bytes) db.prepare(`DELETE FROM ${table} WHERE seq=?`).run(rows[i].seq);
     }
   }
-  function write(input, actor = 'ui', { restoreDocument, withinTransaction = false } = {}) {
+  function write(input, actor = 'ui', { restoreDocument, withinTransaction = false, planId, ingredientId } = {}) {
     if (!input || !['save', 'import', 'reset', 'restore', 'memory', 'backup-restore'].includes(input.kind)) invalid('Unknown write operation.');
     const fields = { save: ['document'], import: ['source'], reset: ['document', 'resetKind'], restore: ['id'], 'backup-restore': ['id'], memory: ['document'] };
     const allowed = ['kind', 'expectedDocumentId', 'expectedRevision', 'opId', ...fields[input.kind]];
@@ -144,7 +144,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
         const remaining = new Set(document.ingredients.map(i => i.id));
         const removedIngredients = current.document.ingredients.filter(i => !remaining.has(i.id))
           .map(i => ({ id: i.id, name: i.name, priceEntries: i.prices.length }));
-        const entry = JSON.stringify({ ...receipt, kind: input.kind, source: actor, at: timestamp, ...(actor === 'agent' && { confirmedBy: 'ui' }),
+        const entry = JSON.stringify({ ...receipt, kind: input.kind, source: actor, at: timestamp, ...(actor === 'agent' && { confirmedBy: 'ui', planId, ingredientId }),
           ...(removedIngredients.length && { removedIngredients,
             description: `Deleted ${removedIngredients.length} ingredient(s), including their price history; the pre-change snapshot is retained in version history within its retention limits.` }) });
         db.prepare('INSERT INTO journal (entry,bytes) VALUES (?,?)').run(entry, Buffer.byteLength(entry));

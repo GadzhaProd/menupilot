@@ -202,7 +202,8 @@ The launch secret grants a session while valid. This does not isolate data from 
 process running as your user (it can read 0600 files and SQLite), root, page-capable
 extensions or a compromised browser. Cookie theft alone no longer grants API access.
 HttpOnly does not prove human approval against an agent with your OS access.
-Broader CLI and diagnostics (D4), proposals (D5) and installation polish (D6) remain.
+CLI reads and diagnostics (D4) and owner-confirmed proposals (D5) are implemented.
+Installation polish (D6) remains.
 D3 implements automatic backups and the emergency recovery command below.
 
 ## Local backups and recovery

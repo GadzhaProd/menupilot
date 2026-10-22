@@ -11,7 +11,7 @@ const readCommands = new Set(['status', 'what-changed', 'dishes', 'dish', 'ingre
 const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups|propose|plans|plan> [options]';
 function jsonRequested(args) { return args.includes('--json'); }
 function printJson(value, error = false) { (error ? console.error : console.log)(JSON.stringify(value)); }
-function exitCode(code) { return ({ usage: 2, 'invalid-argument': 2, 'invalid-unit': 2, 'not-found': 4, ambiguous: 4, unauthorized: 5, unavailable: 3 })[code] ?? 1; }
+function exitCode(code) { return ({ usage: 2, 'invalid-argument': 2, 'invalid-unit': 2, 'price-limit': 2, 'not-found': 4, ambiguous: 4, unauthorized: 5, unavailable: 3 })[code] ?? 1; }
 function cliError(code, message) { return Object.assign(new Error(message), { code }); }
 function portFromAddress(address) { const match = /^http:\/\/127\.0\.0\.1:([1-9]\d{0,4})$/.exec(address ?? ''); return match ? Number(match[1]) : null; }
 export async function connection(dir) {
@@ -65,7 +65,7 @@ function displayValue(value) {
 function printHuman(result) {
   const { command, data, warnings = [] } = result;
   if (command === 'dishes' || command === 'preps' || command === 'ingredients') {
-    for (const item of data) console.log(`${item.name}  [${item.id}]${item.currentPrice ? `  ${item.currentPrice.packPrice} excl. VAT` : ''}`);
+    for (const item of data) console.log(`${item.name}  [${item.id}]${item.currentPrice ? `  ${displayValue(item.currentPrice.packPrice)} excl. VAT` : ''}`);
   } else if (command === 'what-changed') {
     console.log(`What changed since ${data.since}`);
     for (const row of data.dishes) console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'} → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}); monthly impact ${displayValue(row.monthlyImpact)}${row.excludedReason ? `; excluded: ${row.excludedReason}` : ''}`);

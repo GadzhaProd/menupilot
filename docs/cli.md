@@ -87,33 +87,35 @@ npm run menupilot -- plans --json
 npm run menupilot -- plan status <plan-id> --json
 ```
 
-**Supplier price excl. VAT, as on the invoice.** Enter decimal text with comma or point, no grouping separators. Zero is allowed, consistently with manual price entry; negative, excess-precision and unsafe-integer prices are refused. Pack size must be positive and compatible with the ingredient: g/kg, ml/l, or pc. Price history retains the normalized pack price and size; per-kg/l/pc prices are display only. IDs and exact names are trimmed, NFC-normalized and case-insensitive. Ambiguous IDs/names and missing exact matches are refused with candidates; no fuzzy selection is used.
+**Supplier price excl. VAT, as on the invoice.** Enter decimal text with comma or point, no grouping separators. Agent proposals have a maximum pack price of €100,000 (`price-limit`, exit 2). Zero is allowed with a prominent warning, consistently with manual price entry; negative, excess-precision and unsafe-integer prices are refused. Pack size must be positive and compatible with the ingredient: g/kg, ml/l, or pc. Price history retains the normalized pack price and size; per-kg/l/pc prices are display only. IDs and exact names are trimmed, NFC-normalized and case-insensitive. Ambiguous IDs/names and missing exact matches are refused with candidates; no fuzzy selection is used.
 
-A proposal saves a **plan**, not an ingredient price. Human output includes its ID, 24-hour expiry, consequences and `Ожидает подтверждения владельца в окне MenuPilot`. In the open MenuPilot window, the owner reviews old/new pack and unit prices, affected dishes/preps, food cost and monthly contribution changes, then chooses Apply or Reject and confirms in a dialog. The CLI has no apply/reject command; using its token on either endpoint returns HTTP 403 `ui-required`, even with a forged same-origin header. Browser confirmation needs a live UI bearer session and the exact local Origin.
+A proposal saves a **plan**, not an ingredient price. Human output includes its ID, 24-hour expiry, consequences and `Waiting for owner confirmation in MenuPilot` (Dutch with `--locale nl`). In the open MenuPilot window, the owner reviews old/new pack and unit prices, affected dishes/preps, food cost and monthly contribution changes, then chooses Apply or Reject and confirms in a dialog. The CLI has no apply/reject command; using its token on either endpoint returns HTTP 403 `ui-required`, even with a forged same-origin header. Browser confirmation needs a live UI bearer session and the exact local Origin.
 
 Changes to the document (including unrelated edits or replacement) make pending plans stale. Expired/stale plans cannot apply: ask the agent to propose again. Unknown costs are `null`, never zero. Dishes without monthly volume show `—` and are excluded from the menu total. The total includes known impacts only; excluded counters must be shown alongside it. Consequences compare the current catalog to the proposed catalog using the same calculation functions as Dashboard. They compare against the moment of proposal, not Dashboard's default 30-day date.
 
 ### Plan JSON, protocol 1
 
-Success keeps the version-1 CLI envelope. `propose` and `plan status` return a plan in `data`; envelope identity/revision are that plan's preconditions. `plans` returns a newest-first array of pending/recent plans, with the current document identity/revision in the envelope. `warnings` is an array (currently empty for these commands). `--locale en|nl` changes human formatting; plan JSON stores exact decimal strings.
+Success keeps the version-1 CLI envelope. `propose` and `plan status` return a plan in `data`; envelope identity/revision are that plan's preconditions. `plans` returns a newest-first array of pending/recent plans, with the current document identity/revision in the envelope. `warnings` is an array of `{code,message}`. `zero-price` warns about a zero pack price; `large-price-change` warns when price per kg/l/pc changes by more than ×3 in either direction (including transitions from/to zero). Warnings appear in the plan and the CLI envelope and use `--locale`. Every `*Cents`/`*Micro` amount uses `{cents,display}` / `{micro,display}`; unknown amounts remain null. `unitPrice` uses `{cents,display,per}`. `--locale en|nl` changes displays, never exact integer strings.
 
 ```text
 Plan = {
   id: string, opId: string, protocolVersion: 1, kind: "add-price",
   documentId: string | null, revision: safeInteger,
-  status: "pending" | "applied" | "rejected" | "expired" | "stale",
+  status: "pending" | "applied" | "rejected" | "expired" | "stale" | "superseded",
   source: "cli" | "agent", createdAt: ISOInstant, expiresAt: ISOInstant,
   ingredient: { id: string, name: string, unit: "g" | "ml" | "pc" },
   price: { seq: safeInteger, recordedAt: ISOInstant,
-           packPriceCents: decimalIntegerString, packSizeMilli: safeInteger },
+           packPriceCents: { cents: decimalIntegerString, display: string }, packSizeMilli: safeInteger },
   previousPrice: Packaging | null, proposedPrice: Packaging,
   effects: { dishes: DishEffect[], preps: PrepEffect[],
-             totalMonthlyImpactCents: decimalIntegerString | null,
+             totalMonthlyImpactCents: { cents: decimalIntegerString, display: string } | null,
              excludedWithoutVolume: integer, excludedWithVolume: integer },
+  warnings: { code: "zero-price" | "large-price-change", message: string }[],
+  supersedes: string[], supersededBy?: string,
   receipt?: { opId: string, documentId: string, revision: safeInteger, changed: boolean },
   appliedAt?: ISOInstant, rejectedAt?: ISOInstant
 }
-Packaging = Price & { unitPrice: { cents: decimalIntegerString, per: "kg" | "l" | "pc" } }
+Packaging = Price & { unitPrice: { cents: decimalIntegerString, display: string, per: "kg" | "l" | "pc" } }
 DishEffect = {
   id, name, menuPriceInclVatCents, priceExclVatMicro,
   currentCostMicro, comparisonCostMicro, currentContributionMicro,
@@ -128,10 +130,12 @@ PrepEffect = {
 }
 ```
 
-All money and calculated percentage fields in effects are decimal integer strings (percentage units are tenths); unavailable results are `null`. `monthlyVolume`/`outputMilli` are safe integers or null as appropriate. Prep `current`/`comparison` are shared Dashboard display strings per kg/l/pc. `price.seq` and `recordedAt`, plus `opId` and plan `id`, are fixed at proposal time. Price entries have no separate UUID in the existing document format.
+All money fields in effects are amount objects with exact integer strings and localized `display`; calculated percentage fields are integer strings (tenths of a percent). Unavailable results are `null`. `monthlyVolume`/`outputMilli` are safe integers or null as appropriate. Prep `current`/`comparison` are shared Dashboard display strings per kg/l/pc. `price.seq` and `recordedAt`, plus `opId` and plan `id`, are fixed at proposal time. Price entries have no separate UUID in the existing document format.
 
-Authenticated endpoints: `GET /api/plans`; `POST /api/plans/propose` with `{ingredient,packPrice,packSize}` as text; `POST /api/plans/status` with `{id}`. UI-only `POST /api/plans/apply` and `/api/plans/reject` accept `{id}` only. Apply returns the current stored-document envelope plus the original operation receipt; reject returns the plan. Repeat apply returns the same receipt without another price or revision, including after restart and subsequent writes.
+Authenticated endpoints: `GET /api/plans` returns `{documentId,revision,plans}` from one queued snapshot (no separate version request); `POST /api/plans/propose` with `{ingredient,packPrice,packSize}` as text; `POST /api/plans/status` with `{id}`. The HTTP UI transport keeps raw exact money strings; the CLI formats the public amount objects described above. UI-only `POST /api/plans/apply` and `/api/plans/reject` accept `{id}` only. Apply returns the current stored-document envelope plus the original operation receipt; reject returns the plan. Repeat apply returns the same receipt without another price or revision, including after restart and subsequent writes.
 
-Lifecycle is refreshed on access. Retention is bounded to 50 pending, 200 total plans, 256 KiB per proposal, and 2 MiB total UTF-8 JSON (with 1 KiB per plan reserved for receipt/lifecycle metadata). Old terminal plans may be removed to fit the budget; terminal plans older than seven days after expiry are removed on access. Pending plans are never evicted to make room. Receipt replay through the plan endpoint is guaranteed while the plan remains in retention. A lost proposal response may have created a pending plan: inspect `plans` before proposing again.
+Lifecycle is refreshed on access. Retention is bounded to 50 pending, 200 total plans, 256 KiB per proposal, and 2 MiB total UTF-8 JSON (with 1 KiB per plan reserved for receipt/lifecycle metadata). Old terminal plans may be removed to fit the budget; terminal plans older than seven days after expiry are removed on access. A new valid proposal for the same ingredient atomically replaces its previous pending proposal: the old plan becomes `superseded`, and the new plan lists its ID in `supersedes`. Invalid proposals leave the previous one pending. Pending plans for other ingredients are never evicted. Receipt replay through the plan endpoint is guaranteed while the plan remains in retention. A lost proposal response may have created a pending plan: inspect `plans` before proposing again.
 
-Additional stable errors: `plan-budget`, `plan-stale`, `plan-expired`, `plan-rejected`, `plan-applied`, `plan-version`, `write-failed` (exit 1); `ui-required` and `origin` (HTTP 403, exit 1); `invalid-argument`/`invalid-unit`/`usage` (exit 2); `ambiguous`/`not-found` (exit 4, with candidates for ingredient resolution). A failed apply leaves the ingredient, revision, history, journal, receipt and applied mark unchanged.
+Additional stable errors: `plan-budget`, `plan-stale`, `plan-expired`, `plan-rejected`, `plan-applied`, `plan-superseded`, `plan-version`, `write-failed` (exit 1); `ui-required` and `origin` (HTTP 403, exit 1); `invalid-argument`/`invalid-unit`/`usage` (exit 2); `ambiguous`/`not-found` (exit 4, with candidates for ingredient resolution). `plan-stale` and `plan-expired` return HTTP 409 with advice to ask the agent again. `price-limit` returns exit 2. Pack sizes accept `1 kg` and `1kg`.
+
+A failed apply leaves the ingredient, revision, history, journal, receipt and applied mark unchanged.

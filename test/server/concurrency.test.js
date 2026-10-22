@@ -104,7 +104,7 @@ test('processes: response socket is lost after commit; retry after restart retur
   assert.equal((await ui(f.address + '/api/history', { headers: { Authorization: `Bearer ${auth.ui}` } })).body.length, 1);
 });
 
-test('processes: two clients with the same browser cookie still enforce CAS; open-url uses private current secret', { timeout: 90000 }, async t => {
+test('processes: two clients with the same browser cookie still enforce CAS; sign-in uses only startup output', { timeout: 90000 }, async t => {
   const f = await fixture(t); await f.launch(); const auth = await f.login();
   const a = f.client(), b = f.client();
   const configs = await Promise.all([a, b].map(client => client(f.address + '/menupilot/local-config.json', { headers: { Cookie: auth.cookie, Authorization: `Bearer ${auth.ui}` } })));
