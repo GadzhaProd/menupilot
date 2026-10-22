@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync, realpathSync, lstatSync } from 'node:fs';
 import { join, extname, relative } from 'node:path';
 import { createSession, tokenMatches } from './session.js';
+import { openBrowser as launchBrowser } from './openBrowser.js';
 import { createLogger } from './log.js';
 import { StoreError } from '../src/store/errors.js';
 
@@ -62,7 +63,7 @@ export function dispatchRequest(handle, req, res) {
 }
 
 /** No arbitrary filesystem paths or arbitrary adapter method dispatch are accepted. */
-export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now }) {
+export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now, openBrowser = launchBrowser }) {
   const session = createSession(dataDir, now), log = createLogger(dataDir);
   const policy = { headersMs: 10000, bodyMs: 15000, keepAliveMs: 5000, connections: 32, ...limits };
   const loginPage = readFileSync(new URL('./login.html', import.meta.url));
@@ -143,7 +144,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
           const body = await jsonBody(req, 1024);
           if (!body || Array.isArray(body) || Object.keys(body).some(k => k !== 'revokeSessions') || (body.revokeSessions !== undefined && typeof body.revokeSessions !== 'boolean')) throw new StoreError('invalid', 'Invalid open-url options.');
           const key = session.rotate(body.revokeSessions === true);
-          value = { url: `${address}/menupilot/#k=${key}` };
+          value = { opened: await openBrowser(`${address}/menupilot/#k=${key}`) };
         }
         else if (req.method === 'GET' && path === '/api/backups/status' && storage.backups) value = storage.backups.status();
         else if (req.method === 'GET' && path === '/api/backups' && storage.backups) value = storage.backups.list();

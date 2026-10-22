@@ -117,7 +117,7 @@ test('HTTP: dollar replacement patterns in data path remain literal JSON', async
   const { mkdirSync, readFileSync } = await import("node:fs"); mkdirSync(path);
   const other = await serveLocal({ storage: f.storage, dataDir: path, distDir: f.dir, port: 0 });
   t.after(() => other.close());
-  const response = await fetch(other.address + '/menupilot/session', { method: 'POST', headers: { Origin: other.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: readFileSync(join(path, 'launch-secret'), 'utf8') }) });
+  const response = await fetch(other.address + '/menupilot/session', { method: 'POST', headers: { Origin: other.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: other.openUrl.split('#k=')[1] }) });
   const token = (await response.json()).token;
   const config = await (await fetch(other.address + '/menupilot/local-config.json', { headers: { Authorization: `Bearer ${token}` } })).json();
   assert.equal(config.dataDir,path);

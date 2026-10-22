@@ -15,11 +15,11 @@ async function fixture(t, options = {}) {
   writeFileSync(join(dir, 'index.html'), '<head><script>window.ready=true;</script></head><body>private-app</body>');
   writeFileSync(join(dir, 'asset.js'), 'cached-asset');
   const storage = createSqliteStorage(':memory:');
-  const f = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0, ...options });
+  const f = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0, openBrowser: async () => true, ...options });
   t.after(async () => { await f.close(); storage.close(); rmSync(dir, { recursive: true }); });
-  return { ...f, dir };
+  return { ...f, get openUrl() { return f.openUrl; }, dir };
 }
-async function login(f, key = readFileSync(join(f.dir, 'launch-secret'), 'utf8')) {
+async function login(f, key = f.openUrl.split('#k=')[1]) {
   const res = await fetch(f.address + '/menupilot/session', { method: 'POST', headers: { Origin: f.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
   const body = await res.json();
   return { status: res.status, token: body.token, cookie: res.headers.get('set-cookie')?.split(';')[0] };
@@ -74,10 +74,10 @@ test('review: launch link expires at 15 minutes; session expires after 1h idle o
 });
 test('review: open-url rotates links and can revoke sessions; UI cannot issue a link', async t => {
   const f = await fixture(t), a = await login(f);
-  const old = readFileSync(join(f.dir, 'launch-secret'), 'utf8');
+  const old = f.openUrl.split('#k=')[1];
   const options = { method: 'POST', headers: { ...auth(f.cliToken), 'Content-Type': 'application/json' }, body: '{"revokeSessions":true}' };
   assert.equal((await fetch(f.address + '/api/open-url', options)).status, 200);
-  assert.notEqual(readFileSync(join(f.dir, 'launch-secret'), 'utf8'), old);
+  assert.notEqual(f.openUrl.split('#k=')[1], old);
   assert.equal((await login(f, old)).status, 401);
   assert.equal((await fetch(f.address + '/api/document', { headers: auth(a.token) })).status, 401);
   const b = await login(f);
@@ -149,8 +149,34 @@ test('review: CLI open-url generates a fresh secret each call and revoke flag ex
   writeFileSync(join(f.dir, 'token'), f.cliToken, { mode: 0o600 });
   const invoke = async args => (await promisify(execFile)(process.execPath, ['server/cli.js', 'open-url', ...args], { env: { ...process.env, MENUPILOT_DATA_DIR: f.dir } })).stdout.trim();
   const first = await invoke([]), second = await invoke([]);
-  assert.notEqual(first, second);
-  assert.equal(second, f.address + '/menupilot/#k=' + readFileSync(join(f.dir, 'launch-secret'), 'utf8'));
+  assert.equal(first, 'MenuPilot opened in your browser.');
+  assert.equal(second, first);
+  assert.doesNotMatch(second, /#k=|https?:/);
   await invoke(['--revoke-sessions']);
   assert.equal((await fetch(f.address + '/api/document', { headers: auth(a.token) })).status, 401);
+});
+
+test('review: CLI and readable data files disclose no UI capability', async t => {
+  let opened;
+  const f = await fixture(t, { openBrowser: async url => { opened = url; return true; } });
+  const cliHeaders = { ...auth(f.cliToken), Origin: f.address, 'Content-Type': 'application/json' };
+  const r = await fetch(f.address + '/api/open-url', { method: 'POST', headers: cliHeaders, body: '{}' });
+  assert.deepEqual(await r.json(), { opened: true });
+  assert.equal(opened, f.openUrl);
+  assert.ok(!readdirSync(f.dir).includes('launch-secret'));
+  const key = f.openUrl.split('#k=')[1];
+  const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : [readFileSync(join(dir, e.name), 'utf8')]);
+  for (const content of walk(f.dir)) assert.ok(!content.includes(key));
+  for (const path of ['/api/document', '/api/version', '/api/plans', '/api/local/status', '/menupilot-instance', '/menupilot/', '/menupilot/local-config.json', '/launch-secret', '/api/session', '/api/open-url']) {
+    const response = await fetch(f.address + path, { headers: cliHeaders });
+    const content = await response.text(); assert.ok(!content.includes(key));
+    assert.doesNotMatch(content, /"token"\s*:/);
+  }
+  for (const key of [f.cliToken, '', 'a'.repeat(64)]) {
+    const r = await fetch(f.address + '/menupilot/session', { method: 'POST', headers: cliHeaders, body: JSON.stringify({ key }) });
+    assert.equal(r.status, 401);
+  }
+  const failed = await fixture(t, { openBrowser: async () => false });
+  const failure = await fetch(failed.address + '/api/open-url', { method: 'POST', headers: { ...auth(failed.cliToken), 'Content-Type': 'application/json' }, body: '{}' });
+  assert.deepEqual(await failure.json(), { opened: false });
 });

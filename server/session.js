@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual, randomUUID } from 'node:crypto';
-import { openSync, writeFileSync, fsyncSync, closeSync, renameSync } from 'node:fs';
+import { openSync, writeFileSync, fsyncSync, closeSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const tokenMatches = (given, expected) => typeof given === 'string' && /^[a-f0-9]{64}$/.test(given) && given.length === expected.length && timingSafeEqual(Buffer.from(given), Buffer.from(expected));
@@ -12,11 +12,12 @@ export const SESSION_ABSOLUTE_MS = 10 * 60 * 60_000;
 export const SESSION_IDLE_MS = 60 * 60_000;
 export const LAUNCH_TTL_MS = 15 * 60_000;
 export function createSession(dir, now = Date.now) {
+  // Remove the obsolete D2 launch file; current keys live only in memory.
+  try { unlinkSync(join(dir, 'launch-secret')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   let key, issuedAt;
   const sessions = new Map();
   function rotate(revokeSessions = false) {
     const next = randomBytes(32).toString('hex');
-    privateFile(dir, 'launch-secret', next);
     key = next; issuedAt = now();
     if (revokeSessions) sessions.clear();
     return key;

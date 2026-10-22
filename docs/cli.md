@@ -72,7 +72,11 @@ Stable error codes include `usage`, `invalid-argument`, `invalid-unit`, `not-fou
 
 ## Existing administrative commands
 
-`open-url` and `backup list|verify|restore` remain available. Backup restore retains its confirmation flow. If a write request loses its response, the CLI says it may have completed; check the current status before retrying. `doctor` checks Node support, folder access/free space, cloud/network location, port and lock, token permissions, SQLite `quick_check`, document format, and backup freshness. A damaged database is never repaired automatically; use a verified backup after reviewing the report.
+`open-url` asks the server to open the browser; the API returns only `{opened: true|false}`, never a launch URL or UI token. The CLI prints whether it opened. On failure, open the address from the terminal window running `npm start`, or restart `npm start`. Launch keys are memory-only, apart from the startup terminal output. `--revoke-sessions` also revokes existing UI sessions.
+
+Agents must never open or apply their own plans, or access data files directly (AGENTS.md). This guards against agent mistakes in normal operation; shell access could still bypass it, for example by modifying the database.
+
+`backup list|verify|restore` remains available. Backup restore retains its confirmation flow. If a write request loses its response, the CLI says it may have completed; check the current status before retrying. `doctor` checks Node support, folder access/free space, cloud/network location, port and lock, token permissions, SQLite `quick_check`, document format, and backup freshness. A damaged database is never repaired automatically; use a verified backup after reviewing the report.
 
 ## Propose a supplier price (local mode)
 

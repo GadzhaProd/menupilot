@@ -85,6 +85,7 @@ try {
     ['CLI port diagnostic', 'server/cliRead.js', 'validPort && (apiAvailable || !busy)', 'validPort', 'test/server/cli.test.js'],
     ['CLI supported Node range', 'server/cliRead.js', '(major === 24 && minor >= 15) || (major === 25 && (minor > 8 || (minor === 8 && patch >= 1)))', 'true', 'test/server/cli.test.js'],
     ['distinct session tokens', 'server/session.js', "const token = randomBytes(32).toString('hex'), cookie", "const token = 'a'.repeat(64), cookie", 'test/server/review.test.js'],
+    ['CLI launch capability leak', 'server/http.js', 'value = { opened: await openBrowser(`${address}/menupilot/#k=${key}`) };', 'value = { url: `${address}/menupilot/#k=${key}` };', 'test/server/review.test.js'],
     ['link rotation', 'server/http.js', 'session.rotate(body.revokeSessions === true)', 'session.key', 'test/server/review.test.js'],
     ['session revocation', 'server/session.js', 'if (revokeSessions) sessions.clear();', '', 'test/server/review.test.js'],
     ['warn default', 'server/log.js', "?? 'warn'", "?? 'info'", 'test/server/review.test.js'],

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
@@ -11,11 +11,12 @@ async function freePort() {
   const probe = createServer(); await new Promise<void>(r => probe.listen(0, '127.0.0.1', r));
   const port = (probe.address() as { port: number }).port; await new Promise<void>(r => probe.close(() => r())); return port;
 }
+const launchUrls = new WeakMap<ChildProcess, string>();
 async function launch(dir: string, port: number) {
   const child = spawn(process.execPath, ['server/start.js'], { env: { ...process.env, MENUPILOT_DATA_DIR: dir, MENUPILOT_PORT: String(port), MENUPILOT_BACKUP_DIR: join(dir, 'external-unavailable') }, stdio: ['ignore', 'pipe', 'pipe'] });
   await new Promise<void>((resolve, reject) => {
     let output = ''; const timer = setTimeout(() => reject(new Error('Startup timeout: ' + output)), 30000);
-    child.stdout.on('data', b => { output += b; if (output.includes('MenuPilot: http')) { clearTimeout(timer); resolve(); } });
+    child.stdout.on('data', b => { output += b; if (output.includes('MenuPilot: http')) { launchUrls.set(child, output.match(/http:\/\/127\.0\.0\.1:\d+\/menupilot\/#k=[a-f0-9]+/)![0]); clearTimeout(timer); resolve(); } });
     child.stderr.on('data', b => { output += b; });
     child.once('exit', code => { clearTimeout(timer); reject(new Error(`Server exit ${code}: ${output}`)); });
   });
@@ -46,7 +47,7 @@ test('local price history survives restart; session warning preserves a draft; b
   try {
     await page.goto(`${origin}/menupilot/`);
     await expect(page.getByText('Open MenuPilot from your terminal', { exact: true })).toBeVisible();
-    await page.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
+    await page.goto(launchUrls.get(child)!);
     await expect(page.getByTestId('local-mode')).toContainText('Local mode · data:');
     expect(page.url()).not.toContain('k=');
     await expect(page.getByTestId('backup-status')).toContainText('Last backup: none yet');
@@ -60,7 +61,8 @@ test('local price history survives restart; session warning preserves a draft; b
     const other = await secondContext.newPage();
     await other.goto(`${origin}/menupilot/`);
     await expect(other.getByRole('alert')).toContainText('open-url');
-    await other.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
+    await other.evaluate(token => sessionStorage.setItem('menupilot.local.token.v1', token!), token);
+    await other.reload();
     await expect(other.getByTestId('local-mode')).toBeVisible();
     // Two independent browser contexts share one session but still compete by CAS.
     const current = await (await page.request.get(`${origin}/api/document`, { headers: { Authorization: `Bearer ${config.token}` } })).json();
@@ -99,7 +101,7 @@ test('local price history survives restart; session warning preserves a draft; b
     await expect(page.getByText('The local server restarted. Copy any unsaved drafts, then reload this page.')).toBeVisible();
     await expect(page.getByRole('dialog').getByLabel(/Pack price/)).toHaveValue('4.00');
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-    await page.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
+    await page.goto(launchUrls.get(child)!);
     await navigate(page, 'Ingredients');
     await page.getByRole('button', { name: 'Price history of Local flour', exact: true }).click();
     await expect(page.getByRole('dialog').getByRole('row')).toHaveCount(3);
@@ -155,7 +157,7 @@ test('agent proposes; owner confirms or rejects; Dashboard refreshes and dialog 
   });
   const child = await launch(dir, port);
   try {
-    await page.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
+    await page.goto(launchUrls.get(child)!);
     await expect(page.getByTestId('local-mode')).toBeVisible();
     const before = await cli(['dish', 'dish_classic_burger']);
     const proposal = await cli(['propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '18,00', '--pack-size', '1', 'kg']);

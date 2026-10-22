@@ -44,7 +44,7 @@ test('process: authenticated backup CLI, confirmation, new revision, offline ref
   const probe = createServer(); await new Promise(r => probe.listen(0, '127.0.0.1', r));
   const port = probe.address().port; await new Promise(r => probe.close(r));
   const address = `http://127.0.0.1:${port}`;
-  let child;
+  let child, launchUrl;
   t.after(async () => { if (child) await stop(child); rmSync(dir, { recursive: true }); });
   const offline = await cli(dir, ['backup', 'list']);
   assert.equal(offline.code, 3); assert.match(offline.output, /Run npm start/);
@@ -56,10 +56,10 @@ test('process: authenticated backup CLI, confirmation, new revision, offline ref
   await new Promise((resolve, reject) => {
     let output = ''; const timer = setTimeout(() => reject(new Error(output)), 30000);
     child.stderr.on('data', b => { output += b; });
-    child.stdout.on('data', b => { output += b; if (output.includes('MenuPilot: http')) { clearTimeout(timer); resolve(); } });
+    child.stdout.on('data', b => { output += b; if (output.includes('MenuPilot: http')) { launchUrl = output.match(/http:\/\/127\.0\.0\.1:\d+\/menupilot\/#k=[a-f0-9]+/)[0]; clearTimeout(timer); resolve(); } });
     child.once('exit', () => { clearTimeout(timer); reject(new Error(output)); });
   });
-  const auth = await (await fetch(address + '/menupilot/session', { method: 'POST', headers: { Origin: address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: readFileSync(join(dir, 'launch-secret'), 'utf8') }) })).json();
+  const auth = await (await fetch(address + '/menupilot/session', { method: 'POST', headers: { Origin: address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: launchUrl.split('#k=')[1] }) })).json();
   const uiHeaders = { Authorization: `Bearer ${auth.token}`, Origin: address, 'Content-Type': 'application/json' };
   const headers = { Authorization: `Bearer ${readFileSync(join(dir, 'token'), 'utf8')}` };
   for (const route of ['backups', 'backups/status']) assert.equal((await fetch(address + '/api/' + route)).status, 401);

@@ -9,7 +9,7 @@ import { serveLocal } from '../../server/http.js';
 import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
 import { readFileSync as readDemoFile } from 'node:fs';
 import { assertQuickCheck, dateFor, isSupportedNode, localDoctor } from '../../server/cliRead.js';
-import { hasValidLaunchUrl } from '../../server/cliSecurity.js';
+import { hasValidOpenResult } from '../../server/cliSecurity.js';
 import { createServer } from 'node:net';
 
 async function fixture(t, document) {
@@ -261,9 +261,9 @@ test('doctor rejects quick_check failures and launch URLs must keep the expected
   assert.throws(() => assertQuickCheck([{ quick_check: 'row 3 missing' }]), /quick_check failed/);
   assert.doesNotThrow(() => assertQuickCheck([{ quick_check: 'ok' }]));
   const address = 'http://127.0.0.1:4710';
-  assert.equal(hasValidLaunchUrl(address, `${address}/menupilot/#k=secret`), true);
-  assert.equal(hasValidLaunchUrl(address, 'https://attacker.example/menupilot/#k=secret'), false);
-  assert.equal(hasValidLaunchUrl(address, `${address}/other/#k=secret`), false);
+  assert.equal(hasValidOpenResult({ opened: true }), true);
+  assert.equal(hasValidOpenResult({ url: 'secret' }), false);
+  assert.equal(hasValidOpenResult({ opened: true, url: 'secret' }), false);
 });
 
 test('doctor reports private token failures instead of exiting before a report', async t => {

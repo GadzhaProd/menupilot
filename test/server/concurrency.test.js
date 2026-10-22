@@ -19,20 +19,21 @@ async function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-concurrency-')), port = await freePort();
   const address = `http://127.0.0.1:${port}`, children = [];
   t.after(async () => { for (const c of children) await stop(c); rmSync(dir, { recursive: true }); });
+  let launchUrl;
   async function launch() {
     const child = spawn(process.execPath, ['server/start.js'], { env: { ...process.env, MENUPILOT_DATA_DIR: dir, MENUPILOT_PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
     children.push(child);
     let diagnostics = ''; child.stderr.on('data', b => { diagnostics += b; });
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Startup timeout')), 30000);
-      child.stdout.on('data', b => { if (String(b).includes('MenuPilot: http')) { clearTimeout(timer); resolve(); } });
+      child.stdout.on('data', b => { if (String(b).includes('MenuPilot: http')) { launchUrl = String(b).match(/http:\/\/127\.0\.0\.1:\d+\/menupilot\/#k=[a-f0-9]+/)[0]; clearTimeout(timer); resolve(); } });
       child.once('exit', () => { clearTimeout(timer); reject(new Error('Server failed: ' + diagnostics)); });
       child.stderr.resume();
     });
     return child;
   }
   async function login() {
-    const key = readFileSync(join(dir, 'launch-secret'), 'utf8');
+    const key = launchUrl.split('#k=')[1];
     const response = await fetch(address + '/menupilot/session', { method: 'POST', headers: { Origin: address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
     assert.equal(response.status, 200);
     const cookie = response.headers.get('set-cookie').split(';')[0];
@@ -112,8 +113,5 @@ test('processes: two clients with the same browser cookie still enforce CAS; ope
   const results = await Promise.all([a, b].map((client, i) => client(f.address + '/api/write', options(f, auth.ui, save(record, i)))));
   assert.equal(results.filter(r => r.body.conflict).length, 1);
   assert.equal(results.filter(r => r.body.receipt?.changed).length, 1);
-  const cli = spawn(process.execPath, ['server/cli.js', 'open-url'], { env: { ...process.env, MENUPILOT_DATA_DIR: f.dir } });
-  let url = ''; cli.stdout.on('data', b => { url += b; }); cli.stderr.resume();
-  assert.equal((await once(cli, 'exit'))[0], 0);
-  assert.equal(url.trim(), f.address + '/menupilot/#k=' + readFileSync(join(f.dir, 'launch-secret'), 'utf8'));
+  // Opening is covered with an injected OS launcher in review.test.js.
 });

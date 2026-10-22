@@ -30,6 +30,11 @@ The owner is non-technical: report in simple Russian, code and identifiers in En
 - Commands return Promises; publish only after success. Persist through StorageAdapter; keep domain logic and backup validation shared. Version the storage envelope separately from the domain document.
 - Store is the sole source of truth. Call store methods outside reducers; on success dispatch `documentReplaced`, on failure show the error and keep the displayed document unchanged. Reducers are pure. Form drafts are component-local; calc results are derived with `useMemo`, never stored or serialized. JSON/localStorage contain only document, baseline, and safe-integer overrides. Format money with existing formatters; never convert BigInt to Number.
 
+## Local agent confirmation
+- Agents may propose prices through the CLI, but must never open or apply their own plans.
+- Do not access or modify the owner’s local data files directly; use the supported CLI.
+- Isolated test fixtures are allowed for automated verification; owner confirmation remains a UI action.
+
 ## Data integrity
 - The simulator never changes real ingredients, prices or recipes. Scenarios are
   stored separately with their own baseline snapshot.

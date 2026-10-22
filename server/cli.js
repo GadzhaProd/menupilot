@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline/promises';
 import { assertRuntime } from './runtime.js';
 import { executeReadCommand, localDataPath, localDoctor, serializeCliError } from './cliRead.js';
 import { executePlanCommand, printPlan } from './cliPlans.js';
-import { hasValidLaunchUrl } from './cliSecurity.js';
+import { hasValidOpenResult } from './cliSecurity.js';
 
 const readCommands = new Set(['status', 'what-changed', 'dishes', 'dish', 'ingredients', 'ingredient', 'preps', 'simulate', 'history', 'journal', 'backups']);
 const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups|propose|plans|plan> [options]';
@@ -146,11 +146,11 @@ async function runExistingServerCommand(args, dir) {
   const verify = args[0] === 'backup' && args[1] === 'verify' && args.length === 3;
   const restore = args[0] === 'backup' && args[1] === 'restore' && (args.length === 3 || (args.length === 4 && args[3] === '--yes'));
   if (!open && !list && !verify && !restore) throw cliError('usage', help);
-  const { api, address } = await connection(dir);
+  const { api } = await connection(dir);
   if (open) {
     const result = await api('open-url', { method: 'POST', body: { revokeSessions: args[1] === '--revoke-sessions' } });
-    if (!hasValidLaunchUrl(address, result.url)) throw cliError('server-error', 'MenuPilot returned an invalid launch URL.');
-    console.log(result.url);
+    if (!hasValidOpenResult(result)) throw cliError('server-error', 'MenuPilot returned an invalid browser-open response.');
+    console.log(result.opened ? 'MenuPilot opened in your browser.' : 'Could not open the browser. Open the address from the terminal window running npm start, or restart npm start.');
   } else if (list) {
     const entries = await api('backups'); for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
     if (!entries.length) console.log('No backups yet. A backup is created within five minutes of a change, and on normal shutdown.');

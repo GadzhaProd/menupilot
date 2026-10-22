@@ -142,14 +142,16 @@ For another tab/browser, an expired link, or after a server restart:
 
 ```sh
 npm run menupilot -- open-url
-# Issue a new link AND revoke all existing sessions:
+# Open the browser AND revoke all existing sessions:
 npm run menupilot -- open-url --revoke-sessions
 ```
 
 Use the server's `MENUPILOT_DATA_DIR` if set. Every `open-url` call uses the private
-CLI token to issue a new one-use secret; previous links become invalid. Existing
+CLI token to ask the server to open the browser with a new one-use secret; the CLI
+receives only `{opened: true|false}`, never the URL or secret. Previous links become invalid. Existing
 sessions remain valid unless revoked or expired. Restart invalidates every session.
-The `launch-secret` and CLI `token` files are replaced with mode 0600. At most 128
+Launch keys live only in server memory and the `npm start` terminal output.
+The CLI `token` file is replaced with mode 0600. At most 128
 sessions are retained; a further sign-in evicts the oldest remaining session.
 
 ### Read data from the terminal
@@ -384,4 +386,14 @@ This is the **Supplier price excl. VAT, as on the invoice**. The command creates
 
 If any data changed after the proposal, or it expired, ask the agent to propose again. Approval appends exactly one price; repeat approval returns the original receipt. Unsaved recipe/ingredient drafts retain the existing protection against external changes. The static browser version has no proposal panel or API calls.
 
-The CLI token cannot apply/reject plans. This workflow guards against agent mistakes and makes owner confirmation an explicit step. **It does not isolate a process with the user's full computer permissions**: such a process can access local session files or modify data directly. Other websites cannot approve through the browser: the API requires a UI session, exact Origin and local Host, and provides no CORS access. See [CLI commands and JSON contract](docs/cli.md).
+The CLI token cannot apply/reject plans. This workflow guards against agent mistakes and makes owner confirmation an explicit step. **It does not isolate a process with the user's full computer permissions**: an agent with shell access could modify the database or inspect process memory.
+Agents must never open or apply their own plans or access data files directly (see AGENTS.md).
+If opening the browser fails, open the address in the terminal running `npm start`, or restart `npm start`. Other websites cannot approve through the browser: the API requires a UI session, exact Origin and local Host, and provides no CORS access. See [CLI commands and JSON contract](docs/cli.md).
+
+| Who | Normal local workflow |
+|---|---|
+| CLI / agent | Read and propose. Cannot obtain a UI token or apply/reject through the CLI API. |
+| MenuPilot window | Review, confirm apply or reject using its UI session and same Origin. |
+| Another website | Cannot read or approve through the browser: Origin, Host and session checks reject it. |
+
+This boundary prevents agent mistakes; it is not an OS sandbox against a process with the user's full permissions.
