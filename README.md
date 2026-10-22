@@ -369,3 +369,19 @@ The demo restaurant, its dishes, suppliers and prices are fictional.
 ## License
 
 MenuPilot is released under the [MIT License](LICENSE) © 2026 GadzhaProd. Third-party code keeps its own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+### Let an agent propose a supplier price
+
+With the local server running, an agent can run:
+
+```sh
+npm run menupilot -- propose add-price --ingredient "Beef mince 80/20" --pack-price 18,00 --pack-size 1 kg
+npm run menupilot -- plans
+npm run menupilot -- plan status <plan-id>
+```
+
+This is the **Supplier price excl. VAT, as on the invoice**. The command creates a proposal valid for 24 hours. It does not change the ingredient. Open MenuPilot using your terminal sign-in address: the “Awaiting your confirmation” panel shows the old/new pack and unit prices, affected dishes and preps, food cost, and monthly contribution change at your own volume estimates. Choose **Apply** or **Reject**, then confirm in the dialog. Missing volume and unknown costs are explicitly excluded. The interface supports EN/NL and mobile screens.
+
+If any data changed after the proposal, or it expired, ask the agent to propose again. Approval appends exactly one price; repeat approval returns the original receipt. Unsaved recipe/ingredient drafts retain the existing protection against external changes. The static browser version has no proposal panel or API calls.
+
+The CLI token cannot apply/reject plans. This workflow guards against agent mistakes and makes owner confirmation an explicit step. **It does not isolate a process with the user's full computer permissions**: such a process can access local session files or modify data directly. Other websites cannot approve through the browser: the API requires a UI session, exact Origin and local Host, and provides no CORS access. See [CLI commands and JSON contract](docs/cli.md).

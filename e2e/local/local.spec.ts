@@ -133,3 +133,70 @@ test('local price history survives restart; session warning preserves a draft; b
     expect(cspErrors).toEqual([]);
   } finally { await stop(child); await rm(dir, { recursive: true }); }
 });
+
+test('agent proposes; owner confirms or rejects; Dashboard refreshes and dialog keeps keyboard focus', async ({ page, context }, info) => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const exec = promisify(execFile);
+  const dir = await mkdtemp(join(tmpdir(), 'menupilot-plan-e2e-')), port = await freePort();
+  const origin = `http://127.0.0.1:${port}`;
+  const env = { ...process.env, MENUPILOT_DATA_DIR: dir };
+  const cli = async (args: string[]) => JSON.parse((await exec(process.execPath, ['server/cli.js', ...args, '--json'], { env })).stdout);
+  await exec(process.execPath, ['--input-type=module', '-e', `
+    import { readFileSync } from 'node:fs';
+    import { createSqliteStorage } from './server/sqlite.js';
+    const s = createSqliteStorage(process.env.MENUPILOT_DATA_DIR + '/menupilot.db', { initialDocument: JSON.parse(readFileSync('data/demo.json', 'utf8')) });
+    s.write({ kind: 'save', document: s.load().document, expectedDocumentId: null, expectedRevision: 0, opId: 'fixture' }); s.close();
+  `], { env });
+  const external: string[] = [];
+  await context.route('**/*', async route => {
+    if (new URL(route.request().url()).origin === origin) await route.continue();
+    else { external.push(route.request().url()); await route.abort(); }
+  });
+  const child = await launch(dir, port);
+  try {
+    await page.goto(`${origin}/menupilot/#k=${await readFile(join(dir, 'launch-secret'), 'utf8')}`);
+    await expect(page.getByTestId('local-mode')).toBeVisible();
+    const before = await cli(['dish', 'dish_classic_burger']);
+    const proposal = await cli(['propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '18,00', '--pack-size', '1', 'kg']);
+    const panel = page.getByTestId('plans-panel');
+    await expect(panel.getByRole('heading', { name: 'Awaiting your confirmation' })).toBeVisible();
+    await expect(panel).toContainText('€18.00/kg');
+    await page.screenshot({ path: info.outputPath('plans-en.png'), fullPage: true });
+    await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toBeVisible();
+    expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('Shift+Tab');
+    expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(panel.getByRole('button', { name: 'Apply', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await dialog.getByRole('button', { name: 'Confirm apply', exact: true }).click();
+    await expect(panel).toContainText('Price applied.');
+    const after = await cli(['dish', 'dish_classic_burger']);
+    expect(after.data).not.toEqual(before.data);
+    expect((await cli(['plan', 'status', proposal.data.id])).data.status).toBe('applied');
+    // Polling updates the existing Dashboard; its displayed cost matches shared calc output.
+    const effects = proposal.data.effects.dishes.find((d: { id: string }) => d.id === 'dish_classic_burger');
+    const { formatEURFromMicroLocale } = await import('../../src/calc/money.js');
+    const cost = formatEURFromMicroLocale(BigInt(effects.currentCostMicro), 'en');
+    await expect(page.locator('main').getByText(cost, { exact: true }).first()).toBeVisible();
+    const rejected = await cli(['propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '19', '--pack-size', '1 kg']);
+    await expect(panel.getByRole('button', { name: 'Reject', exact: true })).toBeVisible();
+    await panel.getByRole('button', { name: 'Reject', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Confirm rejection', exact: true }).click();
+    await expect(panel).toContainText('Proposal rejected.');
+    expect((await cli(['plan', 'status', rejected.data.id])).data.status).toBe('rejected');
+    expect((await cli(['dish', 'dish_classic_burger'])).data).toEqual(after.data);
+    await page.goto(origin + '/menupilot/#/recipe/dish_classic_burger');
+    await page.getByLabel('Name', { exact: true }).fill('Owner unsaved recipe');
+    await cli(['propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '20', '--pack-size', '1 kg']);
+    await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Confirm apply', exact: true }).click();
+    await expect(panel).toContainText('Price applied.');
+    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Owner unsaved recipe');
+    await expect(page.getByText(/Another tab changed|saved data changed|Data changed/i).first()).toBeVisible();
+    expect(external).toEqual([]);
+  } finally { await stop(child); await rm(dir, { recursive: true }); }
+});
