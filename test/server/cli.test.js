@@ -9,7 +9,7 @@ import { serveLocal } from '../../server/http.js';
 import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
 import { readFileSync as readDemoFile } from 'node:fs';
 import { assertQuickCheck, dateFor, isSupportedNode, localDoctor } from '../../server/cliRead.js';
-import { hasValidLaunchUrl } from '../../server/cliSecurity.js';
+import { hasValidOpenResult } from '../../server/cliSecurity.js';
 import { createServer } from 'node:net';
 
 async function fixture(t, document) {
@@ -257,13 +257,13 @@ test('offline doctor fails on a readable SQLite file with an invalid document re
   assert.equal(report.data.checks.find(item => item.name === 'database-format').ok, false);
 });
 
-test('doctor rejects quick_check failures and launch URLs must keep the expected local path prefix', () => {
+test('doctor rejects quick_check failures and browser-open responses must contain no extra capability fields', () => {
   assert.throws(() => assertQuickCheck([{ quick_check: 'row 3 missing' }]), /quick_check failed/);
   assert.doesNotThrow(() => assertQuickCheck([{ quick_check: 'ok' }]));
   const address = 'http://127.0.0.1:4710';
-  assert.equal(hasValidLaunchUrl(address, `${address}/menupilot/#k=secret`), true);
-  assert.equal(hasValidLaunchUrl(address, 'https://attacker.example/menupilot/#k=secret'), false);
-  assert.equal(hasValidLaunchUrl(address, `${address}/other/#k=secret`), false);
+  assert.equal(hasValidOpenResult({ opened: true }), true);
+  assert.equal(hasValidOpenResult({ url: 'secret' }), false);
+  assert.equal(hasValidOpenResult({ opened: true, url: 'secret' }), false);
 });
 
 test('doctor reports private token failures instead of exiting before a report', async t => {
@@ -333,4 +333,11 @@ test('CLI refuses unsafe token permissions before making authenticated requests'
   const result = await invoke(f.dir, 'dishes', '--json');
   assert.equal(result.status, 5);
   assert.match(JSON.parse(result.stderr).error.message, /permissions 0600/);
+});
+
+test('CLI ingredients human output formats money instead of object coercion', async t => {
+  const f = await fixture(t, enDemo());
+  const result = await invoke(f.dir, 'ingredients');
+  assert.equal(result.status, 0); assert.doesNotMatch(result.stdout, /\[object Object\]/);
+  assert.match(result.stdout, /€/); assert.match(result.stdout, /excl. VAT/);
 });

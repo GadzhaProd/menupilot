@@ -4,13 +4,14 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { assertRuntime } from './runtime.js';
 import { executeReadCommand, localDataPath, localDoctor, serializeCliError } from './cliRead.js';
-import { hasValidLaunchUrl } from './cliSecurity.js';
+import { executePlanCommand, printPlan } from './cliPlans.js';
+import { hasValidOpenResult } from './cliSecurity.js';
 
 const readCommands = new Set(['status', 'what-changed', 'dishes', 'dish', 'ingredients', 'ingredient', 'preps', 'simulate', 'history', 'journal', 'backups']);
-const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups> [options]';
+const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups|propose|plans|plan> [options]';
 function jsonRequested(args) { return args.includes('--json'); }
 function printJson(value, error = false) { (error ? console.error : console.log)(JSON.stringify(value)); }
-function exitCode(code) { return ({ usage: 2, 'invalid-argument': 2, 'invalid-unit': 2, 'not-found': 4, ambiguous: 4, unauthorized: 5, unavailable: 3 })[code] ?? 1; }
+function exitCode(code) { return ({ usage: 2, 'invalid-argument': 2, 'invalid-unit': 2, 'price-limit': 2, 'not-found': 4, ambiguous: 4, unauthorized: 5, unavailable: 3 })[code] ?? 1; }
 function cliError(code, message) { return Object.assign(new Error(message), { code }); }
 function portFromAddress(address) { const match = /^http:\/\/127\.0\.0\.1:([1-9]\d{0,4})$/.exec(address ?? ''); return match ? Number(match[1]) : null; }
 export async function connection(dir) {
@@ -40,7 +41,7 @@ export async function connection(dir) {
     }
     let value; try { value = await response.json(); } catch { throw cliError('server-error', 'MenuPilot returned an invalid response.'); }
     if (response.status === 401) throw cliError('unauthorized', 'The MenuPilot CLI token was rejected. Restart MenuPilot, then try again.');
-    if (!response.ok) throw cliError(value.code || 'server-error', value.message || 'MenuPilot could not complete the command.');
+    if (!response.ok) throw Object.assign(cliError(value.code || 'server-error', value.message || 'MenuPilot could not complete the command.'), { candidates: value.candidates });
     return value;
   }
   return { api, address: lock.address };
@@ -64,7 +65,7 @@ function displayValue(value) {
 function printHuman(result) {
   const { command, data, warnings = [] } = result;
   if (command === 'dishes' || command === 'preps' || command === 'ingredients') {
-    for (const item of data) console.log(`${item.name}  [${item.id}]${item.currentPrice ? `  ${item.currentPrice.packPrice} excl. VAT` : ''}`);
+    for (const item of data) console.log(`${item.name}  [${item.id}]${item.currentPrice ? `  ${displayValue(item.currentPrice.packPrice)} excl. VAT` : ''}`);
   } else if (command === 'what-changed') {
     console.log(`What changed since ${data.since}`);
     for (const row of data.dishes) console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'} → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}); monthly impact ${displayValue(row.monthlyImpact)}${row.excludedReason ? `; excluded: ${row.excludedReason}` : ''}`);
@@ -97,6 +98,12 @@ async function run(args) {
       const { recoverFromBackup } = await import('./recovery.js');
       const result = await recoverFromBackup(dir, args[2]);
       console.log(`Recovered. Original files and report: ${result.reportPath}\nRun npm start. Emergency recovery uses a new dataset identity; changes after the backup are not recovered.`);
+      return;
+    }
+    if (['propose', 'plans', 'plan'].includes(command)) {
+      const { api } = await connection(dir);
+      const result = await executePlanCommand(command, args.slice(1), api);
+      if (wantJson) { const { locale, ...output } = result; printJson(output); } else printPlan(result);
       return;
     }
     if (readCommands.has(command)) {
@@ -139,11 +146,11 @@ async function runExistingServerCommand(args, dir) {
   const verify = args[0] === 'backup' && args[1] === 'verify' && args.length === 3;
   const restore = args[0] === 'backup' && args[1] === 'restore' && (args.length === 3 || (args.length === 4 && args[3] === '--yes'));
   if (!open && !list && !verify && !restore) throw cliError('usage', help);
-  const { api, address } = await connection(dir);
+  const { api } = await connection(dir);
   if (open) {
     const result = await api('open-url', { method: 'POST', body: { revokeSessions: args[1] === '--revoke-sessions' } });
-    if (!hasValidLaunchUrl(address, result.url)) throw cliError('server-error', 'MenuPilot returned an invalid launch URL.');
-    console.log(result.url);
+    if (!hasValidOpenResult(result)) throw cliError('server-error', 'MenuPilot returned an invalid browser-open response.');
+    console.log(result.opened ? 'MenuPilot opened in your browser.' : 'Could not open the browser. Open the address from the terminal window running npm start, or restart npm start.');
   } else if (list) {
     const entries = await api('backups'); for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
     if (!entries.length) console.log('No backups yet. A backup is created within five minutes of a change, and on normal shutdown.');

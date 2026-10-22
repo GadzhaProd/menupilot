@@ -1,15 +1,40 @@
 // Run mutants in a disposable copy: never edit the checkout used by another test/server.
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 const dir = mkdtempSync(join(tmpdir(), 'menupilot-mutants-'));
 try {
-  for (const path of ['server', 'src', 'test/store', 'test/server', 'data', 'README.md', 'docs/planning']) {
+  for (const path of ['server', 'src', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'tsconfig.json', 'data', 'README.md', 'docs/planning']) {
     mkdirSync(join(dir, path, '..'), { recursive: true }); cpSync(path, join(dir,path), { recursive: true });
   }
   writeFileSync(join(dir,'package.json'),'{"type":"module"}');
+  symlinkSync(join(process.cwd(), 'node_modules'), join(dir, 'node_modules'), 'dir');
   const mutants = [
+    ['obsolete launch file cleanup', 'server/session.js', "unlinkSync(join(dir, 'launch-secret'));", '', 'test/server/review.test.js'],
+    ['plan card VAT label', 'src/ui/data/LocalPlans.tsx', " · {t('common.exclVat')}", '', 'test/ui/plans.test.tsx'],
+    ['plan approval UI gate', 'server/http.js', "['apply', 'reject'].includes(action) && source !== 'ui'", 'false', 'test/server/plans.test.js'],
+    ['plan revision gate', 'server/plans.js', 'plan.revision !== current.revision', 'false', 'test/server/plans.test.js'],
+    ['plan identity gate', 'server/plans.js', 'plan.documentId !== current.documentId', 'false', 'test/server/plans.test.js'],
+    ['plan expiry', 'server/plans.js', 'Date.parse(plan.expiresAt) <= time', 'false', 'test/server/plans.test.js'],
+    ['plan replay', 'server/plans.js', "if (plan.status === 'applied') return", "if (false) return", 'test/server/plans.test.js'],
+    ['plan atomic commit', 'server/plans.js', "plan.status = 'applied';", "db.exec('COMMIT'); plan.status = 'applied';", 'test/server/plans.test.js'],
+    ['plan pending budget', 'server/plans.js', "plans.filter(p => p.status === 'pending').length - supersedes.length >= PLAN_LIMITS.pending", 'false', 'test/server/plans.test.js'],
+    ['plan byte budget', 'server/plans.js', 'bytes > PLAN_LIMITS.singleBytes', 'false', 'test/server/plans.test.js'],
+    ['plan effect direction', 'server/planEffects.js', 'monthlyImpactCents(monthly(row), monthly(old))', 'monthlyImpactCents(monthly(old), monthly(row))', 'test/server/plans.test.js'],
+    ["plan rejection gate", "server/plans.js", "      pending(plan);\n      return transaction(() => { plan.status = 'rejected';", "      return transaction(() => { plan.status = 'rejected';", "test/server/plans.test.js"],
+    ["plan repeat rejection", "server/plans.js", "if (plan.status === 'rejected') return plan;", "if (false) return plan;", "test/server/plans.test.js"],
+    ["plan fixed recordedAt", "server/plans.js", "}, plan.price.recordedAt);", "}, timestamp());", "test/server/plans.test.js"],
+    ["plan no-volume exclusion", "server/planEffects.js", "row.monthlyVolume === null ? 'no-volume'", "row.monthlyVolume === null ? null", "test/server/plans.test.js"],
+    ["plan unknown exclusion", "server/planEffects.js", "impact === null ? 'cost-unknown'", "impact === null ? null", "test/server/plans.test.js"],
+    ["plan replacement", "server/plans.js", "old.status = 'superseded';", "old.status = 'pending';", "test/server/plans.test.js"],
+    ["plan price ceiling", "server/plans.js", "packPriceCents > 10_000_000", "false", "test/server/plans.test.js"],
+    ["plan zero warning", "server/plans.js", "packPriceCents === 0", "false", "test/server/plans.test.js"],
+    ["plan ratio warning", "server/plans.js", "next > previous * 3n || previous > next * 3n", "false", "test/server/plans.test.js"],
+    ["plan journal identity", "server/plans.js", "planId: plan.id, ingredientId: plan.ingredient.id", "", "test/server/plans.test.js"],
+    ["plan conflict status", "server/plans.js", "status: 409", "status: 400", "test/server/plans.test.js"],
+    ['plan compatible unit', 'server/plans.js', 'quantity.unit !== target.unit', 'false', 'test/server/plans.test.js'],
+
     ['retention restore-test', 'server/backupFiles.js', 'await verifyOrQuarantine(dir, entry.id)', '{ metadata: entry }', 'test/server/backup-retention.test.js'],
     ['retention verified spare', 'server/backupFiles.js', 'verified.slice(0, 2)', 'verified.slice(0, 1)', 'test/server/backup-retention.test.js'],
     ['retention clock pause', 'server/backups.js', 'observe(); return clockWarning;', 'observe(); return false;', 'test/server/backup-retention.test.js'],
@@ -60,7 +85,7 @@ try {
     ['CLI scenario delta direction', 'server/cliRead.js', 'a - b;', 'b - a;', 'test/server/cli.test.js'],
     ['CLI token mode', 'server/cli.js', 'mode !== 0o600', 'mode === 0o600', 'test/server/cli.test.js'],
     ['CLI token mode disabled', 'server/cli.js', 'mode !== 0o600', 'false', 'test/server/cli.test.js'],
-    ['CLI open URL prefix disabled', 'server/cliSecurity.js', "url.startsWith(address + '/menupilot/#k=')", 'true', 'test/server/cli.test.js'],
+    ['CLI open response allows capability fields', 'server/cliSecurity.js', "Object.keys(result).length === 1", 'true', 'test/server/cli.test.js'],
     ['CLI doctor quick_check disabled', 'server/cliRead.js', "rows.length !== 1 || rows[0].quick_check !== 'ok'", 'false', 'test/server/cli.test.js'],
     ['CLI human candidates disabled', 'server/cli.js', 'for (const candidate of error.candidates ?? [])', 'for (const candidate of [])', 'test/server/cli.test.js'],
     ['CLI Dashboard 30 day window', 'server/cliRead.js', 'date.setTime(date.getTime() - days * 86400000)', 'date.setTime(date.getTime())', 'test/server/cli.test.js'],
@@ -74,6 +99,7 @@ try {
     ['CLI port diagnostic', 'server/cliRead.js', 'validPort && (apiAvailable || !busy)', 'validPort', 'test/server/cli.test.js'],
     ['CLI supported Node range', 'server/cliRead.js', '(major === 24 && minor >= 15) || (major === 25 && (minor > 8 || (minor === 8 && patch >= 1)))', 'true', 'test/server/cli.test.js'],
     ['distinct session tokens', 'server/session.js', "const token = randomBytes(32).toString('hex'), cookie", "const token = 'a'.repeat(64), cookie", 'test/server/review.test.js'],
+    ['CLI launch capability leak', 'server/http.js', 'value = { opened: await openBrowser(`${address}/menupilot/#k=${key}`) };', 'value = { url: `${address}/menupilot/#k=${key}` };', 'test/server/review.test.js'],
     ['link rotation', 'server/http.js', 'session.rotate(body.revokeSessions === true)', 'session.key', 'test/server/review.test.js'],
     ['session revocation', 'server/session.js', 'if (revokeSessions) sessions.clear();', '', 'test/server/review.test.js'],
     ['warn default', 'server/log.js', "?? 'warn'", "?? 'info'", 'test/server/review.test.js'],
@@ -95,10 +121,17 @@ try {
   for (const [name, file, before, after, test] of mutants) {
     const path = join(dir,file), original = readFileSync(path,'utf8');
     if (!original.includes(before)) throw new Error(`Missing mutation target: ${name}`);
+    const args = test.endsWith('.tsx')
+      ? [join(dir, 'node_modules/vitest/vitest.mjs'), 'run', test, '-t', 'plan card labels'] : ['--test', test];
+    const options = { cwd: dir, encoding: 'utf8', timeout: 30000, env: { ...process.env, VITEST_MAX_WORKERS: '2' } };
+    if (test.endsWith('.tsx')) {
+      const baseline = spawnSync(process.execPath, args, options);
+      if (baseline.status !== 0) throw new Error(`UI mutation baseline failed: ${baseline.stdout}\n${baseline.stderr}`);
+    }
     writeFileSync(path, original.replace(before,after));
-    const result = spawnSync(process.execPath,['--test',test],{cwd:dir,encoding:'utf8',timeout:30000});
+    const result = spawnSync(process.execPath, args, options);
     writeFileSync(path, original);
-    if (result.status === 0 || result.error || !result.stdout.includes('fail')) throw new Error(`Mutation not caught: ${name}\n${result.stdout}\n${result.stderr}`);
+    if (result.status === 0 || result.error || !result.stdout.toLowerCase().includes('fail')) throw new Error(`Mutation not caught: ${name}\n${result.stdout}\n${result.stderr}`);
     console.log(`CAUGHT: ${name}`);
   }
 } finally { rmSync(dir,{recursive:true}); }

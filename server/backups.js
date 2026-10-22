@@ -182,6 +182,7 @@ export async function manageBackups(raw, dir, { now = Date.now, monotonic = () =
   const service = {
     load: raw.load, version: raw.version, history: raw.history, journal: raw.journal,
     write: (input, actor) => enqueue(() => write(input, actor)),
+    plans: Object.fromEntries(Object.entries(raw.plans).map(([name, fn]) => [name, (...args) => enqueue(() => { const result = fn(...args); observe(); return result; })])),
     backups: {
       list: () => listSnapshots(folder), status,
       capture: reason => enqueue(async () => { const result = await capture(reason); await exportReady(); return result; }),

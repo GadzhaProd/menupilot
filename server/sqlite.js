@@ -1,3 +1,4 @@
+import { createPlans } from './plans.js';
 import { readFileSync } from 'node:fs';
 import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../src/store/demo.js';
 import { DatabaseSync } from 'node:sqlite';
@@ -88,7 +89,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
       if (i >= budget.count || bytes > budget.bytes) db.prepare(`DELETE FROM ${table} WHERE seq=?`).run(rows[i].seq);
     }
   }
-  function write(input, actor = 'ui', { restoreDocument } = {}) {
+  function write(input, actor = 'ui', { restoreDocument, withinTransaction = false, planId, ingredientId } = {}) {
     if (!input || !['save', 'import', 'reset', 'restore', 'memory', 'backup-restore'].includes(input.kind)) invalid('Unknown write operation.');
     const fields = { save: ['document'], import: ['source'], reset: ['document', 'resetKind'], restore: ['id'], 'backup-restore': ['id'], memory: ['document'] };
     const allowed = ['kind', 'expectedDocumentId', 'expectedRevision', 'opId', ...fields[input.kind]];
@@ -99,7 +100,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
         !(source.documentId === null || (typeof source.documentId === 'string' && source.documentId.length > 0 && source.documentId.length <= 200)) ||
         Object.keys(source).some(key => !['document', 'schemaVersion', 'documentId', 'revision'].includes(key))) invalid('Invalid import metadata.');
     }
-    if (!['ui', 'cli'].includes(actor)) invalid('Unknown operation source.');
+    if (!['ui', 'cli', 'agent'].includes(actor)) invalid('Unknown operation source.');
     if (typeof input.opId !== 'string' || !input.opId || input.opId.length > 200) invalid('A valid operation ID is required.');
     if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0 ||
       !(input.expectedDocumentId === null || typeof input.expectedDocumentId === 'string')) invalid('Invalid CAS metadata.');
@@ -108,17 +109,17 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
     const { expectedDocumentId, ...command } = input;
     const hash = digest({ command, actor });
     try {
-      db.exec('BEGIN IMMEDIATE');
+      if (!withinTransaction) db.exec('BEGIN IMMEDIATE');
       const current = load();
       const matches = current.documentId === expectedDocumentId && current.revision === input.expectedRevision;
       const old = db.prepare('SELECT hash, receipt FROM ops WHERE id=?').get(input.opId);
       if (old) {
         if (old.hash !== hash) throw new StoreError('op-id-reused', 'This operation ID was already used for different content.');
-        db.exec('COMMIT');
+        if (!withinTransaction) db.exec('COMMIT');
         return { ...current, receipt: JSON.parse(old.receipt) };
       }
       if (!matches || (input.kind === 'memory' && current.documentId !== null)) {
-        db.exec('ROLLBACK'); return { ...current, conflict: true };
+        if (!withinTransaction) db.exec('ROLLBACK'); return { ...current, conflict: true };
       }
       if (input.kind === 'reset' && !['empty', 'demo'].includes(input.resetKind)) invalid('Invalid reset kind.');
       const document = input.kind === 'backup-restore' ? restoreDocument : input.kind === 'restore' ? readHistory(input.id).document
@@ -143,7 +144,7 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
         const remaining = new Set(document.ingredients.map(i => i.id));
         const removedIngredients = current.document.ingredients.filter(i => !remaining.has(i.id))
           .map(i => ({ id: i.id, name: i.name, priceEntries: i.prices.length }));
-        const entry = JSON.stringify({ ...receipt, kind: input.kind, source: actor, at: timestamp,
+        const entry = JSON.stringify({ ...receipt, kind: input.kind, source: actor, at: timestamp, ...(actor === 'agent' && { confirmedBy: 'ui', planId, ingredientId }),
           ...(removedIngredients.length && { removedIngredients,
             description: `Deleted ${removedIngredients.length} ingredient(s), including their price history; the pre-change snapshot is retained in version history within its retention limits.` }) });
         db.prepare('INSERT INTO journal (entry,bytes) VALUES (?,?)').run(entry, Buffer.byteLength(entry));
@@ -153,10 +154,10 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
       const encoded = JSON.stringify(receipt);
       db.prepare('INSERT INTO ops (id,hash,receipt,bytes) VALUES (?,?,?,?)').run(input.opId, hash, encoded, Buffer.byteLength(encoded) + Buffer.byteLength(input.opId) + 64);
       for (const table of Object.keys(BUDGETS)) prune(table);
-      db.exec('COMMIT');
+      if (!withinTransaction) db.exec('COMMIT');
       return { ...next, receipt };
     } catch (error) {
-      try { db.exec('ROLLBACK'); } catch { /* BEGIN may itself have failed. */ }
+      try { if (!withinTransaction) db.exec('ROLLBACK'); } catch { /* BEGIN may itself have failed. */ }
       if (error instanceof StoreError) throw error;
       throw new StoreError('write-failed', 'The change could not be saved. Previous data is unchanged. Check disk space and retry.');
     }
@@ -172,5 +173,6 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
     if (route === 'history/read') return readHistory(input.id);
     return write(input);
   }); } };
+  storage.plans = createPlans(storage, now);
   return storage;
 }

@@ -142,14 +142,18 @@ For another tab/browser, an expired link, or after a server restart:
 
 ```sh
 npm run menupilot -- open-url
-# Issue a new link AND revoke all existing sessions:
+# Open the browser AND revoke all existing sessions:
 npm run menupilot -- open-url --revoke-sessions
 ```
 
 Use the server's `MENUPILOT_DATA_DIR` if set. Every `open-url` call uses the private
-CLI token to issue a new one-use secret; previous links become invalid. Existing
+CLI token to ask the server to open the browser with a new one-use secret; the CLI
+receives only `{opened: true|false}`, never the URL or secret. Previous links become invalid. Existing
 sessions remain valid unless revoked or expired. Restart invalidates every session.
-The `launch-secret` and CLI `token` files are replaced with mode 0600. At most 128
+Launch keys are not saved in data files: the server holds them in memory and prints
+the initial key in the `npm start` terminal. Browser opening briefly passes the key
+in a process argument, visible to a process running as the same user.
+The CLI `token` file is replaced with mode 0600. At most 128
 sessions are retained; a further sign-in evicts the oldest remaining session.
 
 ### Read data from the terminal
@@ -200,7 +204,8 @@ The launch secret grants a session while valid. This does not isolate data from 
 process running as your user (it can read 0600 files and SQLite), root, page-capable
 extensions or a compromised browser. Cookie theft alone no longer grants API access.
 HttpOnly does not prove human approval against an agent with your OS access.
-Broader CLI and diagnostics (D4), proposals (D5) and installation polish (D6) remain.
+CLI reads and diagnostics (D4) and owner-confirmed proposals (D5) are implemented.
+Installation polish (D6) remains.
 D3 implements automatic backups and the emergency recovery command below.
 
 ## Local backups and recovery
@@ -369,3 +374,29 @@ The demo restaurant, its dishes, suppliers and prices are fictional.
 ## License
 
 MenuPilot is released under the [MIT License](LICENSE) © 2026 GadzhaProd. Third-party code keeps its own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+### Let an agent propose a supplier price
+
+With the local server running, an agent can run:
+
+```sh
+npm run menupilot -- propose add-price --ingredient "Beef mince 80/20" --pack-price 18,00 --pack-size 1 kg
+npm run menupilot -- plans
+npm run menupilot -- plan status <plan-id>
+```
+
+This is the **Supplier price excl. VAT, as on the invoice**. The command creates a proposal valid for 24 hours. It does not change the ingredient. Open MenuPilot using your terminal sign-in address: the “Awaiting your confirmation” panel shows the old/new pack and unit prices, affected dishes and preps, food cost, and monthly contribution change at your own volume estimates. Choose **Apply** or **Reject**, then confirm in the dialog. Missing volume and unknown costs are explicitly excluded. The interface supports EN/NL and mobile screens.
+
+If any data changed after the proposal, or it expired, ask the agent to propose again. Approval appends exactly one price; repeat approval returns the original receipt. Unsaved recipe/ingredient drafts retain the existing protection against external changes. The static browser version has no proposal panel or API calls.
+
+The CLI token cannot apply/reject plans. This workflow guards against agent mistakes and makes owner confirmation an explicit step. **It does not isolate a process with the user's full computer permissions**: a process running as the same user could intercept the one-use launch key while the browser opens (it is briefly visible in the process list), inspect process memory, or modify data files. Normal commands and API responses do not disclose the window key; this is protection against agent mistakes, not malicious software.
+Agents must never open or apply their own plans or access data files directly (see AGENTS.md).
+If opening the browser fails, open the address in the terminal running `npm start`, or restart `npm start`. Other websites cannot approve through the browser: the API requires a UI session, exact Origin and local Host, and provides no CORS access. See [CLI commands and JSON contract](docs/cli.md).
+
+| Who | Normal local workflow |
+|---|---|
+| CLI / agent | Read and propose. Normal commands/API responses do not disclose the window key; the CLI token cannot apply/reject. A same-user process could intercept the brief browser-launch process argument or modify data files. |
+| MenuPilot window | Review, confirm apply or reject using its UI session and same Origin. |
+| Another website | Cannot read or approve through the browser: Origin, Host and session checks reject it. |
+
+This boundary prevents agent mistakes; it is not an OS sandbox against a process with the user's full permissions.

@@ -1,7 +1,8 @@
+import { newPrice, appendPrice } from './price.js';
 import { createBrowserStorageAdapter, STORAGE_KEY } from './browserAdapter.js';
 import { newId } from './ids.js';
 import { parseBackup, serializeBackup } from './serialization.js';
-import { instantNotAfter, isObject } from './check.js';
+import { isObject } from './check.js';
 import { shiftDemoDates } from './demo.js';
 import { StoreError } from './errors.js';
 import { assertValidDocument, emptyDocument } from './schema.js';
@@ -114,17 +115,6 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     return doc;
   }
 
-  function newPrice(prices, { packPriceCents, packSizeMilli }) {
-    const last = prices.at(-1);
-    const stamp = isoNow();
-    return {
-      seq: last ? last.seq + 1 : 1,
-      // A clock that went backwards must not break the "recordedAt never decreases" rule.
-      recordedAt: last && instantNotAfter(stamp, last.recordedAt) ? last.recordedAt : stamp,
-      packPriceCents,
-      packSizeMilli,
-    };
-  }
 
   const commands = {
     /** Load saved data (first run: the demo, not yet written). Never overwrites bad data. */
@@ -153,7 +143,7 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     },
 
     async addIngredient({ id = createId('ing'), name, unit, price }) {
-      const prices = price ? [newPrice([], price)] : [];
+      const prices = price ? [newPrice([], price, isoNow())] : [];
       return { id, document: await change((draft) => { draft.ingredients.push({ id, name, unit, prices }); }) };
     },
 
@@ -175,8 +165,7 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
     /** Append a price record; earlier records are never changed. */
     addPrice(ingredientId, price) {
       return change((draft) => {
-        const target = findOrThrow(draft.ingredients, ingredientId, 'ingredient');
-        target.prices.push(newPrice(target.prices, price));
+        appendPrice(draft, ingredientId, price, isoNow());
       });
     },
 

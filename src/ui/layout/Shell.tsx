@@ -1,3 +1,4 @@
+import { LocalPlans } from '@/ui/data/LocalPlans';
 import { LocalBackupStatus } from '@/ui/data/LocalBackupStatus';
 import { useLocalMode } from '@/ui/data/localMode';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -78,6 +79,7 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
         {commandError && <div role="alert" className="flex items-start justify-between gap-3 rounded-md border border-destructive bg-card p-3 text-sm text-destructive">
           <p>{commandError}</p><Button variant="outline" size="xs" onClick={dismissError}>{t('common.dismiss')}</Button>
         </div>}
+        {local && <LocalPlans />}
         {children}
       </main>
     </div>

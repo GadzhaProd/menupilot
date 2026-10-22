@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync, realpathSync, lstatSync } from 'node:fs';
 import { join, extname, relative } from 'node:path';
 import { createSession, tokenMatches } from './session.js';
+import { openBrowser as launchBrowser } from './openBrowser.js';
 import { createLogger } from './log.js';
 import { StoreError } from '../src/store/errors.js';
 
@@ -52,6 +53,7 @@ export function handleRequestError(req, res, error) {
       code: error instanceof StoreError ? error.code : 'server-error',
       message: error instanceof StoreError ? error.message : 'Local server could not complete the request.',
       details: error instanceof StoreError ? error.details : [],
+      ...(error?.candidates && { candidates: error.candidates }),
     });
   } catch { try { res.destroy(); } catch { /* Broken response cannot be reported again. */ } }
 }
@@ -61,7 +63,7 @@ export function dispatchRequest(handle, req, res) {
 }
 
 /** No arbitrary filesystem paths or arbitrary adapter method dispatch are accepted. */
-export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now }) {
+export async function serveLocal({ storage, dataDir, distDir, port, instanceId = randomUUID(), cliToken = randomBytes(32).toString('hex'), limits = {}, now = Date.now, openBrowser = launchBrowser }) {
   const session = createSession(dataDir, now), log = createLogger(dataDir);
   const policy = { headersMs: 10000, bodyMs: 15000, keepAliveMs: 5000, connections: 32, ...limits };
   const loginPage = readFileSync(new URL('./login.html', import.meta.url));
@@ -142,7 +144,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
           const body = await jsonBody(req, 1024);
           if (!body || Array.isArray(body) || Object.keys(body).some(k => k !== 'revokeSessions') || (body.revokeSessions !== undefined && typeof body.revokeSessions !== 'boolean')) throw new StoreError('invalid', 'Invalid open-url options.');
           const key = session.rotate(body.revokeSessions === true);
-          value = { url: `${address}/menupilot/#k=${key}` };
+          value = { opened: await openBrowser(`${address}/menupilot/#k=${key}`) };
         }
         else if (req.method === 'GET' && path === '/api/backups/status' && storage.backups) value = storage.backups.status();
         else if (req.method === 'GET' && path === '/api/backups' && storage.backups) value = storage.backups.list();
@@ -157,6 +159,15 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
             if (source !== 'cli') { send(res, 403, { code: 'cli-required', message: 'Use backup restore in your terminal.' }); return; }
             value = await storage.backups.restore(body, source);
           }
+        }
+        else if (req.method === 'GET' && path === '/api/plans') value = await storage.plans.snapshot();
+        else if (req.method === 'POST' && ['/api/plans/propose', '/api/plans/status', '/api/plans/apply', '/api/plans/reject'].includes(path)) {
+          const action = path.split('/').at(-1);
+          if (['apply', 'reject'].includes(action) && source !== 'ui') { send(res, 403, { code: 'ui-required', message: 'Only the owner in the MenuPilot window can apply or reject a plan.' }); return; }
+          const body = await jsonBody(req, 2048);
+          if (action !== 'propose' && (!body || Array.isArray(body) || typeof body.id !== 'string' || Object.keys(body).length !== 1)) throw new StoreError('invalid-argument', 'Provide a plan ID.');
+          value = action === 'propose' ? await storage.plans.propose(body, 'cli')
+            : await storage.plans[action === 'status' ? 'get' : action](body.id);
         }
         else if (req.method === 'GET' && path === '/api/document') value = storage.load();
         else if (req.method === 'GET' && path === '/api/version') value = storage.version();

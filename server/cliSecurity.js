@@ -1,3 +1,3 @@
-export function hasValidLaunchUrl(address, url) {
-  return typeof url === 'string' && url.startsWith(address + '/menupilot/#k=') && url.length > (address + '/menupilot/#k=').length;
+export function hasValidOpenResult(result) {
+  return result !== null && typeof result === 'object' && Object.keys(result).length === 1 && typeof result.opened === 'boolean';
 }

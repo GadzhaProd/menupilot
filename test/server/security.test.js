@@ -15,10 +15,10 @@ async function fixture(t, limits) {
   const storage = createSqliteStorage(':memory:');
   const f = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0, limits });
   t.after(async () => { await f.close(); storage.close(); rmSync(dir, { recursive: true }); });
-  return { ...f, uiToken: (await signIn(f, dir)).token, dir, storage };
+  return { ...f, get openUrl() { return f.openUrl; }, uiToken: (await signIn(f, dir)).token, dir, storage };
 }
 async function login(f) {
-  const key = readFileSync(join(f.dir, 'launch-secret'), 'utf8');
+  const key = f.openUrl.split('#k=')[1];
   const r = await fetch(f.address + '/menupilot/session', { method: 'POST', headers: { Origin: f.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
   assert.equal(r.status, 200);
   return { key, token: (await r.json()).token, cookie: r.headers.get('set-cookie').split(';')[0], header: r.headers.get('set-cookie') };
@@ -38,7 +38,7 @@ test('security: page and config require cookie; one-time key, hardened headers a
   assert.equal((await fetch(f.address + '/menupilot/local-config.json')).status, 401);
   const session = await login(f);
   assert.match(session.header, /HttpOnly/); assert.match(session.header, /SameSite=Strict/); assert.match(session.header, /Path=\/menupilot\//);
-  assert.equal(statSync(join(f.dir, 'launch-secret')).mode & 0o777, 0o600);
+  assert.ok(!readdirSync(f.dir).includes('launch-secret'));
   const headers = { Cookie: session.cookie };
   const page = await (await fetch(f.address + '/menupilot/', { headers })).text();
   assert.match(page, /private-app/); assert.ok(!page.includes(f.uiToken));
@@ -49,7 +49,7 @@ test('security: page and config require cookie; one-time key, hardened headers a
   assert.equal((await fetch(f.address + '/menupilot/local-config.json', { headers: { Authorization: `Bearer ${session.token}` } })).status, 200);
   const replay = await fetch(f.address + '/menupilot/session', { method: 'POST', headers: { Origin: f.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: session.key }) });
   assert.equal(replay.status, 401);
-  assert.notEqual(readFileSync(join(f.dir, 'launch-secret'), 'utf8'), session.key);
+  assert.notEqual(f.openUrl.split('#k=')[1], session.key);
   const script = await (await fetch(f.address + '/menupilot/login.js')).text();
   assert.ok(script.indexOf('history.replaceState') < script.indexOf('fetch('));
   assert.match(script, /addEventListener\('hashchange'/);
