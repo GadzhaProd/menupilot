@@ -132,7 +132,6 @@ export function DataProvider(props: DataProviderProps) {
   if (runtime.loading) return <p role="status">Loading MenuPilot… / MenuPilot laden…</p>;
   if (runtime.error) return <main role="alert" className="mx-auto max-w-3xl space-y-4 p-6">
     <h1 className="text-2xl font-semibold">MenuPilot</h1><p>{runtime.error}</p>
-    <p lang="nl">Ongeldige configuratie van de lokale server. Start MenuPilot opnieuw en vernieuw deze pagina.</p>
   </main>;
   return <LocalModeContext.Provider value={runtime.config ? { dataDir: runtime.config.dataDir, token: runtime.config.token, connection } : null}>
     <LocaleProvider storage={props.storage}><ThemeProvider storage={props.storage}><LocalizedDataProvider {...props} adapter={adapter} /></ThemeProvider></LocaleProvider>

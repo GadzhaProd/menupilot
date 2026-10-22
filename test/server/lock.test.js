@@ -69,6 +69,6 @@ test('lock: HTTP probe must identify MenuPilot and the same instance', async t =
     await assert.rejects(acquireLock(dir,address,{waitMs:0}),{code:'lock-uncertain',message:/looks stale/});
   }
   body={service:'MenuPilot',instanceId:lock.owner.instanceId};
-  await assert.rejects(acquireLock(dir,address,{waitMs:0}),{code:'already-running',message:/Open http/});
+  await assert.rejects(acquireLock(dir,address,{waitMs:0}),{code:'already-running',message:/npm run menupilot -- open-url/});
   assert.ok(await lock.release());
 });

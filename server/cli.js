@@ -8,7 +8,7 @@ import { executePlanCommand, printPlan } from './cliPlans.js';
 import { hasValidOpenResult } from './cliSecurity.js';
 
 const readCommands = new Set(['status', 'what-changed', 'dishes', 'dish', 'ingredients', 'ingredient', 'preps', 'simulate', 'history', 'journal', 'backups']);
-const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups|propose|plans|plan> [options]';
+const help = 'Usage: npm run menupilot -- <status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|history|journal|backups|stop|propose|plans|plan> [options]';
 function jsonRequested(args) { return args.includes('--json'); }
 function printJson(value, error = false) { (error ? console.error : console.log)(JSON.stringify(value)); }
 function exitCode(code) { return ({ usage: 2, 'invalid-argument': 2, 'invalid-unit': 2, 'price-limit': 2, 'not-found': 4, ambiguous: 4, unauthorized: 5, unavailable: 3 })[code] ?? 1; }
@@ -62,15 +62,16 @@ function displayValue(value) {
   if (Array.isArray(value)) return value.length ? value.map(item => `- ${displayValue(item).replace(/\n/g, '\n  ')}`).join('\n') : '(none)';
   return Object.entries(value).map(([key, item]) => `${key}: ${displayValue(item)}`).join('\n');
 }
-function printHuman(result) {
+function printHuman(result, locale = 'en') {
   const { command, data, warnings = [] } = result;
   if (command === 'dishes' || command === 'preps' || command === 'ingredients') {
     for (const item of data) console.log(`${item.name}  [${item.id}]${item.currentPrice ? `  ${displayValue(item.currentPrice.packPrice)} excl. VAT` : ''}`);
   } else if (command === 'what-changed') {
-    console.log(`What changed since ${data.since}`);
-    for (const row of data.dishes) console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'} → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}); monthly impact ${displayValue(row.monthlyImpact)}${row.excludedReason ? `; excluded: ${row.excludedReason}` : ''}`);
-    console.log(`Menu monthly impact: ${displayValue(data.totalMonthlyImpact)}`);
-    console.log(`Excluded: ${data.excludedWithoutVolume} without volume; ${data.excludedWithVolume} with unknown/incomplete cost.`);
+    const nl = locale === 'nl';
+    console.log(`${nl ? 'Wat is er veranderd sinds' : 'What changed since'} ${data.since}`);
+    for (const row of data.dishes) console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'} → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}); ${nl ? 'maandelijkse verandering' : 'monthly impact'} ${displayValue(row.monthlyImpact)}${row.excludedReason ? `; ${nl ? 'uitgesloten' : 'excluded'}: ${nl && row.excludedReason === 'no-volume' ? 'zonder maandvolume' : row.excludedReason}` : ''}`);
+    console.log(`${nl ? 'Verandering in maandelijkse bijdrage van het menu' : 'Menu monthly impact'}: ${displayValue(data.totalMonthlyImpact)}`);
+    console.log(`${nl ? 'Uitgesloten' : 'Excluded'}: ${data.excludedWithoutVolume} ${nl ? 'zonder maandvolume' : 'without volume'}; ${data.excludedWithVolume} ${nl ? 'met onbekende/onvolledige kosten' : 'with unknown/incomplete cost'}.`);
   } else if (command === 'simulate') {
     console.log(`${data.name}: recipe-based ingredient cost ${displayValue(data.recipeBasedIngredientCost) ?? 'cost unknown'}; contribution ${displayValue(data.contribution)} (${displayValue(data.contributionDelta) ?? 'no change'}); monthly contribution ${displayValue(data.monthlyContribution)} (${displayValue(data.monthlyContributionDelta)})`);
   } else if (command === 'status') {
@@ -80,7 +81,13 @@ function printHuman(result) {
   } else if (command === 'backups') {
     for (const entry of data.entries ?? []) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  DB v${entry.dbVersion}  ${entry.reason}`);
     if (!(data.entries ?? []).length) console.log('No backups yet.');
-  } else if (command === 'dish' || command === 'ingredient') console.log(displayValue(data));
+  } else if (command === 'dish') {
+    console.log(`${data.name} [${data.id}]`);
+    console.log(`Menu price: ${displayValue(data.menuPriceInclVat)} ${data.menuPriceLabel}`);
+    console.log(`Recipe-based ingredient cost: ${data.recipeBasedIngredientCost ? displayValue(data.recipeBasedIngredientCost) : 'cost unknown'} excl. VAT`);
+    console.log(`Contribution: ${displayValue(data.contribution)} excl. VAT`);
+    console.log(`Portions: ${data.portions}\nMonthly volume: ${data.monthlyVolume ?? '—'}`);
+  } else if (command === 'ingredient') console.log(displayValue(data));
   else console.log(displayValue(data));
   for (const warning of warnings) console.log(`Warning: ${typeof warning === 'string' ? warning : warning.message}`);
 }
@@ -109,7 +116,9 @@ async function run(args) {
     if (readCommands.has(command)) {
       const { api } = await connection(dir);
       const result = await executeReadCommand(command, args.slice(1), api);
-      if (wantJson) printJson(result); else printHuman(result);
+      const localeIndex = args.indexOf('--locale');
+      const locale = localeIndex >= 0 ? args[localeIndex + 1] : 'en';
+      if (wantJson) printJson(result); else printHuman(result, locale);
       return;
     }
     if (command === 'doctor') {
@@ -125,8 +134,8 @@ async function run(args) {
       if (data.checks.some(check => !check.ok)) process.exitCode = 1;
       return;
     }
-    if (command === 'open-url' || command === 'backup') {
-      await runExistingServerCommand(args.filter(arg => arg !== '--json'), dir);
+    if (command === 'open-url' || command === 'backup' || command === 'stop') {
+      await runExistingServerCommand(args.filter(arg => arg !== '--json'), dir, wantJson);
       return;
     }
     throw cliError('usage', help);
@@ -140,14 +149,23 @@ async function run(args) {
   }
 }
 
-async function runExistingServerCommand(args, dir) {
+async function runExistingServerCommand(args, dir, wantJson = false) {
   const open = args[0] === 'open-url' && (args.length === 1 || (args.length === 2 && args[1] === '--revoke-sessions'));
   const list = args[0] === 'backup' && args[1] === 'list' && args.length === 2;
   const verify = args[0] === 'backup' && args[1] === 'verify' && args.length === 3;
   const restore = args[0] === 'backup' && args[1] === 'restore' && (args.length === 3 || (args.length === 4 && args[3] === '--yes'));
-  if (!open && !list && !verify && !restore) throw cliError('usage', help);
+  const stop = args[0] === 'stop' && args.length === 1;
+  if (!open && !list && !verify && !restore && !stop) throw cliError('usage', help);
   const { api } = await connection(dir);
-  if (open) {
+  if (stop) {
+    const version = await api('version');
+    const result = await api('stop', { method: 'POST', body: {}, timeoutMs: 120000 });
+    if (result.stopped !== true || typeof result.backupCreated !== 'boolean') throw cliError('server-error', 'MenuPilot returned an invalid stop response.');
+    const warnings = result.backupCreated ? [] : [{ code: result.code ?? 'shutdown-backup-failed', message: result.message ?? 'Shutdown backup failed.' }];
+    if (wantJson) printJson({ apiVersion: 1, command: 'stop', documentId: version.documentId, revision: version.revision, data: { stopped: result.backupCreated, dataDir: dir }, warnings });
+    else console.log(result.backupCreated ? `MenuPilot stopped. Your data is in ${dir}` : warnings[0].message);
+    if (!result.backupCreated) process.exitCode = 1;
+  } else if (open) {
     const result = await api('open-url', { method: 'POST', body: { revokeSessions: args[1] === '--revoke-sessions' } });
     if (!hasValidOpenResult(result)) throw cliError('server-error', 'MenuPilot returned an invalid browser-open response.');
     console.log(result.opened ? 'MenuPilot opened in your browser.' : 'Could not open the browser. Open the address from the terminal window running npm start, or restart npm start.');

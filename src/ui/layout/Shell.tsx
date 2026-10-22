@@ -70,7 +70,7 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
       <main id="main" ref={mainRef} tabIndex={-1} className="shell-main space-y-6">
         {local?.connection && <p role="status" className="rounded-md border p-3 text-sm">
           {local.connection === 'session-expired'
-            ? (locale === 'nl' ? 'De lokale server is opnieuw gestart. Kopieer niet-opgeslagen invoer en vernieuw daarna deze pagina.' : 'The local server restarted. Copy any unsaved drafts, then reload this page.')
+            ? (locale === 'nl' ? 'MenuPilot is opnieuw gestart. Kopieer niet-opgeslagen invoer en open MenuPilot opnieuw met npm run menupilot -- open-url.' : 'MenuPilot restarted. Copy any unsaved drafts, then open it again with npm run menupilot -- open-url.')
             : (locale === 'nl' ? 'De lokale server is niet bereikbaar. Houd deze pagina open en start npm start. Je invoer blijft hier bewaard.' : 'The local server is unavailable. Keep this page open and run npm start. Your drafts remain here.')}
         </p>}
         {(themeError || localeError) && <div role="status" className="text-sm text-muted-foreground print:hidden">

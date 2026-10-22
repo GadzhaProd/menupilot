@@ -12,7 +12,7 @@ import { assertQuickCheck, dateFor, isSupportedNode, localDoctor } from '../../s
 import { hasValidOpenResult } from '../../server/cliSecurity.js';
 import { createServer } from 'node:net';
 
-async function fixture(t, document) {
+async function fixture(t, document, backupStatus = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-'));
   const dist = join(dir, 'dist');
   const { mkdirSync } = await import('node:fs'); mkdirSync(dist);
@@ -20,7 +20,7 @@ async function fixture(t, document) {
   const token = 'ab'.repeat(32);
   const storage = createSqliteStorage(join(dir, 'menupilot.db'), { initialDocument: document });
   storage.backups = { list: () => [], status: () => ({ lastBackupAt: null, lastExternalBackupAt: null, externalConfigured: false,
-    dirty: false, overdue: false, externalOverdue: false, backupError: null, externalError: null, clockWarning: false, corruptBackups: 0, corruptExternalBackups: 0 }) };
+    dirty: false, overdue: false, externalOverdue: false, backupError: null, externalError: null, clockWarning: false, corruptBackups: 0, corruptExternalBackups: 0, ...backupStatus }) };
   const server = await serveLocal({ storage, dataDir: dir, distDir: dist, port: 0, cliToken: token, instanceId: 'test-instance' });
   writeFileSync(join(dir, 'lock'), JSON.stringify({ address: server.address, instanceId: 'test-instance' }));
   writeFileSync(join(dir, 'token'), token); chmodSync(join(dir, 'token'), 0o600);
@@ -141,6 +141,74 @@ test('Dutch locale uses Dutch currency formatting for the same Dashboard data', 
   assert.equal(burger.currentCost.micro, '4850000');
   assert.equal(burger.monthlyImpact.cents, '-19500');
   assert.equal(burger.currentCost.display, '€ 4,85');
+});
+
+test('CLI what-changed human output localizes labels in Dutch', async t => {
+  const f = await fixture(t, nlDemo());
+  const result = await invoke(f.dir, 'what-changed', '--since', '30d', '--locale', 'nl');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Wat is er veranderd sinds/);
+  assert.match(result.stdout, /Verandering in maandelijkse bijdrage van het menu:/);
+  assert.match(result.stdout, /Uitgesloten:/);
+  assert.doesNotMatch(result.stdout, /What changed|Menu monthly impact|Excluded:/);
+});
+
+test('ingredient and recipe reads include UI-ready quantities, VAT, yields, and unit prices', async t => {
+  const f = await fixture(t, enDemo());
+  const ingredientResult = await invoke(f.dir, 'ingredient', 'ing_beef', '--json');
+  assert.equal(ingredientResult.status, 0, ingredientResult.stderr);
+  const ingredient = JSON.parse(ingredientResult.stdout).data;
+  const latest = ingredient.priceHistory.at(-1);
+  assert.equal(latest.packSizeMilli, 1_000_000);
+  assert.deepEqual(latest.packSize, { value: '1', display: '1 kg' });
+  assert.deepEqual(latest.unitPrice, { value: { cents: '1700', per: 'kg' }, display: '€17.00/kg' });
+  const dishResult = await invoke(f.dir, 'dish', 'dish_classic_burger', '--json');
+  assert.equal(dishResult.status, 0, dishResult.stderr);
+  const dish = JSON.parse(dishResult.stdout).data;
+  assert.deepEqual(dish.vatRate, { value: '9', display: '9%' });
+  assert.ok(dish.lines.every(line => line.quantity?.display && line.yield?.display));
+  assert.ok(dish.lines.some(line => line.quantity.display.endsWith('g') || line.quantity.display.endsWith('kg')));
+  const preps = JSON.parse((await invoke(f.dir, 'preps', '--json')).stdout).data;
+  assert.ok(preps.every(prep => prep.output?.display));
+});
+
+test('read and propose responses carry current backup and health warnings', async t => {
+  const f = await fixture(t, enDemo(), { overdue: true, externalOverdue: true, backupError: 'denied', externalError: 'offline' });
+  const expected = ['backup-overdue', 'external-backup-overdue', 'backup-error'];
+  for (const command of [['status'], ['what-changed'], ['dishes'], ['dish', 'dish_classic_burger'], ['ingredients'], ['ingredient', 'ing_beef'], ['preps'], ['simulate', '--dish', 'dish_classic_burger'], ['history'], ['journal'], ['backups'], ['plans']]) {
+    const result = await invoke(f.dir, ...command, '--json');
+    assert.equal(result.status, 0, `${command.join(' ')}: ${result.stderr}`);
+    const actual = JSON.parse(result.stdout).warnings.map(item => item.code);
+    for (const code of expected) assert.ok(actual.includes(code), `${command.join(' ')} missing ${code}`);
+  }
+  const proposed = await invoke(f.dir, 'propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '18.00', '--pack-size', '1 kg', '--json');
+  assert.equal(proposed.status, 0, proposed.stderr);
+  assert.deepEqual(JSON.parse(proposed.stdout).warnings.map(item => item.code), expected);
+  const planId = JSON.parse(proposed.stdout).data.id;
+  const planStatus = await invoke(f.dir, 'plan', 'status', planId, '--json');
+  assert.equal(planStatus.status, 0, planStatus.stderr);
+  assert.deepEqual(JSON.parse(planStatus.stdout).warnings.map(item => item.code), expected);
+});
+
+test('plain plans, propose and plan status print backup warnings once, EN and NL', async t => {
+  const f = await fixture(t, enDemo(), { overdue: true, externalOverdue: true, backupError: 'denied', externalError: 'offline' });
+  const messages = ['Latest backup is overdue.', 'External backup is overdue.', 'A backup operation reported an error.'];
+  const once = (stdout, label) => { for (const message of messages) assert.equal(stdout.split(message).length - 1, 1, `${label}: ${message}\n${stdout}`); };
+  const empty = await invoke(f.dir, 'plans');
+  assert.equal(empty.status, 0, empty.stderr);
+  assert.match(empty.stdout, /No price proposals\./);
+  once(empty.stdout, 'empty plans');
+  const proposed = await invoke(f.dir, 'propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '60', '--pack-size', '1 kg');
+  assert.equal(proposed.status, 0, proposed.stderr);
+  once(proposed.stdout, 'propose');
+  assert.match(proposed.stdout, /⚠ The price per kg\/l\/pc changes by more than ×3/);
+  const planId = proposed.stdout.match(/^Plan (\S+):/m)[1];
+  for (const [label, args] of [['plan status', ['plan', 'status', planId]], ['plans', ['plans']], ['nl plans', ['plans', '--locale', 'nl']]]) {
+    const result = await invoke(f.dir, ...args);
+    assert.equal(result.status, 0, result.stderr);
+    once(result.stdout, label);
+  }
+  assert.match((await invoke(f.dir, 'plans', '--locale', 'nl')).stdout, /Waarschuwing: Latest backup is overdue\./);
 });
 
 test('all read commands return the versioned envelope through authenticated API routes', async t => {
@@ -340,4 +408,14 @@ test('CLI ingredients human output formats money instead of object coercion', as
   const result = await invoke(f.dir, 'ingredients');
   assert.equal(result.status, 0); assert.doesNotMatch(result.stdout, /\[object Object\]/);
   assert.match(result.stdout, /€/); assert.match(result.stdout, /excl. VAT/);
+});
+
+test('CLI dish human output uses formatted money and never prints raw micro-euro fields', async t => {
+  const f = await fixture(t, enDemo());
+  const result = await invoke(f.dir, 'dish', 'dish_classic_burger');
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Recipe-based ingredient cost: .*excl\. VAT/);
+  assert.match(result.stdout, /Contribution: .*excl\. VAT/);
+  assert.match(result.stdout, /Menu price: .*incl\. VAT/);
+  assert.doesNotMatch(result.stdout, /(?:Micro|Cents)\b/);
 });

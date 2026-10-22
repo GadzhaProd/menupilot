@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MenuDocument } from '@/ui/domain/types';
 import { backupFileName } from '@/ui/pages/DataPage';
+import { App } from '@/ui/App';
+import { LocalModeContext } from '@/ui/data/localMode';
 import {
   demoCopy, go, memoryStorage, NOW, renderApp, sauceDoc, savedDocument, storageWith,
 } from './helpers';
@@ -51,6 +53,16 @@ function ingredientNames(doc: { ingredients: { name: string }[] }) {
 }
 
 describe('Data page', () => {
+  it('describes local copies accurately in English and Dutch', async () => {
+    await renderApp(memoryStorage(), { children: <LocalModeContext.Provider value={{ dataDir: '/tmp/menu', connection: null }}><App /></LocalModeContext.Provider> });
+    await go('#/data');
+    expect(screen.getByText('Your data is stored on this computer. MenuPilot saves local copies automatically; see their status above.')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    expect(screen.getByText('Je gegevens staan op deze computer. MenuPilot bewaart hier automatisch kopieën; de status staat bovenaan.')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('automatic copies are not available');
+    expect(document.body.textContent).not.toContain('automatische kopieën zijn nog niet beschikbaar');
+  });
+
   it('localizes singular counts and includes the first NL validation detail for an invalid import', async () => {
     const doc = demoCopy();
     doc.ingredients = doc.ingredients.slice(0, 1);

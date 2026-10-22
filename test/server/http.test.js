@@ -13,11 +13,11 @@ import { createHttpStorageAdapter } from '../../src/store/httpAdapter.js';
 import { storageAdapterContract } from '../store/adapterContract.js';
 import { smallDocument } from '../store/fixtures.js';
 
-async function fixture() {
+async function fixture(options = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-http-'));
   writeFileSync(join(dir, 'index.html'), '<html><head></head><body><div id="root"></div></body></html>');
   const storage = createSqliteStorage(join(dir, 'data.db'), { initialDocument: smallDocument() });
-  const server = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0 });
+  const server = await serveLocal({ storage, dataDir: dir, distDir: dir, port: 0, ...options });
   server.uiToken = (await signIn(server, dir)).token;
   const fetchUI = (url, options = {}) => fetch(url, { ...options, headers: { ...options.headers, Origin: server.address } });
   return { ...server, storage, dir, fetchUI, serverClose: server.close,
@@ -39,7 +39,10 @@ test('HTTP: Host, token, content type, routes; HTML returns no-store sign-in pag
   assert.equal(wrongHost, 403);
   const html = await fetch(`${f.address}/menupilot/`);
   assert.equal(html.headers.get('cache-control'), 'no-store');
-  assert.match(await html.text(), /open-url/);
+  const login = await html.text();
+  assert.match(login, /This sign-in link has expired or has already been used/);
+  assert.match(login, /Deze aanmeldlink is verlopen of al gebruikt/);
+  assert.match(login, /open-url/);
   assert.equal((await fetch(`${f.address}/api/write`, { method: 'POST', headers: { Authorization: `Bearer ${f.uiToken}`, Origin: f.address }, body: '{}' })).status, 415);
   assert.equal((await fetch(`${f.address}/menupilot/data.db`)).status, 404);
   assert.equal((await fetch(`${f.address}/api/unknown`, { headers: { Authorization: `Bearer ${f.uiToken}`, Origin: f.address } })).status, 404);
@@ -79,6 +82,60 @@ test('HTTP: non-ASCII token is denied and CLI token cannot bypass UI confirmatio
   assert.equal((await fetch(`${f.address}/api/write`, { method: 'POST', headers: { Authorization: `Bearer ${f.cliToken}`, 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
 });
 
+test('HTTP: stop is POST-only, CLI-only, and requests shutdown after its response', async t => {
+  let requested = false;
+  const f = await fixture({ requestStop: () => { requested = true; return { backupCreated: true }; } }); t.after(() => f.close());
+  assert.equal((await fetch(f.address + '/api/stop', { headers: { Authorization: `Bearer ${f.cliToken}` } })).status, 404);
+  const ui = await fetch(f.address + '/api/stop', { method: 'POST', headers: { Authorization: `Bearer ${f.uiToken}`, Origin: f.address, 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(ui.status, 403);
+  assert.equal(requested, false);
+  const cli = await fetch(f.address + '/api/stop', { method: 'POST', headers: { Authorization: `Bearer ${f.cliToken}`, 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(cli.status, 200); assert.deepEqual(await cli.json(), { stopped: true, backupCreated: true });
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(requested, true);
+});
+
+test('HTTP: stop waits for shutdown snapshot result before responding and refuses later writes', async t => {
+  let release;
+  const completed = new Promise(resolve => { release = resolve; });
+  const f = await fixture({ requestStop: () => completed }); t.after(() => f.close());
+  let responseSettled = false;
+  const responsePromise = fetch(f.address + '/api/stop', { method: 'POST', headers: { Authorization: `Bearer ${f.cliToken}`, 'Content-Type': 'application/json' }, body: '{}' })
+    .then(response => { responseSettled = true; return response; });
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(responseSettled, false);
+  const rejectedWrite = await f.fetchUI(f.address + '/api/write', { method: 'POST', headers: { Authorization: `Bearer ${f.uiToken}`, 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(rejectedWrite.status, 503);
+  assert.equal((await rejectedWrite.json()).code, 'stopping');
+  release({ backupCreated: false, code: 'shutdown-backup-failed', message: 'Copy could not be created.' });
+  const response = await responsePromise;
+  assert.deepEqual(await response.json(), { stopped: true, backupCreated: false, code: 'shutdown-backup-failed', message: 'Copy could not be created.' });
+});
+
+
+test('HTTP: a write whose body finishes after the listener closes gets 503 stopping, also on keep-alive', { timeout: 5000 }, async t => {
+  const f = await fixture(); t.after(() => f.close());
+  const { host, port } = new URL(f.address);
+  const socket = connect(Number(port), '127.0.0.1'); t.after(() => socket.destroy());
+  await once(socket, 'connect');
+  let received = '';
+  socket.on('data', chunk => { received += chunk; });
+  const before = f.readSaved();
+  const body = JSON.stringify({ kind: 'save', document: smallDocument(), opId: 'late' });
+  const headers = path => `POST ${path} HTTP/1.1\r\nHost: ${host}\r\nAuthorization: Bearer ${f.uiToken}\r\nOrigin: ${f.address}\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n`;
+  socket.write(headers('/api/write') + body.slice(0, 1));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  void f.stopAccepting();
+  const refused = await new Promise(resolve => { const probe = connect(Number(port), '127.0.0.1'); probe.on('error', () => resolve(true)); probe.on('connect', () => { probe.destroy(); resolve(false); }); });
+  assert.equal(refused, true);
+  socket.write(body.slice(1) + headers('/api/write') + body);
+  const deadline = Date.now() + 2000;
+  while ((received.match(/HTTP\/1\.1 /g) ?? []).length < 2 && !socket.destroyed && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+  const statuses = [...received.matchAll(/HTTP\/1\.1 (\d+)/g)].map(match => Number(match[1]));
+  assert.equal(statuses[0], 503);
+  assert.ok(statuses.every(status => status === 503), `statuses: ${statuses}`);
+  assert.equal((received.match(/"code":"stopping"/g) ?? []).length, statuses.length);
+  assert.equal(f.readSaved(), before);
+});
 
 test('HTTP: graceful shutdown bounds unfinished request connections', { timeout: 5000 }, async t => {
   const f = await fixture();

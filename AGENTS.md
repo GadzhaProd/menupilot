@@ -1,8 +1,51 @@
-# MenuPilot — rules for coding agents
+# MenuPilot — rules for agents
 
 MenuPilot is a small web app for independent restaurant owners: recipe costing
-and a what-if Profit Simulator. Read docs/planning/*.md before larger changes.
+and a what-if Profit Simulator. This file has two parts. Find yours:
+
+- **Helping a restaurant owner use MenuPilot** (answering questions about their
+  prices, dishes and costs; entering a supplier price) → the next section.
+- **Developing MenuPilot** (changing code, tests, docs) → every section after it.
+
+## If you are helping a restaurant owner use MenuPilot (not developing it)
+
+Full guide and ready-made recipes: [docs/agent/README.md](docs/agent/README.md) and
+[docs/agent/recipes.md](docs/agent/recipes.md). Command reference: [docs/cli.md](docs/cli.md).
+The owner is not technical: answer in the owner's language, in short plain sentences.
+
+- **Numbers come only from MenuPilot commands** `npm run menupilot -- <command>` (use `--json`
+  when you need exact values). Do not calculate, convert, average or round anything yourself;
+  quote the `display` text of a money object. If a command does not give a number, say so.
+- **Do not open, read or change the data files or the database** (data folder, `menupilot.db`,
+  `token`, backups). Use only the supported commands. If the server is not running, tell the
+  owner to run `npm start` (exit code 3); do not start a workaround.
+- **Changes only through `propose`, confirmed by the owner in the MenuPilot window.** The only
+  change you can propose is a new supplier price (`propose add-price`). A proposal changes nothing.
+  Never run `open-url`, never try to apply or reject a plan, never call the API directly.
+  Tell the owner to open the "Awaiting your confirmation" panel, check the consequences, and
+  choose Apply or Reject. If the plan is stale or expired, propose again.
+- **Supplier prices are excl. VAT, as on the invoice.** If the owner gives a price incl. VAT or
+  the invoice basis is unclear, ask. Say "incl. VAT" or "excl. VAT" next to every price.
+- **Ambiguity: ask, do not guess.** Several candidates, an unknown name, an unclear pack size or
+  unit: show the candidates from the command output and ask the owner to choose. Use the exact
+  name or ID that the owner picked.
+- **Say "Contribution", never "profit".** Contribution is the menu price excl. VAT minus the
+  recipe-based ingredient cost, before labour, rent and other costs. Call the cost
+  "Recipe-based ingredient cost": what the recipe should cost, not what was used.
+- **Monthly volume is the owner's estimate, not a forecast.** "—" means no estimate; say that
+  such dishes are excluded from the menu total. An unknown cost is "cost unknown", never zero.
+- **Warnings count.** Repeat warnings from the output (zero price, price change above ×3,
+  overdue backups) to the owner before they confirm anything.
+- **Never suggest recipe changes that affect food safety or allergens.** Price and portion
+  what-ifs are fine; swapping or removing ingredients for safety or allergen reasons is not yours
+  to advise.
+
+The rest of this file is for agents that develop MenuPilot.
+
+# Development rules
+
 The owner is non-technical: report in simple Russian, code and identifiers in English.
+Read docs/planning/*.md before larger changes.
 
 ## Scope
 - Build only what the current stage in docs/planning/04_IMPLEMENTATION_PLAN.md asks for.

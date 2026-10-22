@@ -16,12 +16,13 @@ npm run menupilot -- simulate --dish dish_classic_burger --ingredient-price ing_
 npm run menupilot -- history
 npm run menupilot -- journal --json
 npm run menupilot -- backups
+npm run menupilot -- stop
 npm run menupilot -- doctor --json
 ```
 
 ## Input, lookup, and output
 
-`--locale en|nl` affects human formatting and each money object's `display` only. JSON amount keys and exact values do not change. Money input accepts a decimal comma or point, but not grouping separators. Menu prices are labelled `incl. VAT`; pack/supplier prices are `excl. VAT`. `simulate` is read-only: repeated `--ingredient-price` and `--qty` flags compose a scenario; quantity overrides affect top-level dish lines only. Supported quantity units are `g`, `kg`, `ml`, `l`, and `pc`.
+`--locale en|nl` affects human formatting and each formatted `display`; exact JSON value keys do not change. Human `what-changed` labels are translated too. Money input accepts a decimal comma or point, but not grouping separators. Menu prices are labelled `incl. VAT`; pack/supplier prices are `excl. VAT`. `simulate` is read-only: repeated `--ingredient-price` and `--qty` flags compose a scenario; quantity overrides affect top-level dish lines only. Supported quantity units are `g`, `kg`, `ml`, `l`, and `pc`.
 
 Lookups accept an ID (case-insensitive) or exact name (case-insensitive, trimmed, Unicode NFC). Duplicate exact names are an error with candidates. Fuzzy and substring matches are suggestions only; the CLI never selects them. A prep passed to `dish` is reported as a prep.
 
@@ -50,12 +51,22 @@ Every calculated money value is an object such as `{ "cents": "784", "display": 
 
 - `status`: `{mode,dataDir,lastBackup,lastExternalBackup}`. Document identity and revision exist once, in the envelope. Warnings exist once, in the envelope.
 - `doctor`: `{node,dataDir,databaseVersion,documentFormat,lockStatus,checks,warnings}`. Each check has `{name,ok,detail}` and has `advice` only when `ok` is false. Exit code is `1` when any check is `CHECK`.
-- `dish`: explicit dish identity, menu price, VAT, portions, monthly volume, cost/contribution amounts, and recipe lines with a compact target (`id,name,kind,unit`); it does not expose the stored document object.
-- `ingredient`: `{id,name,unit,priceHistory}` with each price entry carrying a cents string, formatted amount, VAT label, pack size, timestamp, and sequence.
+- `dish`: explicit dish identity, menu price, raw `vatRateBp` plus `vatRate: {value,display}`, portions, monthly volume, cost/contribution amounts, and recipe lines. Each line retains `netQtyMilli`/`yieldBp` and adds `quantity: {value,display}` and `yield: {value,display}`, plus a compact target (`id,name,kind,unit`); it does not expose the stored document object.
+- `ingredient`: `{id,name,unit,priceHistory}` with each historical price retaining `packSizeMilli` and adding `packSize: {value,display}` and `unitPrice: {value:{cents,per},display}`. `ingredients` provides the same ready-to-display fields under `currentPrice`.
+- `preps`: each prep retains `outputMilli`/`outputUnit`, adds `output: {value,display}`, and returns recipe lines with the same raw and ready-to-display quantity/yield fields as `dish`.
 - `simulate`: dish identity/status, menu price, recipe-based ingredient cost, contribution, deltas, volume, monthly contribution, food cost, and contribution margin. Amounts use the money shape above; no values are persisted.
 - `what-changed`: date, per-dish current/comparison costs, change, monthly impact, status and coded `excludedReason` (`no-volume`, `cost-unknown`, `no-price-on-date`, or `error`); menu total; excluded list and counters.
 
-Warning codes: `backup-overdue`, `external-backup-overdue`, `backup-error`, `backup-integrity`, `system-clock`, `local-folder`, `server-unavailable`.
+Ready-to-display field examples (the raw integer fields remain present):
+
+```json
+{"packSizeMilli":1000000,"packSize":{"value":"1","display":"1 kg"},"unitPrice":{"value":{"cents":"1700","per":"kg"},"display":"€17.00/kg"}}
+{"vatRateBp":900,"vatRate":{"value":"9","display":"9%"},"netQtyMilli":125000,"quantity":{"value":"125","display":"125 g"},"yieldBp":8500,"yield":{"value":"85","display":"85%"}}
+```
+
+For Dutch locale, `display` uses Dutch decimal/currency formatting and the UI unit label (`st` for pieces); the exact values and raw milli/basis-point fields stay unchanged.
+
+Warning codes: read commands and plan reads/proposals include active backup and health warnings: `backup-overdue`, `external-backup-overdue`, `backup-error`, `backup-integrity`, `system-clock`. `status` may also include `local-folder`; offline `doctor` may include `server-unavailable`. A failed shutdown snapshot returns `shutdown-backup-failed` from `stop`.
 
 ## Exit codes
 
@@ -73,6 +84,8 @@ Stable error codes include `usage`, `invalid-argument`, `invalid-unit`, `not-fou
 ## Existing administrative commands
 
 `open-url` asks the server to open the browser; the API returns only `{opened: true|false}`, never a launch URL or UI token. The CLI prints whether it opened. On failure, open the address from the terminal window running `npm start`, or restart `npm start`. Normal commands and API responses do not disclose the window key. The key is held in server memory and printed in the startup terminal; opening the browser also briefly exposes it as a process argument. `--revoke-sessions` also revokes existing UI sessions.
+
+`stop` requests a graceful server shutdown through the authenticated local API. It stops accepting new requests/writes, waits for work already in progress, creates a shutdown backup when data changed, returns that result to the CLI, then closes HTTP and releases the lock. On success the terminal prints `MenuPilot stopped. Your data is in <data-folder>`; JSON uses `data: {stopped:true,dataDir}` and `warnings: []`. If the snapshot fails, the database is closed and the lock is released, but the CLI exits `1`; JSON uses `data: {stopped:false,dataDir}` and warning `{code:"shutdown-backup-failed",message:"Data is saved in the database; the backup was not created — it will be made on the next start (reason: <error>)"}`. Human output prints that same message. Ctrl+C in the `npm start` window uses the same snapshot result and prints the same failure message if the copy cannot be made.
 
 Agents must never open or apply their own plans, or access data files directly (AGENTS.md). This guards against agent mistakes in normal operation; a process running as the same user could intercept the one-use key from the process list during browser opening (even if visible only for a fraction of a second), or modify data files. This is not protection against malicious software with the user’s permissions.
 
