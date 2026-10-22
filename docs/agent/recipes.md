@@ -63,13 +63,13 @@ $ npm run --silent menupilot -- dish "Classic Burger" --json
 ```json
 {"apiVersion":1,"command":"dish","documentId":"c7363b7e-…","revision":3,
  "data":{"id":"dish_classic_burger","name":"Classic Burger",
-  "menuPriceInclVat":{"cents":"1308","display":"€13.08"},"menuPriceLabel":"incl. VAT","vatRateBp":900,
-  "portions":1,"monthlyVolume":300,
+  "menuPriceInclVat":{"cents":"1308","display":"€13.08"},"menuPriceLabel":"incl. VAT",
+  "vatRateBp":900,"vatRate":{"value":"9","display":"9%"},"portions":1,"monthlyVolume":300,
   "recipeBasedIngredientCost":{"micro":"4850000","display":"€4.85"},
   "contribution":{"micro":"7150000","display":"€7.15"}, "lines":[…]},"warnings":[]}
 ```
 
-Use `--json` for `dish`: the plain text output prints raw `…Micro` fields. `lines` lists the recipe lines (ingredient or prep).
+Without `--json`, `dish` prints the same amounts as readable lines (menu price, recipe-based ingredient cost, contribution, portions, monthly volume). `lines` lists the recipe lines (ingredient or prep); each line has a ready `quantity.display` (for example `180 g`) and `yield.display` (`100%`). Quote `vatRate.display`, not `vatRateBp`.
 
 Retell: «Classic Burger стоит в меню €13,08 с НДС (9%). Себестоимость продуктов по рецептуре — €4,85 на порцию, без НДС. Вклад (цена без НДС минус эта себестоимость, до зарплат, аренды и прочих расходов) — €7,15 с порции. Это теоретическая себестоимость по рецепту, а не фактический расход продуктов.»
 
@@ -118,22 +118,26 @@ id: ing_beef
 name: Beef mince 80/20
 unit: g
 priceHistory: - sequence: 1
-  recordedAt: 2026-08-08T07:39:01.658Z
+  recordedAt: 2026-08-04T12:00:00.000Z
   packPriceCents: 1400
   packPrice: €14.00
   packPriceLabel: excl. VAT
   packSizeMilli: 1000000
+  packSize: 1 kg
+  unitPrice: €14.00/kg
 - sequence: 2
-  recordedAt: 2026-10-08T07:39:01.658Z
+  recordedAt: 2026-10-04T12:00:00.000Z
   packPriceCents: 1700
   packPrice: €17.00
   packPriceLabel: excl. VAT
   packSizeMilli: 1000000
+  packSize: 1 kg
+  unitPrice: €17.00/kg
 ```
 
-`packSizeMilli: 1000000` is 1 kg for a gram ingredient (thousandths of the base unit, g). Prices are append-only; the last entry is the current price.
+Quote `packSize` and `unitPrice` as printed; do not convert `packSizeMilli` yourself. Prices are append-only; the last entry is the current price. In `--json` the same values are `packSize.display` and `unitPrice.display`.
 
-Retell: «Фарш: 8 августа упаковка 1 кг стоила €14,00 без НДС, 8 октября — €17,00. Сейчас €17,00 за кг.» (Per-kg conversion: use the unit price a command prints, for example in a proposal; do not divide yourself.)
+Retell: «Фарш: 4 августа упаковка 1 кг стоила €14,00 без НДС (€14,00 за кг), 4 октября — €17,00 (€17,00 за кг). Сейчас действует цена €17,00 за кг без НДС.»
 
 ## 9. "The supplier sent an invoice: mince is €18 per kg. Enter it."
 

@@ -30,7 +30,8 @@ npm run --silent menupilot -- <command> [options] --json
 - Always use `--silent` with `--json`. Plain `npm run` prints two header lines (`> menupilot@0.1.0 menupilot` …) to stdout before the JSON, which breaks parsing. `node server/cli.js <command> --json` is equivalent.
 - Without `--json` you get readable text, good for a quick look. With `--json` you get an envelope `{apiVersion, command, documentId, revision, data, warnings}` on stdout; errors go to stderr as `{apiVersion, error: {code, message, candidates?}}`.
 - Every money value in JSON is an object such as `{"cents": "485", "display": "€4.85"}` or `{"micro": "4850000", "display": "€4.85"}`. Use `display` when talking to the owner. Never convert the integer strings to floating-point numbers.
-- `--locale nl` changes `display` formatting (`€ 4,85`) and the language of the human text. Use the owner's locale if it is `en` or `nl`; the exact numbers do not change.
+- Sizes, prices per kg/l/pc, VAT, quantities and yield also come ready: `packSize`, `unitPrice`, `vatRate`, `quantity`, `yield`, each with a `display` text (`1 kg`, `€17.00/kg`, `9%`, `180 g`, `85%`). Quote those; never convert the raw `…Milli` or `…Bp` fields yourself.
+- `--locale nl` changes `display` formatting (`€ 4,85`, `st` for pieces) and the labels of `what-changed`, `propose`, `plans` and `plan status`; other human text stays English. Use the owner's locale if it is `en` or `nl`; the exact numbers do not change.
 - Money input accepts a comma or a point (`18,00` or `18.00`), no thousands separators.
 - Names: an ID or the **exact** name (case-insensitive). Prefer IDs once you know them. If the owner's wording differs from the stored name, run `ingredients` / `dishes` / `preps`, show the owner the closest names and ask.
 
@@ -84,7 +85,7 @@ Full list of codes and the plan format: [../cli.md](../cli.md#exit-codes).
 
 ## Warnings in the output
 
-Success output can carry `warnings`: `backup-overdue`, `external-backup-overdue`, `backup-error`, `backup-integrity`, `system-clock`, `local-folder`, `server-unavailable`. Mention them to the owner in one sentence; a backup that is behind is worth a line even if the question was about something else. Proposal warnings (`zero-price`, `large-price-change`) must be shown **before** the owner confirms.
+Success output can carry `warnings`. Every read command, `plans`, `plan status` and `propose` include the backup and health warnings `backup-overdue`, `external-backup-overdue`, `backup-error`, `backup-integrity`, `system-clock`; `status` may also show `local-folder`, offline `doctor` shows `server-unavailable`, and `stop` shows `shutdown-backup-failed` (data is saved, but the shutdown copy was not made; it will be made on the next start). Mention them to the owner in one sentence; a backup that is behind is worth a line even if the question was about something else. Proposal warnings (`zero-price`, `large-price-change`) must be shown **before** the owner confirms.
 
 ## What the owner sees and does
 
