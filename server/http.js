@@ -161,6 +161,8 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
         else if (req.method === 'GET' && path === '/api/document') value = storage.load();
         else if (req.method === 'GET' && path === '/api/version') value = storage.version();
         else if (req.method === 'GET' && path === '/api/history') value = storage.history.list();
+        else if (req.method === 'GET' && path === '/api/journal' && storage.journal) value = storage.journal.list();
+        else if (req.method === 'GET' && path === '/api/local/status') value = { dataDir, databaseVersion: storage.db?.prepare('PRAGMA user_version').get().user_version ?? null };
         else if (req.method === 'POST' && path === '/api/history/read') {
           const body = await jsonBody(req);
           if (!body || Array.isArray(body) || typeof body.id !== 'string' || !body.id || Object.keys(body).length !== 1) throw new StoreError('invalid', 'Provide a history entry ID.');

@@ -24,6 +24,9 @@
     "test:mutations": "node test/server/mutations.js",
     "menupilot": "node server/cli.js"
   },
+  "bin": {
+    "menupilot": "server/cli.js"
+  },
   "dependencies": {
     "@radix-ui/react-dialog": "1.3.1",
     "@radix-ui/react-slot": "1.5.0",

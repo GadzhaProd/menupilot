@@ -163,7 +163,8 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
   }
   const storage = { db, load, version, write, history: {
     list: () => db.prepare('SELECT id,seq AS "order",savedAt FROM history ORDER BY seq DESC').all(), read: readHistory,
-  }, close() { try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } finally { db.close(); } },
+  }, journal: { list: () => db.prepare('SELECT seq AS "order",entry FROM journal ORDER BY seq DESC').all().map(row => ({ order: row.order, ...JSON.parse(row.entry) })) },
+  close() { try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } finally { db.close(); } },
   openAdapter() { return createRemoteAdapter(async (route, input) => {
     if (route === 'document') return load();
     if (route === 'version') return version();

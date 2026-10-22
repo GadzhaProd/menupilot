@@ -152,6 +152,18 @@ sessions remain valid unless revoked or expired. Restart invalidates every sessi
 The `launch-secret` and CLI `token` files are replaced with mode 0600. At most 128
 sessions are retained; a further sign-in evicts the oldest remaining session.
 
+### Read data from the terminal
+
+With `npm start` running, use `npm run menupilot -- status`, `what-changed --since 30d`,
+`dishes`, `dish <id|exact name>`, `ingredients`, `ingredient <id|exact name>`, `preps`,
+`simulate --dish <id|exact name>`, `history`, `journal`, or `backups`. Add `--json` for
+the versioned machine-readable contract and `--locale nl` for Dutch display formatting.
+For examples, search rules, exit codes and JSON details, see [docs/cli.md](docs/cli.md).
+These read commands require the server and its private 0600 CLI token; if it is stopped,
+the CLI says to run `npm start`. `doctor` also reports local checks when the server is stopped.
+Run `npm run menupilot -- doctor` to check the Node version, database, token, folder,
+port, lock and backup freshness; a failing check returns exit code 1.
+
 The server binds only to 127.0.0.1. Exact Host checks prevent DNS rebinding;
 `localhost` at the page URL shows a short instruction to use 127.0.0.1. All API
 reads require a token. Foreign and `null` Origins are rejected; UI POST requires

@@ -47,7 +47,7 @@ test('process: authenticated backup CLI, confirmation, new revision, offline ref
   let child;
   t.after(async () => { if (child) await stop(child); rmSync(dir, { recursive: true }); });
   const offline = await cli(dir, ['backup', 'list']);
-  assert.equal(offline.code, 1); assert.match(offline.output, /Run npm start/);
+  assert.equal(offline.code, 3); assert.match(offline.output, /Run npm start/);
   const seed = await openLocalStorage(dir, { timers: false }); await seed.close();
   const db = new DatabaseSync(join(dir, 'menupilot.db'));
   db.prepare("INSERT INTO meta(key,value) VALUES('backupClockWarning','1')").run(); db.close();
@@ -64,8 +64,7 @@ test('process: authenticated backup CLI, confirmation, new revision, offline ref
   const headers = { Authorization: `Bearer ${readFileSync(join(dir, 'token'), 'utf8')}` };
   for (const route of ['backups', 'backups/status']) assert.equal((await fetch(address + '/api/' + route)).status, 401);
   const health = await cli(dir, ['doctor']);
-  assert.equal(health.code, 0); assert.match(health.output, /"clockWarning": true/);
-  assert.match(health.output, /"corruptBackups": 1/);
+  assert.equal(health.code, 1); assert.doesNotMatch(health.output, /"clockWarning"|"corruptBackups"/);
   assert.match(health.output, /automatic backup deletion is paused/);
   assert.match(health.output, /isolated in quarantine/);
   const initial = await (await fetch(address + '/api/document', { headers })).json();

@@ -180,7 +180,7 @@ export async function manageBackups(raw, dir, { now = Date.now, monotonic = () =
     await exportReady();
   }
   const service = {
-    load: raw.load, version: raw.version, history: raw.history,
+    load: raw.load, version: raw.version, history: raw.history, journal: raw.journal,
     write: (input, actor) => enqueue(() => write(input, actor)),
     backups: {
       list: () => listSnapshots(folder), status,
