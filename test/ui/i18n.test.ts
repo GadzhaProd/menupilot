@@ -45,3 +45,9 @@ it('selects plural forms using the numeric count while formatting displayed para
   expect(plural('nl', 'count.dishes', 1, { count: 'één' })).toBe('één gerecht');
   expect(plural('nl', 'dashboard.excluded', 2, { count: '2', reasons: 'kosten onbekend' })).toBe('2 gerechten uitgesloten: kosten onbekend');
 });
+
+it('uses bijdrage rather than the membership-fee term in Dutch messages', () => {
+  for (const [key, message] of Object.entries(dictionaries.nl)) {
+    expect(message, key).not.toMatch(/contributie/i);
+  }
+});

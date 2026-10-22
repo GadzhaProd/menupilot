@@ -8,18 +8,18 @@ import { createHttpPlanAdapter } from './httpPlanAdapter';
 
 function Consequences({ plan }: { plan: PricePlan }) {
   const { t } = useLocale(), f = useFormatters();
-  const cost = (v: string | null) => v === null ? t('common.costUnknown') : f.microMoney(BigInt(v));
+  const cost = (v: string | null) => v === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.microMoney(BigInt(v))}</span>;
   const pct = (v: string | null) => v === null ? '—' : f.percent(BigInt(v));
   return <div className="space-y-3 text-sm">
     {plan.effects.dishes.map(row => <div key={row.id} className="border-t pt-2">
       <p className="font-medium">{row.name}</p>
       <p>{t('plans.cost')}: {cost(row.comparisonCostMicro)} → {cost(row.currentCostMicro)}</p>
       <p>{t('plans.food')}: {pct(row.comparisonFoodCostTenthsPct)} → {pct(row.currentFoodCostTenthsPct)}</p>
-      <p>{t('plans.monthly')}: {row.monthlyImpactCents === null ? '—' : f.money(BigInt(row.monthlyImpactCents))}</p>
+      <p>{t('plans.monthly')}: {row.monthlyImpactCents === null ? '—' : <span className="whitespace-nowrap">{f.money(BigInt(row.monthlyImpactCents))}</span>}</p>
       {row.excludedReason && <p className="text-muted-foreground">{t(row.excludedReason === 'no-volume' ? 'plans.noVolume' : 'plans.unknown')}</p>}
     </div>)}
     {plan.effects.preps.map(row => <div key={row.id} className="border-t pt-2"><p className="font-medium">{row.name}</p><p>{t('plans.batch')}: {cost(row.comparisonBatchMicro)} → {cost(row.currentBatchMicro)}</p></div>)}
-    <p className="font-semibold">{t('plans.total')}: {plan.effects.totalMonthlyImpactCents === null ? '—' : f.money(BigInt(plan.effects.totalMonthlyImpactCents))}</p>
+    <p className="font-semibold">{t('plans.total')}: {plan.effects.totalMonthlyImpactCents === null ? '—' : <span className="whitespace-nowrap">{f.money(BigInt(plan.effects.totalMonthlyImpactCents))}</span>}</p>
     <p>{t('plans.estimate')}</p><p>{t('plans.excluded', { volume: plan.effects.excludedWithoutVolume, unknown: plan.effects.excludedWithVolume })}</p>
   </div>;
 }
@@ -38,9 +38,9 @@ export function LocalPlans() {
   if (!local || !client) return null;
   const shown = plans.filter(p => !['applied', 'rejected'].includes(p.status));
   if (!shown.length && !failed && !done) return null;
-  const per = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : `${f.money(BigInt(p.unitPrice.cents))}/${p.unitPrice.per}`;
+  const per = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.money(BigInt(p.unitPrice.cents))}/{p.unitPrice.per}</span>;
   function prices(plan: PricePlan) {
-    const pack = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : `${f.money(BigInt(p.packPriceCents))} ${t('plans.pack', { size: new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(p.packSizeMilli / 1000), unit: plan.ingredient.unit })}`;
+    const pack = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <><span className="whitespace-nowrap">{f.money(BigInt(p.packPriceCents))}</span> {t('plans.pack', { size: new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(p.packSizeMilli / 1000), unit: plan.ingredient.unit })}</>;
     return <div className="space-y-1 text-sm"><p>{pack(plan.previousPrice)} → {pack(plan.proposedPrice)} · {locale === 'nl' ? 'excl. btw' : 'excl. VAT'}</p><p>{per(plan.previousPrice)} → {per(plan.proposedPrice)} · {locale === 'nl' ? 'excl. btw' : 'excl. VAT'}</p></div>;
   }
   async function confirm() {
