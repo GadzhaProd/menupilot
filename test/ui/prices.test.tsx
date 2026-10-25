@@ -5,7 +5,7 @@ import { lastPriceDay, todayInput, validateNewIngredient, validatePrice } from '
 import { summarizeUsers, usedByText } from '@/ui/forms/usage';
 import { createTranslator } from '@/ui/i18n/messages';
 import {
-  go, memoryStorage, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
+  go, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
 
 const user = () => userEvent.setup();
@@ -203,5 +203,27 @@ describe('where it is used', () => {
     expect(within(dialog).getAllByRole('link').map((link) => link.textContent)).toEqual(['Pasta', 'Pizza']);
     await u.click(within(dialog).getByRole('button', { name: 'Delete prep' }));
     expect(within(dialog).getByRole('alert').textContent).toContain('This prep is still used by other recipes and cannot be deleted. Used by: Pasta, Pizza.');
+  });
+});
+
+describe('Dashboard without prices on the comparison date', () => {
+  it('explains that there is nothing to compare instead of showing a bare €0.00', async () => {
+    const u = user();
+    await renderApp();
+    fireEvent.change(screen.getByLabelText('Choose date'), { target: { value: '2026-01-01' } });
+    const note = screen.getByText('No ingredient prices existed on 1 Jan 2026', { selector: 'p.font-semibold' }).closest('[role="status"]') as HTMLElement;
+    expect(note.textContent).toMatch(/This is not “no change”/);
+    expect(note.textContent).toMatch(/Choose a later date, or add a past price with the date on the invoice/);
+    const impact = screen.getByRole('heading', { name: 'Monthly impact at your volume' }).closest('section') as HTMLElement;
+    expect(impact.textContent).toContain('—');
+    expect(impact.textContent).not.toContain('€0.00');
+    expect(impact.textContent).not.toMatch(/incomplete/);
+    expect(screen.getByRole('heading', { name: /Largest/ }).closest('section')?.textContent).toContain('No ingredient prices existed on 1 Jan 2026');
+
+    await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    expect(screen.getByText('Op 1 jan 2026 bestonden er nog geen ingrediëntprijzen', { selector: 'p.font-semibold' })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Kies een datum'), { target: { value: '2026-10-11' } });
+    expect(screen.queryByText(/bestonden er nog geen ingrediëntprijzen/)).toBeNull();
   });
 });

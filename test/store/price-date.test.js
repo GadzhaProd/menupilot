@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { selectPriceAtDate } from '../../src/calc/costing.js';
+import { dashboardData } from '../../src/calc/dashboard.js';
 import { STORAGE_KEY, StoreError, createStore } from '../../src/store/store.js';
 import { validateDocument } from '../../src/store/schema.js';
 import { encoded } from './fixtures.js';
@@ -122,4 +123,14 @@ test('addIngredient takes an initial price with a past effectiveDate', async () 
   const { id, document } = await store.addIngredient({ name: 'Salt', unit: 'g', price: PRICE, effectiveDate: '2026-10-20' });
   assert.equal(document.ingredients.find((entry) => entry.id === id).prices[0].recordedAt, '2026-10-20T00:00:00.000Z');
   await rejectsInvalid(store.addIngredient({ name: 'Pepper', unit: 'g', price: PRICE, effectiveDate: '2027-01-01' }), /future/);
+});
+
+test('Dashboard: a backdated first price makes the dish comparable on that day, not the day before', async () => {
+  const doc = smallDocument();
+  doc.ingredients[0].prices = [];
+  const store = createStore(memoryStorage({ [STORAGE_KEY]: encoded(doc) }), { now: () => NOW, demo: readDemo() });
+  await store.load();
+  const next = await store.addPrice('i1', PRICE, { effectiveDate: '2026-10-20' });
+  assert.equal(dashboardData(next, '2026-10-19T23:59:59.999Z').dishes[0].status, 'no-price-on-date');
+  assert.notEqual(dashboardData(next, '2026-10-20T23:59:59.999Z').dishes[0].status, 'no-price-on-date');
 });
