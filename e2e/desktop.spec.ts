@@ -470,7 +470,7 @@ test('version history restores previous data as a new revision and archives the 
   await page.getByRole('link', { name: 'Data', exact: true }).click();
   await page.getByRole('button', { name: 'Preview version', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
-  await expect(dialog).toContainText('Changed: First saved burger (recipe)');
+  await expect(dialog).toContainText('Changed: Second saved burger (recipe)');
   await dialog.getByRole('button', { name: 'Restore this version', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Preview version', exact: true })).toHaveCount(2);
   expect(await page.evaluate(() => localStorage.getItem('menupilot:revision'))).not.toBe(revision);
