@@ -43,7 +43,8 @@ describe('Dashboard date comparison', () => {
       'no price on this date', '€4.85', 'no price on this dateno price on this date',
     ]);
     expect(screen.getByText(/4 dishes excluded/)).toBeTruthy();
-    expect(screen.getByText(/incomplete/)).toBeTruthy();
+    // Nothing to compare with: explained, not shown as a bare €0.00 "incomplete".
+    expect(screen.getByText(/This is not “no change”/)).toBeTruthy();
 
     const datePicker = screen.getByLabelText('Choose date');
     fireEvent.change(datePicker, { target: { value: '2026-10-11' } });

@@ -12,6 +12,7 @@ import { Surface } from '@/components/ui/surface';
 import { MoneyValue, BeforeAfter } from '@/components/ui/money-value';
 import { useDishFigures } from '@/ui/dashboard/useDishFigures';
 import { EmptyState } from '@/components/ui/empty-state';
+import { InlineStatus } from '@/components/ui/inline-status';
 import { HelpLink } from '@/ui/help/HelpLink';
 import type { Translate } from '@/ui/i18n/messages';
 import { hrefFor } from '@/ui/router/routes';
@@ -67,6 +68,9 @@ export function DashboardPage() {
   const largest = largestCostIncrease(data.dishes);
   const total = data.totalMonthlyImpactCents;
   const reasons = excludedReasons(data.dishes, t);
+  // Every dish lacks a price on the chosen date (typical in the first month): no comparison exists,
+  // which must not look like "nothing changed".
+  const noPricesOnDate = data.dishes.length > 0 && data.dishes.every((row) => row.status === 'no-price-on-date');
   return <section aria-labelledby="page-title" className="space-y-8">
     <div className="space-y-2">
       <h1 id="page-title" className="text-[31px] leading-tight font-semibold sm:text-4xl">{t('dashboard.title')}</h1>
@@ -76,8 +80,8 @@ export function DashboardPage() {
     <div className="grid border-y border-line bg-surface lg:grid-cols-[0.6fr_1fr]">
       <section aria-labelledby="impact-title" className="space-y-3 p-5 sm:p-8">
         <h2 id="impact-title" className="text-xl font-semibold">{t('dashboard.monthly')}</h2>
-        <MoneyValue value={total === null ? '—' : `${total > 0n ? '+' : ''}${f.money(total)}`} tone={total === null || total === 0n ? 'neutral' : total < 0n ? 'negative' : 'positive'} className="block text-[46px] leading-tight sm:text-[60px]" />
-        {data.excludedWithVolume > 0 && <p className="text-sm">{t('dashboard.incomplete')}</p>}
+        <MoneyValue value={total === null || noPricesOnDate ? '—' : `${total > 0n ? '+' : ''}${f.money(total)}`} tone={total === null || noPricesOnDate || total === 0n ? 'neutral' : total < 0n ? 'negative' : 'positive'} className="block text-[46px] leading-tight sm:text-[60px]" />
+        {data.excludedWithVolume > 0 && !noPricesOnDate && <p className="text-sm">{t('dashboard.incomplete')}</p>}
         <p className="max-w-lg text-sm text-muted-foreground">{t('dashboard.monthlyHint')}</p>
         <p className="text-xs text-muted-foreground">{f.date(comparisonDate)} → {t('dashboard.now')} · {t('common.exclVat')}</p>
       </section>
@@ -92,9 +96,13 @@ export function DashboardPage() {
             <div><p className="font-semibold text-negative">{figures(largest.dish).monthly} <span className="text-sm font-normal">{t('dashboard.monthly')}</span></p><p className="text-xs text-muted-foreground">{largest.dish.monthlyVolume === null ? t('simulator.noEstimate') : plural('simulator.sold', largest.dish.monthlyVolume, { count: f.integer(largest.dish.monthlyVolume) })}</p></div>
             <Button asChild><a href={hrefFor({ name: 'simulator', id: largest.dish.id })}>{t('dashboard.try')}</a></Button>
           </div>
-        </> : <p>{t('dashboard.noIncrease')}</p>}
+        </> : <p>{noPricesOnDate ? t('prices.noPricesTitle', { date: f.date(comparisonDate) }) : t('dashboard.noIncrease')}</p>}
       </section>
     </div>
+    {noPricesOnDate && <InlineStatus tone="info" className="space-y-1">
+      <p className="font-semibold">{t('prices.noPricesTitle', { date: f.date(comparisonDate) })}</p>
+      <p>{t('prices.noPricesBody')}</p>
+    </InlineStatus>}
     <ComparisonPicker comparisonDate={comparisonDate} quickDays={quickDays} onPreset={selectPreset} onDateChange={selectDate} />
     <Surface aria-labelledby="dishes-title" className="max-sm:px-4">
       <h2 id="dishes-title" className="text-xl font-semibold">{t('dashboard.dishes')}</h2>
@@ -104,7 +112,7 @@ export function DashboardPage() {
         <DishImpactCards rows={data.dishes} />
       </>}
       <div className="mt-4 flex flex-wrap justify-between gap-3 border-t-2 border-line pt-5">
-        <span>{t('dashboard.total')}</span><strong className="tabular-nums">{total === null ? '—' : f.money(total)}</strong>
+        <span>{t('dashboard.total')}</span><strong className="tabular-nums">{total === null || noPricesOnDate ? '—' : f.money(total)}</strong>
         <div className="basis-full space-y-1 text-sm text-muted-foreground">
           <p>{plural('dashboard.withoutVolume', data.excludedWithoutVolume, { count: f.integer(data.excludedWithoutVolume) })}</p>
           {data.excludedWithVolume > 0 && <p>{plural('dashboard.excluded', data.excludedWithVolume, { count: f.integer(data.excludedWithVolume), reasons: reasons.join(', ') })}</p>}

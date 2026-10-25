@@ -358,6 +358,12 @@ export const contentNl: HelpDocument = {
         },
         { kind: 'p', text: 'Een nieuwe prijs toevoegen laat de eerdere regels in de geschiedenis staan. Verwijder je het ingrediënt, dan verdwijnt ook de prijsgeschiedenis. Het Overzicht gebruikt de oude prijzen om te zeggen wat een gerecht een maand geleden kostte.' },
         {
+          kind: 'note',
+          tone: 'important',
+          title: 'Prijs geldig vanaf, en een prijs van 0',
+          text: ['Het veld ', b('Prijs geldig vanaf'), ' is de datum van de factuur (datums zijn kalenderdagen in UTC, zoals overal in MenuPilot; vlak na middernacht in Nederland kan “vandaag” dus nog de datum van gisteren zijn). Het is vandaag, tenzij je het wijzigt. Je kunt een eerdere dag kiezen, maar niet vóór de datum van de vorige prijs en niet in de toekomst. Een prijs met een eerdere datum telt op het Overzicht vanaf die dag, dus je kunt vandaag de factuur van vorige week invoeren. Typ je een prijs van 0, dan waarschuwt MenuPilot dat recepten het product als gratis rekenen en wordt de prijs pas opgeslagen nadat je het vakje aanvinkt. Weet je de prijs niet, laat het veld dan leeg: recepten tonen dan “kosten onbekend”.'],
+        },
+        {
           kind: 'steps',
           title: 'Een ingrediënt hernoemen',
           steps: [
@@ -581,7 +587,8 @@ export const contentNl: HelpDocument = {
           items: [
             { message: '—', meaning: ['Voor dit gerecht is geen verkoopaantal per maand ingevuld (de tabel zegt “Aantal ontbreekt”). Het wordt weggelaten uit het maandtotaal. Open het gerecht. Vul het aantal porties in bij ', b('Verkocht per maand (optioneel)'), '. Klik op ', b('Wijzigingen opslaan'), '.'] },
             { message: 'kosten onbekend', meaning: ['Er ontbreekt een prijs voor een ingrediënt van dit gerecht. Voeg de prijs toe op de pagina Ingrediënten.'] },
-            { message: 'geen prijs op deze datum', meaning: ['Een van de ingrediënten had op de gekozen datum nog geen prijs, omdat je later met prijzen invullen begon. Kies een recentere datum.'] },
+            { message: 'geen prijs op deze datum', meaning: ['Een van de ingrediënten had op de gekozen datum nog geen prijs, omdat je later met prijzen invullen begon. Kies een recentere datum, of voeg een eerdere prijs toe met de datum van de factuur (', b('Nieuwe prijs'), ', veld ', b('Prijs geldig vanaf'), ').'] },
+            { message: 'Op … bestonden er nog geen ingrediëntprijzen', meaning: ['Het Overzicht toont deze melding in plaats van een kaal € 0,00 als geen enkel gerecht op de gekozen datum een prijs heeft. Er is niets om mee te vergelijken, dus dit is niet “geen verandering”. Kies een latere datum, of voeg een eerdere prijs toe met de datum van de factuur.'] },
             { message: 'n.v.t.', meaning: ['Het getal is niet te berekenen, bijvoorbeeld een percentage als de menukaartprijs € 0,00 is.'] },
             { message: '(onvolledig)', meaning: ['Naast het maandeffect: sommige gerechten met een aantal per maand moesten worden weggelaten en een regel eronder zegt waarom.'] },
             { message: 'Geen vergelijkbaar gerecht is in deze periode duurder geworden.', meaning: ['Van de gerechten waarvoor op beide datums prijzen bekend zijn, is geen gerecht duurder geworden. Controleer ook of andere gerechten “kosten onbekend” of “geen prijs op deze datum” tonen. Kies een langere periode of een oudere datum om verder terug te kijken.'] },
