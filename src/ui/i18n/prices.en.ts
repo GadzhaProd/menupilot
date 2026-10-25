@@ -1,0 +1,18 @@
+export const pricesEn = {
+  'prices.zeroWarning': 'This price is €0.00. Recipes will count this product as free. If you do not know the price yet, leave the price empty: recipes then show “cost unknown”.',
+  'prices.zeroConfirm': 'Yes, this product really is free (€0.00)',
+  'prices.zeroUnconfirmed': 'Tick the box to confirm a free product, or clear the price if you do not know it.',
+  'prices.validFrom': 'Price valid from',
+  'prices.validFromHint': 'Date of the invoice, in UTC. Leave as is for today.',
+  'prices.validFromInvalid': 'Enter a valid date.',
+  'prices.validFromEarlier': 'The date cannot be earlier than the previous price ({date}).',
+  'prices.validFromFuture': 'The date cannot be in the future.',
+  'prices.usedBy': 'Used by: {names}.',
+  'prices.andMore': 'and {count} more',
+  'prices.deletePrepDescription': 'The prep and its lines are removed. This cannot be undone. Ingredients are not deleted. A prep used in a recipe cannot be deleted.',
+  'prices.deleteDishDescription': 'The dish and its lines are removed. This cannot be undone. Ingredients are not deleted.',
+  'prices.prepInUseNow': 'This prep is used by other recipes, so it cannot be deleted yet.',
+  'prices.ingredientInUseNow': 'This ingredient is used by recipes, so it cannot be deleted yet.',
+  'prices.noPricesTitle': 'No ingredient prices existed on {date}',
+  'prices.noPricesBody': 'There is nothing to compare with yet, so no change can be shown. This is not “no change”. Choose a later date, or add a past price with the date on the invoice (Ingredients → New price → “Price valid from”).',
+} as const;

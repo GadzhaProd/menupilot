@@ -1,4 +1,5 @@
 import { plansNl } from './plans.nl';
+import { pricesNl } from './prices.nl';
 import { safetyNl } from './safety.nl';
 import { part2NL } from './part2.nl';
 import type { TranslationKey } from './en';
@@ -6,6 +7,7 @@ import { part3Nl } from './part3.nl';
 /** Dutch terminology: basisrecept; Huidige situatie; Foodcostpercentage; je/jouw. */
 const baseNl = {
   ...plansNl,
+  ...pricesNl,
   ...part2NL,
   ...safetyNl,
   'nav.dashboard': 'Overzicht',

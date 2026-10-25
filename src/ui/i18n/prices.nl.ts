@@ -1,0 +1,18 @@
+export const pricesNl = {
+  'prices.zeroWarning': 'Deze prijs is €0,00. Recepten rekenen dit product dan als gratis. Weet je de prijs nog niet? Laat de prijs dan leeg: recepten tonen dan “kosten onbekend”.',
+  'prices.zeroConfirm': 'Ja, dit product is echt gratis (€0,00)',
+  'prices.zeroUnconfirmed': 'Vink het vakje aan om een gratis product te bevestigen, of maak de prijs leeg als je die niet weet.',
+  'prices.validFrom': 'Prijs geldig vanaf',
+  'prices.validFromHint': 'Datum van de factuur, in UTC. Laat staan voor vandaag.',
+  'prices.validFromInvalid': 'Vul een geldige datum in.',
+  'prices.validFromEarlier': 'De datum mag niet eerder zijn dan de vorige prijs ({date}).',
+  'prices.validFromFuture': 'De datum mag niet in de toekomst liggen.',
+  'prices.usedBy': 'Gebruikt door: {names}.',
+  'prices.andMore': 'en nog {count}',
+  'prices.deletePrepDescription': 'Het basisrecept en de regels ervan worden verwijderd. Dit kan niet ongedaan worden gemaakt. Ingrediënten worden niet verwijderd. Een basisrecept dat in een recept wordt gebruikt, kan niet worden verwijderd.',
+  'prices.deleteDishDescription': 'Het gerecht en de regels ervan worden verwijderd. Dit kan niet ongedaan worden gemaakt. Ingrediënten worden niet verwijderd.',
+  'prices.prepInUseNow': 'Dit basisrecept wordt in andere recepten gebruikt en kan nog niet worden verwijderd.',
+  'prices.ingredientInUseNow': 'Dit ingrediënt wordt in recepten gebruikt en kan nog niet worden verwijderd.',
+  'prices.noPricesTitle': 'Op {date} bestonden er nog geen ingrediëntprijzen',
+  'prices.noPricesBody': 'Er is nog niets om mee te vergelijken, dus er kan geen verandering worden getoond. Dit betekent niet “geen verandering”. Kies een latere datum, of voeg een eerdere prijs toe met de datum van de factuur (Ingrediënten → Nieuwe prijs → “Prijs geldig vanaf”).',
+} as const;

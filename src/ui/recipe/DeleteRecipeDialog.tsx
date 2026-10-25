@@ -8,7 +8,8 @@ import {
 import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import type { Recipe } from '@/ui/domain/types';
 import { recipesUsing } from '@/ui/forms/recipeForm';
-import { hrefFor } from '@/ui/router/routes';
+import { usedByText } from '@/ui/forms/usage';
+import { UsedByList } from '@/ui/ingredients/UsedByList';
 import { useLocale } from '@/ui/i18n';
 import { InlineStatus } from '@/components/ui/inline-status';
 
@@ -30,8 +31,7 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
   const document = useDocument();
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const scenarios = document.scenarios.filter((scenario) => scenario.recipeId === recipe.id);
-  const users = error === null || recipe.kind !== 'prep' ? [] : recipesUsing(document, 'prep', recipe.id);
-  const noun = recipe.kind === 'dish' ? t('recipe.dish') : t('recipe.prep');
+  const users = recipe.kind !== 'prep' ? [] : recipesUsing(document, 'prep', recipe.id);
 
   async function confirm() {
     const result = (await execute(
@@ -47,7 +47,7 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
       <DialogContent data-draft-kind="recipe" data-draft-id={recipe.id} role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('recipe.deleteNamed', { name: recipe.name })}</DialogTitle>
-          <DialogDescription>{t('recipe.deleteDescription', { kind: noun })}</DialogDescription>
+          <DialogDescription>{t(recipe.kind === 'dish' ? 'prices.deleteDishDescription' : 'prices.deletePrepDescription')}</DialogDescription>
         </DialogHeader>
         {scenarios.length > 0 ? (
           <div className="border-y border-line bg-panel p-4">
@@ -58,18 +58,15 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
           </div>
         ) : null}
         {error !== null ? (
-          <InlineStatus tone="error">{error.code === 'in-use' ? t('recipe.error.inUse') : locale === 'en' ? error.message : t('error.generic')}</InlineStatus>
+          <InlineStatus tone="error">{error.code === 'in-use'
+            ? [t('recipe.error.inUse'), users.length > 0 ? t('prices.usedBy', { names: usedByText(users.map((user) => user.name), t) }) : ''].filter(Boolean).join(' ')
+            : locale === 'en' ? error.message : t('error.generic')}</InlineStatus>
         ) : null}
         {users.length > 0 ? (
           <div className="text-sm">
-            <p className="font-medium">{t('recipe.removeUsersFirst')}</p>
-            <ul className="mt-1 list-disc pl-5">
-              {users.map((user) => (
-                <li key={user.id}>
-                  <a className="underline underline-offset-4" href={hrefFor({ name: 'recipe', id: user.id })}>{user.name}</a>
-                </li>
-              ))}
-            </ul>
+            <p>{t('prices.prepInUseNow')}</p>
+            <p className="mt-2 font-medium">{t('recipe.removeUsersFirst')}</p>
+            <UsedByList users={users} />
           </div>
         ) : null}
         <DialogFooter>

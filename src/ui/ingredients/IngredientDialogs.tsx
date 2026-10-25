@@ -14,34 +14,29 @@ import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import { selectPriceAtDate } from '@/ui/domain/calc';
 import type { Ingredient } from '@/ui/domain/types';
 import {
-  validateName, validateNewIngredient, validatePrice, type IngredientDraft, type IngredientValidationCopy, type PriceDraft,
+  lastPriceDay, todayInput, validateName, validateNewIngredient, validatePrice, type IngredientDraft, type PriceDraft,
 } from '@/ui/forms/ingredientForm';
 import { formatQuantityLocale, quantityToInput, type EnteredUnit } from '@/ui/forms/numbers';
 import { recipesUsing } from '@/ui/forms/recipeForm';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
-import { hrefFor } from '@/ui/router/routes';
-import { PriceFields } from './PriceFields';
-import { useLocale, useFormatters, type Translate } from '@/ui/i18n';
+import { usedByText } from '@/ui/forms/usage';
+import { PriceFields, useValidationCopy } from './PriceFields';
+import { UsedByList } from './UsedByList';
+import { useLocale, useFormatters } from '@/ui/i18n';
 
 interface DialogProps {
   onClose: () => void;
   onCloseAutoFocus: (event: Event) => void;
 }
 
-function validationCopy(t: Translate): IngredientValidationCopy {
-  return {
-    nameEmpty: t('ingredients.error.name'), nameLong: t('ingredients.error.nameLong'), packSize: t('ingredients.error.packSize'),
-    packPrice: t('ingredients.error.packPrice'), wrongUnit: (unit, units) => t('ingredients.error.unit', { unit: t(unit === 'g' ? 'units.g' : unit === 'ml' ? 'units.ml' : unit === 'pc' ? 'units.pc' : unit === 'kg' ? 'units.kg' : 'units.l'), units: units.map((entry) => t(entry === 'g' ? 'units.g' : entry === 'ml' ? 'units.ml' : entry === 'pc' ? 'units.pc' : entry === 'kg' ? 'units.kg' : 'units.l')).join(` ${t('common.or')} `) }),
-  };
-}
-
 type StoreFailure = { code: string; error: string; details: readonly string[] };
 
-function SaveError({ failure }: { failure: StoreFailure | null }) {
+function SaveError({ failure, usedBy = [] }: { failure: StoreFailure | null; usedBy?: readonly string[] }) {
   const { t } = useLocale();
   if (failure === null || isSafetyError(failure.code)) return null;
   const writeReason = /\((.+?)\)\. Your previous data is unchanged\./.exec(failure.error)?.[1] ?? '';
-  const message = failure.code === 'in-use' ? t('ingredients.error.inUse')
+  const message = failure.code === 'in-use'
+    ? [t('ingredients.error.inUse'), usedBy.length > 0 ? t('prices.usedBy', { names: usedByText(usedBy, t) }) : ''].filter(Boolean).join(' ')
     : failure.code === 'quota' ? t('ingredients.error.quota')
       : failure.code === 'write-failed' ? t('ingredients.error.writeFailure', { reason: writeReason })
         : t('error.generic');
@@ -52,15 +47,16 @@ function SaveError({ failure }: { failure: StoreFailure | null }) {
 
 export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) {
   const { t } = useLocale();
-  const copy = useMemo(() => validationCopy(t), [t]);
+  const copy = useValidationCopy();
   const { execute, commandStatus } = useCommands();
-  const [draft, setDraft] = useState<IngredientDraft>({ name: '', packSize: '', packSizeUnit: 'kg', packPrice: '' });
+  const range = useMemo(() => ({ min: null, max: todayInput() }), []);
+  const [draft, setDraft] = useState<IngredientDraft>({ name: '', packSize: '', packSizeUnit: 'kg', packPrice: '', validFrom: range.max });
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<StoreFailure | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstInvalid(formRef, attempt);
 
-  const checked = useMemo(() => validateNewIngredient(draft, copy), [draft, copy]);
+  const checked = useMemo(() => validateNewIngredient(draft, copy, range), [draft, copy, range]);
   const errors = attempt > 0 && !checked.ok ? checked.errors : {};
 
   async function submit(event: FormEvent) {
@@ -91,7 +87,7 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
               />
             )}
           </FormField>
-          <PriceFields draft={draft} onChange={(next) => setDraft({ ...draft, ...next })} errors={errors} base={null} />
+          <PriceFields draft={draft} onChange={(next) => setDraft({ ...draft, ...next })} errors={errors} base={null} range={range} />
           <SaveError failure={saveError} />
           <DialogFooter>
             <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
@@ -108,28 +104,29 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
 export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: DialogProps & { ingredient: Ingredient }) {
   const { t, locale } = useLocale();
   const f = useFormatters();
-  const copy = useMemo(() => validationCopy(t), [t]);
+  const copy = useValidationCopy();
   const { execute, commandStatus } = useCommands();
   const current = selectPriceAtDate(ingredient.prices);
+  const range = useMemo(() => ({ min: lastPriceDay(ingredient.prices), max: todayInput() }), [ingredient.prices]);
   const [draft, setDraft] = useState<PriceDraft>(() => {
     // Prices change more often than pack sizes: start from the last pack size.
     const size = current ? quantityToInput(current.packSizeMilli, ingredient.unit) : null;
-    return { packSize: size?.text ?? '', packSizeUnit: size?.unit ?? defaultUnit(ingredient), packPrice: '' };
+    return { packSize: size?.text ?? '', packSizeUnit: size?.unit ?? defaultUnit(ingredient), packPrice: '', validFrom: range.max };
   });
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<StoreFailure | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstInvalid(formRef, attempt);
 
-  const checked = useMemo(() => validatePrice(draft, ingredient.unit, copy), [draft, ingredient.unit, copy]);
+  const checked = useMemo(() => validatePrice(draft, ingredient.unit, copy, range), [draft, ingredient.unit, copy, range]);
   const errors = attempt > 0 && !checked.ok ? checked.errors : {};
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setAttempt((count) => count + 1);
     if (!checked.ok) return;
-    const { packPriceCents, packSizeMilli } = checked.value;
-    const result = (await execute((store) => store.addPrice(ingredient.id, { packPriceCents, packSizeMilli }), { report: false }));
+    const { packPriceCents, packSizeMilli, effectiveDate } = checked.value;
+    const result = (await execute((store) => store.addPrice(ingredient.id, { packPriceCents, packSizeMilli }, effectiveDate ? { effectiveDate } : {}), { report: false }));
     if (result.ok) onClose();
     else setSaveError(result);
   }
@@ -146,7 +143,7 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
           </DialogDescription>
         </DialogHeader>
         <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4"><fieldset disabled={commandStatus === 'saving'} className="contents">
-          <PriceFields draft={draft} onChange={setDraft} errors={errors} base={ingredient.unit} />
+          <PriceFields draft={draft} onChange={setDraft} errors={errors} base={ingredient.unit} range={range} />
           <SaveError failure={saveError} />
           <DialogFooter>
             <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
@@ -217,7 +214,7 @@ export function HistoryDialog({ ingredient, onCloseAutoFocus, onClose }: DialogP
 
 export function RenameDialog({ ingredient, onClose, onCloseAutoFocus }: DialogProps & { ingredient: Ingredient }) {
   const { t } = useLocale();
-  const copy = useMemo(() => validationCopy(t), [t]);
+  const copy = useValidationCopy();
   const { execute, commandStatus } = useCommands();
   const [name, setName] = useState(ingredient.name);
   const [attempt, setAttempt] = useState(0);
@@ -266,7 +263,7 @@ export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }
   const { execute, commandStatus } = useCommands();
   const document = useDocument();
   const [saveError, setSaveError] = useState<StoreFailure | null>(null);
-  const users = saveError === null ? [] : recipesUsing(document, 'ingredient', ingredient.id);
+  const users = recipesUsing(document, 'ingredient', ingredient.id);
 
   async function confirm() {
     const result = (await execute((store) => store.deleteIngredient(ingredient.id), { report: false }));
@@ -281,17 +278,12 @@ export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }
           <DialogTitle>{t('ingredients.deleteTitle', { name: ingredient.name })}</DialogTitle>
           <DialogDescription>{t('ingredients.deleteDescription')}</DialogDescription>
         </DialogHeader>
-        <SaveError failure={saveError} />
+        <SaveError failure={saveError} usedBy={users.map((recipe) => recipe.name)} />
         {users.length > 0 ? (
           <div className="text-sm">
-            <p className="font-medium">{t('ingredients.removeFromRecipes')}</p>
-            <ul className="mt-1 list-disc pl-5">
-              {users.map((recipe) => (
-                <li key={recipe.id}>
-                  <a className="underline underline-offset-4" href={hrefFor({ name: 'recipe', id: recipe.id })}>{recipe.name}</a>
-                </li>
-              ))}
-            </ul>
+            <p>{t('prices.ingredientInUseNow')}</p>
+            <p className="mt-2 font-medium">{t('ingredients.removeFromRecipes')}</p>
+            <UsedByList users={users} />
           </div>
         ) : null}
         <DialogFooter>
