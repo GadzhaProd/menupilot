@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { createSqliteStorage } from '../../server/sqlite.js';
+import { StoreError } from '../../src/store/errors.js';
 import { serveLocal } from '../../server/http.js';
 import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
 import { readFileSync as readDemoFile } from 'node:fs';
@@ -19,7 +20,7 @@ async function fixture(t, document, backupStatus = {}) {
   writeFileSync(join(dist, 'index.html'), '<html><head></head><body></body></html>');
   const token = 'ab'.repeat(32);
   const storage = createSqliteStorage(join(dir, 'menupilot.db'), { initialDocument: document });
-  storage.backups = { list: () => [], status: () => ({ lastBackupAt: null, lastExternalBackupAt: null, externalConfigured: false,
+  storage.backups = { list: () => [], verify: async id => { throw new StoreError('not-found', `Backup ${id} was not found.`); }, status: () => ({ lastBackupAt: null, lastExternalBackupAt: null, externalConfigured: false,
     dirty: false, overdue: false, externalOverdue: false, backupError: null, externalError: null, clockWarning: false, corruptBackups: 0, corruptExternalBackups: 0, ...backupStatus }) };
   const server = await serveLocal({ storage, dataDir: dir, distDir: dist, port: 0, cliToken: token, instanceId: 'test-instance' });
   writeFileSync(join(dir, 'lock'), JSON.stringify({ address: server.address, instanceId: 'test-instance' }));
@@ -99,6 +100,17 @@ test('administrative commands keep unavailable-server exit code 3', async t => {
   const result = await invoke(dir, 'open-url', '--json');
   assert.equal(result.status, 3);
   assert.equal(JSON.parse(result.stderr).error.code, 'unavailable');
+});
+
+test('backup list --json returns JSON and unknown backup verify uses not-found exit 4', async t => {
+  const f = await fixture(t, enDemo());
+  const listed = await invoke(f.dir, 'backup', 'list', '--json');
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.deepEqual(JSON.parse(listed.stdout).data, []);
+  const missing = await invoke(f.dir, 'backup', 'verify', '1760000000000-11111111-1111-4111-8111-111111111111', '--json');
+  assert.equal(missing.status, 4, missing.stderr);
+  assert.equal(JSON.parse(missing.stderr).error.code, 'not-found');
+  assert.match(JSON.parse(missing.stderr).error.message, /backup/i);
 });
 
 test('CLI refuses duplicate exact names and returns candidate identities', async t => {

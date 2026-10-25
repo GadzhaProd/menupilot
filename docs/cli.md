@@ -89,7 +89,7 @@ Stable error codes include `usage`, `invalid-argument`, `invalid-unit`, `not-fou
 
 Agents must never open or apply their own plans, or access data files directly (AGENTS.md). This guards against agent mistakes in normal operation; a process running as the same user could intercept the one-use key from the process list during browser opening (even if visible only for a fraction of a second), or modify data files. This is not protection against malicious software with the user’s permissions.
 
-`backup list|verify|restore` remains available. Backup restore retains its confirmation flow. If a write request loses its response, the CLI says it may have completed; check the current status before retrying. `doctor` checks Node support, folder access/free space, cloud/network location, port and lock, token permissions, SQLite `quick_check`, document format, and backup freshness. A damaged database is never repaired automatically; use a verified backup after reviewing the report.
+`backup list|verify|restore` remains available. `backup list --json` writes the versioned JSON envelope to stdout (`data` contains the restore points and `warnings` is an array). An unknown ID passed to `backup verify` returns exit code 4 and error code `not-found`; run `backup list` to see available IDs. Backup restore retains its confirmation flow. If a write request loses its response, the CLI says it may have completed; check the current status before retrying. `doctor` checks Node support, folder access/free space, cloud/network location, port and lock, token permissions, SQLite `quick_check`, document format, and backup freshness. A damaged database is never repaired automatically; use a verified backup after reviewing the report.
 
 ## Propose a supplier price (local mode)
 

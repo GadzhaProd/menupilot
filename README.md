@@ -294,7 +294,7 @@ Every push to `main` runs typecheck, tests and build in GitHub Actions (`.github
 
 ### Local server: data and lock
 
-The first local launch starts empty. The UI builds when needed. Only the server writes the SQLite database; a second server using the same folder refuses to start and prints the first address. Updating the checkout does not replace the data.
+The first local launch starts empty. The local demo notice appears only after someone loads demo data. The UI builds when needed. Only the server writes the SQLite database; a second server using the same folder refuses to start and prints the first address. Updating the checkout does not replace the data.
 
 Lock recovery is automatic for a dead process, a reused PID, an incomplete lock older than 5 seconds, or an orphaned `lock.guard` older than 30 seconds. A separate `lock-coordinator.sqlite` serializes recovery; do not delete it. A live owner is never displaced merely because it stops answering HTTP. The console always gives **Data folder**, **Lock file**, and one next step:
 
@@ -304,7 +304,7 @@ Lock recovery is automatic for a dead process, a reused PID, an incomplete lock 
 - **Lock maintenance interrupted**: wait 30 seconds, then run `npm start` again.
 - **Cannot verify process identity**: allow process inspection, then run `npm start` again.
 
-After restarting the server, an open page preserves drafts and asks you to copy unsaved input before reloading. An interrupted write may have committed: reload the latest data before submitting a new command. There is no offline write queue.
+After restarting the server, open the new address printed in the terminal window running `npm start`; `npm run menupilot -- open-url` is a fallback. Recipe drafts in the same browser tab are retained across sign-in. Ingredient and supplier-price dialog drafts are not retained. An interrupted write may have committed: reload the latest data before submitting a new command. There is no offline write queue.
 
 ### Local security
 
@@ -312,7 +312,7 @@ After restarting the server, an open page preserves drafts and asks you to copy 
 
 The exchange returns a separate token for each session. The UI stores it in `sessionStorage`, which is isolated by origin **including the port**, and sends it as Authorization for config and API requests. The HttpOnly, SameSite=Strict cookie (Path `/menupilot/`) only unlocks HTML containing no secrets. A cookie captured by another loopback port cannot fetch the config/token or read/write the API. Sessions expire after 10 hours absolutely or 1 hour without authorized requests. An open page polls the server, so the absolute deadline still applies. A new tab without sessionStorage needs its own sign-in address. Closing a tab normally clears sessionStorage, but browser session recovery may restore it.
 
-For another tab/browser, an expired link, or after a server restart, run `npm run menupilot -- open-url` (add `--revoke-sessions` to also sign out every existing session). Use the server's `MENUPILOT_DATA_DIR` if set. Every `open-url` call uses the private CLI token to ask the server to open the browser with a new one-use secret; the CLI receives only `{opened: true|false}`, never the URL or secret. Previous links become invalid. Existing sessions remain valid unless revoked or expired. Restart invalidates every session. Launch keys are not saved in data files: the server holds them in memory and prints the initial key in the `npm start` terminal. Browser opening briefly passes the key in a process argument, visible to a process running as the same user. The CLI `token` file is replaced with mode 0600. At most 128 sessions are retained; a further sign-in evicts the oldest remaining session.
+For another tab/browser, an expired link, or after a server restart, first use the new address printed by the running `npm start` terminal; `npm run menupilot -- open-url` is a fallback. Add `--revoke-sessions` to also sign out every existing session. Use the server's `MENUPILOT_DATA_DIR` if set. Every `open-url` call uses the private CLI token to ask the server to open the browser with a new one-use secret; the CLI receives only `{opened: true|false}`, never the URL or secret. Previous links become invalid. Existing sessions remain valid unless revoked or expired. Restart invalidates every session. Launch keys are not saved in data files: the server holds them in memory and prints the initial key in the `npm start` terminal. Browser opening briefly passes the key in a process argument, visible to a process running as the same user. The CLI `token` file is replaced with mode 0600. At most 128 sessions are retained; a further sign-in evicts the oldest remaining session.
 
 The server binds only to 127.0.0.1. Exact Host checks prevent DNS rebinding; `localhost` at the page URL shows a short instruction to use 127.0.0.1. All API reads require a token. Foreign and `null` Origins are rejected; UI POST requires the server's exact Origin. CLI-token POST may omit Origin; raw writes remain denied. CSP permits only same-origin scripts, forbids frames, forms and external connections; inline styles remain allowed for UI layout. CORP/COOP are same-origin. Responses use nosniff/no-referrer; HTML, config and API use no-store. Only listed routes, methods and build files are served. Build assets are read into memory at startup; rebuilding or deleting dist files does not change the running server's snapshot. Request-handler failures, including errors while sending an error response, are contained without terminating the server.
 
@@ -368,11 +368,12 @@ MENUPILOT_BACKUP_DIR="/path/to/external-or-cloud-folder" npm start
 
 MenuPilot copies only ready, verified snapshots into a private `menupilot-<installation-id>` subfolder, checks the destination copy, then publishes it atomically. It retries failures with backoff (1 second up to 5 minutes). The UI shows the last completed external copy and warns if none is confirmed within 24 hours. The same retention and size limits apply. **A file written into a cloud folder does not prove cloud synchronization.** A folder on the same disk is not protection against disk loss. Check the sync client's own status. Known cloud/network data paths warn at startup; path/filesystem detection is a heuristic, not proof that a folder is safe. Keep the live database on a local disk.
 
-Run these commands while `npm start` is running, using the same `MENUPILOT_DATA_DIR` if you set one. IDs come from the list (they are not file paths):
+Run these commands while `npm start` is running, using the same `MENUPILOT_DATA_DIR` if you set one. IDs come from the list (they are not file paths). `backup list --json` returns the versioned JSON envelope. An unknown ID in `backup verify` returns exit code 4 (`not-found`):
 
 ```sh
 npm run menupilot -- doctor # backup health, clock and damaged-copy warnings
 npm run menupilot -- backup list
+npm run menupilot -- backup list --json
 npm run menupilot -- backup verify <id>
 npm run menupilot -- backup restore <id>
 # Scripts only, after reviewing the selected ID:
