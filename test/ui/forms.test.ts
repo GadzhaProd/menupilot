@@ -32,6 +32,8 @@ describe('number fields', () => {
     expect(basisPointsToInput(10_000)).toBe('100');
     expect(basisPointsToInput(8550)).toBe('85.5');
     expect(basisPointsToInput(1)).toBe('0.01');
+    expect(centsToInput(320, 'nl')).toBe('3,20');
+    expect(quantityToInput(1_500_000, 'ml', 'nl')).toEqual({ text: '1,5', unit: 'l' });
   });
 
   it('shows a quantity in kg or l when that is how it reads best, and always round-trips', () => {

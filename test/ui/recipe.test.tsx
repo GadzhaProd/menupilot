@@ -140,7 +140,7 @@ describe('recipe session drafts', () => {
     storage.setItem(STORAGE_KEY, JSON.stringify(replaced));
     (await renderApp(storage));
     await go('#/recipe/dish_classic_burger');
-    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Imported Burger');
+    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Unsaved draft');
   });
 
   it('does not restore the new-dish draft after the dish was saved', async () => {
@@ -242,9 +242,9 @@ describe('Scenario 4: one sauce for a dish (the manual example from the architec
     await u.type(screen.getByLabelText('Name'), 'Tomato sauce');
     await u.type(screen.getByLabelText(/One batch makes/), '1');
     await u.selectOptions(screen.getByLabelText('Batch unit'), 'kg');
-    await fillLine(u, 1, 'ingredient:ing_tomato', '800');
+    await fillLine(u, 1, 'ingredient:ing_tomato', '800', { unit: 'g' });
     await u.click(screen.getByRole('button', { name: 'Add line' }));
-    await fillLine(u, 2, 'ingredient:ing_spice', '20');
+    await fillLine(u, 2, 'ingredient:ing_spice', '20', { unit: 'g' });
 
     expect(line(1).getByText('€1.60')).toBeTruthy();
     expect(line(2).getByText('€0.20')).toBeTruthy();
@@ -263,7 +263,7 @@ describe('Scenario 4: one sauce for a dish (the manual example from the architec
     await screen.findByRole('heading', { level: 1, name: 'New dish' });
     await u.type(screen.getByLabelText('Name'), 'Pasta');
     await u.type(screen.getByLabelText(/Menu price/), '16,50');
-    await fillLine(u, 1, `prep:${prep?.id}`, '150');
+    await fillLine(u, 1, `prep:${prep?.id}`, '150', { unit: 'g' });
     expect(line(1).getByText('€0.27')).toBeTruthy();
     expect(costOf('Batch cost, all portions (excl. VAT)')).toBe('€0.27');
     expect(costOf(/Recipe-based ingredient cost per portion/)).toBe('€0.27');
@@ -379,17 +379,20 @@ describe('Scenario 3: a new dish', () => {
   it('the unit follows what is chosen: weight, volume or pieces', async () => {
     const u = user();
     const doc = sauceDoc();
-    doc.ingredients.push({ id: 'ing_milk', name: 'Milk', unit: 'ml', prices: [] }, { id: 'ing_egg', name: 'Egg', unit: 'pc', prices: [] });
+    doc.ingredients[0]!.prices = [{ packPriceCents: 1000, packSizeMilli: 5_000_000, recordedAt: '2026-01-01T00:00:00.000Z', seq: 1 }];
+    doc.ingredients.push({ id: 'ing_milk', name: 'Milk', unit: 'ml', prices: [{ packPriceCents: 1000, packSizeMilli: 1_000_000, recordedAt: '2026-01-01T00:00:00.000Z', seq: 1 }] }, { id: 'ing_egg', name: 'Egg', unit: 'pc', prices: [] });
     await open('#/recipe/new?kind=dish', storageWith(doc));
     const row = line(1);
     const units = () => within(row.getByLabelText('Unit')).getAllByRole('option').map((option) => option.textContent);
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_milk');
     expect(units()).toEqual(['ml', 'l']);
+    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('l');
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_egg');
     expect(units()).toEqual(['pc']);
     expect((row.getByLabelText('Unit') as HTMLSelectElement).disabled).toBe(true);
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_tomato');
     expect(units()).toEqual(['g', 'kg']);
+    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('kg');
   });
 });
 
@@ -422,7 +425,7 @@ describe('Form errors', () => {
     await open('#/recipe/new?kind=dish', storageWith(sauceDoc()));
     await u.type(screen.getByLabelText('Name'), 'X');
     await u.type(screen.getByLabelText(/Menu price/), '5');
-    await fillLine(u, 1, 'ingredient:ing_tomato', '1.234', { yieldPct: '0' });
+    await fillLine(u, 1, 'ingredient:ing_tomato', '1.234', { unit: 'g', yieldPct: '0' });
     await u.click(screen.getByRole('button', { name: 'Save dish' }));
     expect(line(1).getByLabelText(/Net quantity/).getAttribute('aria-invalid')).toBe('true');
     expect(line(1).getByLabelText('Yield %').getAttribute('aria-invalid')).toBe('true');

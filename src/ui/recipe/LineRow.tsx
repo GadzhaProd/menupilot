@@ -6,7 +6,7 @@ import { Select } from '@/components/ui/select';
 import { QuantityField } from '@/components/numeric-field';
 import type { LineCost } from '@/ui/domain/recipeCosts';
 import type { Ingredient, Prep } from '@/ui/domain/types';
-import { localizedUnit, unitsFor } from '@/ui/forms/numbers';
+import { localizedUnit, quantityToInput, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
 import {
   baseUnitOfRef, lineErrorKey, type Catalog, type FieldErrors, type LineDraft,
 } from '@/ui/forms/recipeForm';
@@ -34,9 +34,20 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
   const units = base === null ? unitsFor('g') : unitsFor(base);
 
   function chooseRef(ref: string) {
-    // The unit follows what was chosen: grams for beef, millilitres for milk, pieces for buns.
     const nextBase = baseUnitOfRef(ref, catalog);
-    onChange({ ...line, ref, unit: nextBase === null ? line.unit : unitsFor(nextBase)[0] ?? line.unit, stored: null });
+    let unit: EnteredUnit | undefined;
+    if (ref.startsWith('ingredient:')) {
+      const ingredient = ingredients.find(entry => `ingredient:${entry.id}` === ref);
+      if (ingredient) {
+        const pack = ingredient.prices.at(-1);
+        unit = pack ? quantityToInput(pack.packSizeMilli, ingredient.unit).unit
+          : ingredient.unit === 'g' ? 'kg' : ingredient.unit === 'ml' ? 'l' : 'pc';
+      }
+    } else if (ref.startsWith('prep:')) {
+      const prep = preps.find(entry => `prep:${entry.id}` === ref);
+      if (prep) unit = quantityToInput(prep.outputMilli, prep.outputUnit).unit;
+    }
+    onChange({ ...line, ref, unit: unit ?? (nextBase === null ? line.unit : unitsFor(nextBase)[0] ?? line.unit), stored: null });
   }
 
   return (
