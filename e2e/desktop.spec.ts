@@ -217,11 +217,8 @@ test('backup export, demo reset, valid import and invalid files preserve data sa
   await page.getByRole('link', { name: 'Data', exact: true }).click();
   await screen(page, 'Data');
   await page.getByLabel('Backup file', { exact: true }).setInputFiles({ name: 'invalid-schema.json', mimeType: 'application/json', buffer: Buffer.from('{"version":1}') });
-  const invalidImportDialog = page.getByRole('alertdialog');
-  await invalidImportDialog.getByRole('button', { name: 'Replace with backup', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('The data is not valid:');
-  await expect(page.getByRole('alert')).toContainText('Your current data was not changed.');
-  await invalidImportDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('This file does not match the MenuPilot format.');
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
   await page.getByRole('link', { name: 'Recipes', exact: true }).click();
   await screen(page, 'Recipes');
   await expect(page.getByRole('link', { name: 'Backup burger', exact: true })).toBeVisible();
@@ -473,8 +470,8 @@ test('version history restores previous data as a new revision and archives the 
   await page.getByRole('link', { name: 'Data', exact: true }).click();
   await page.getByRole('button', { name: 'Preview version', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
-  await expect(dialog).toContainText('Changed entries: 0 ingredients, 1 recipes');
-  await dialog.getByRole('button', { name: 'Restore version', exact: true }).click();
+  await expect(dialog).toContainText('Changed: First saved burger (recipe)');
+  await dialog.getByRole('button', { name: 'Restore this version', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Preview version', exact: true })).toHaveCount(2);
   expect(await page.evaluate(() => localStorage.getItem('menupilot:revision'))).not.toBe(revision);
   await page.goto('#/recipe/dish_classic_burger');

@@ -18,7 +18,17 @@ type CommandOutput = MenuDocument | { document: MenuDocument };
 
 export type CommandResult<R> =
   | { ok: true; value: R }
-  | { ok: false; error: string; code: string; details: readonly string[] };
+  | { ok: false; error: string; code: string; details: readonly string[]; structuredDetails?: readonly ImportValidationDetail[] };
+
+export interface ImportValidationDetail {
+  readonly path: string;
+  readonly code: string;
+  readonly entityKind: string;
+  readonly entityId?: string;
+  readonly entityName?: string;
+  readonly relatedNames?: readonly string[];
+  readonly relatedId?: string;
+}
 
 export interface ExecuteOptions {
   /**
@@ -323,6 +333,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
         error: message,
         code: error instanceof StoreError ? error.code : 'unexpected',
         details: error instanceof StoreError ? error.details : [],
+        structuredDetails: error instanceof StoreError ? (error as StoreError & { structuredDetails: readonly ImportValidationDetail[] }).structuredDetails : [],
       };
     } finally { pending.current = false; }
   }, [store, t]);
@@ -353,7 +364,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
   }, [store, t]);
   const previewImport = useCallback(async (text: string): Promise<CommandResult<MenuDocument>> => {
     try { return { ok: true, value: store!.previewImport(text) }; }
-    catch (error) { return { ok: false, code: error instanceof StoreError ? error.code : 'invalid', error: describe(error), details: [] }; }
+    catch (error) { return { ok: false, code: error instanceof StoreError ? error.code : 'invalid', error: describe(error), details: error instanceof StoreError ? error.details : [], structuredDetails: error instanceof StoreError ? (error as StoreError & { structuredDetails: readonly ImportValidationDetail[] }).structuredDetails : [] }; }
   }, [store]);
   const migrationSource = useCallback(() => store?.browserRecovery?.migrationSource() ?? null, [store]);
   const confirmMigrationDownload = useCallback(async (raw: string) => {

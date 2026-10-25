@@ -61,6 +61,38 @@ export function validateDocument(doc, { now } = {}) {
   return toResult(errors);
 }
 
+function structuredValidationDetails(doc, errors) {
+  if (!isObject(doc)) return [];
+  return errors.flatMap(detail => {
+    const match = /^(ingredients|recipes)\[(\d+)\](?:\.[^:]+)?: (.*)$/.exec(detail);
+    if (!match) return [];
+    const [ , collection, indexText, message ] = match;
+    const entity = doc[collection]?.[Number(indexText)];
+    if (!isObject(entity)) return [];
+    let code = null;
+    let relatedNames;
+    let relatedId;
+    if (collection === 'ingredients' && detail.includes('.packPriceCents: must be an integer of at least 0')) code = 'negative-price';
+    else if (collection === 'recipes' && message.startsWith('prep nesting depth')) code = 'prep-depth';
+    else if (collection === 'recipes' && message.startsWith('prep cycle ')) {
+      code = 'prep-cycle';
+      relatedNames = message.slice('prep cycle '.length).split(' -> ');
+    } else if (collection === 'recipes' && message.startsWith('unknown ingredient ')) {
+      code = 'unknown-ingredient';
+      relatedId = /^unknown ingredient '([^']+)'/.exec(message)?.[1];
+    }
+    if (!code) return [];
+    return [{
+      path: detail.slice(0, detail.indexOf(': ')), code,
+      entityKind: collection === 'ingredients' ? 'ingredient' : entity.kind === 'prep' ? 'prep' : 'recipe',
+      entityId: typeof entity.id === 'string' ? entity.id : undefined,
+      entityName: typeof entity.name === 'string' ? entity.name : undefined,
+      ...(relatedNames ? { relatedNames } : {}),
+      ...(relatedId ? { relatedId } : {}),
+    }];
+  });
+}
+
 /**
  * Like validateDocument but throws StoreError("invalid") listing the first problems.
  * @param {unknown} doc
@@ -71,6 +103,6 @@ export function assertValidDocument(doc, options) {
   if (!valid) {
     const shown = errors.slice(0, 3).join('; ');
     const more = errors.length > 3 ? ` (and ${errors.length - 3} more)` : '';
-    throw new StoreError('invalid', `The data is not valid: ${shown}${more}`, errors);
+    throw new StoreError('invalid', `The data is not valid: ${shown}${more}`, errors, structuredValidationDetails(doc, errors));
   }
 }

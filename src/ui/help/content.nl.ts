@@ -773,10 +773,11 @@ export const contentNl: HelpDocument = {
           title: 'Een reservekopie terugzetten (Reservekopie importeren)',
           steps: [
             { text: ['Klik op ', b('Gegevens'), ' en klik dan in de kaart ', b('Reservekopie importeren'), ' op de knop ', b('Reservekopie importeren'), '.'], result: 'Een venster van je computer opent om een bestand te kiezen.' },
-            { text: 'Kies je reservekopiebestand (de naam begint met menupilot-backup) en klik op Openen.', result: ['Een venster “Deze reservekopie importeren?” opent en toont de naam van het bestand. Er staat dat alle huidige gegevens worden vervangen.'] },
-            { text: ['Klik om door te gaan op ', b('Vervangen door reservekopie'), '. Wil je toch niet doorgaan? Klik op ', b('Annuleren'), '.'], result: ['De melding “Reservekopie … is geïmporteerd. Je gegevens zijn vervangen.” verschijnt. Is het bestand onbruikbaar, dan verschijnt in het venster een rode melding die zegt waarom, en er verandert niets.'] },
+            { text: 'Kies je reservekopiebestand (de naam begint met menupilot-backup) en klik op Openen.', result: ['MenuPilot controleert het bestand eerst. Is het niet geldig, dan verschijnt er een duidelijke rode melding op de pagina Gegevens en staat er geen knop Vervangen. Bij een geldig bestand toont een voorbeeldvenster het aantal gerechten, basisrecepten, ingrediënten en scenario’s, plus de exportdatum als die beschikbaar is.'] },
+            { text: ['Bekijk het voorbeeld. Klik om door te gaan op ', b('Vervangen door reservekopie'), '. Wil je toch niet doorgaan? Klik op ', b('Annuleren'), '.'], result: 'De melding “Reservekopie … is geïmporteerd. Je gegevens zijn vervangen.” verschijnt.' },
           ],
         },
+        { kind: 'p', text: ['Vorige versies tonen kort welke namen zijn gewijzigd. Klik op ', b('Versie bekijken'), ' om een versie te bekijken en daarna op ', b('Deze versie herstellen'), ' als je die wilt herstellen. Herstellen maakt een nieuwe revisie.'] },
         {
           kind: 'steps',
           title: 'Terug naar de voorbeeldgegevens (Terugzetten naar voorbeeldgegevens)',

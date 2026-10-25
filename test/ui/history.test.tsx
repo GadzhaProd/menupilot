@@ -20,9 +20,9 @@ it('previews differences and restores a version with confirmation, archiving cur
   const { storage, store } = (await prepared()); (await renderApp(storage)); await go('#/data');
   await userEvent.click(screen.getByRole('button', { name: 'Preview version' }));
   const dialog = screen.getByRole('alertdialog');
-  expect(within(dialog).getByText(/Changed entries: 1 ingredients/)).toBeTruthy();
+  expect(within(dialog).getByText(/Changed: Updated beef \(ingredient\)/)).toBeTruthy();
   expect(savedDocument(storage).ingredients[0]!.name).toBe('Updated beef');
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Restore version' }));
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Restore this version' }));
   expect(savedDocument(storage).ingredients[0]!.name).toBe('Beef mince 80/20');
   expect((await store.listHistory())).toHaveLength(2);
   expect(screen.getAllByRole('button', { name: 'Preview version' })).toHaveLength(2);
@@ -30,7 +30,7 @@ it('previews differences and restores a version with confirmation, archiving cur
 it('offers validated history even when the main document is damaged', async () => {
   const { storage } = (await prepared()); storage.setItem(STORAGE_KEY, '{bad'); (await renderApp(storage));
   await userEvent.click(screen.getByRole('button', { name: 'Preview version' }));
-  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore version' }));
+  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore this version' }));
   expect(savedDocument(storage).ingredients[0]!.name).toBe('Beef mince 80/20');
 });
 
@@ -97,7 +97,7 @@ it('explains future-dated prices when a version cannot be restored', async () =>
   const before = storage.getItem(STORAGE_KEY);
   (await renderApp(storage)); await go('#/data');
   await userEvent.click(screen.getByRole('button', { name: 'Preview version' }));
-  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore version' }));
+  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore this version' }));
   expect(screen.getByRole('alert').textContent).toMatch(/prices dated in the future/);
   expect(storage.getItem(STORAGE_KEY)).toBe(before);
 });
