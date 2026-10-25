@@ -109,9 +109,11 @@ test('local price history and recipe drafts survive restart; browser import repl
     const { writeFile } = await import('node:fs/promises');
     await writeFile(join(dir, 'backups', `${Date.now()}-${crypto.randomUUID()}.sqlite`), 'damaged snapshot');
     child = await launch(dir, port);
-    await expect(page.getByText(/Your session ended \(for example, MenuPilot restarted or sign-in expired\)/)).toBeVisible();
+    const sessionEnded = /Your session ended \(for example, MenuPilot restarted or sign-in expired\)/;
+    // The page banner explains the session end; after Save the form repeats it in its own alert.
+    await expect(page.getByRole('status').filter({ hasText: sessionEnded })).toBeVisible();
     await page.getByRole('button', { name: 'Save dish', exact: true }).click();
-    await expect(page.getByText(/Your session ended \(for example, MenuPilot restarted or sign-in expired\)/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'New dish' }).getByRole('alert').filter({ hasText: sessionEnded })).toBeVisible();
     const resumed = await context.newPage();
     await resumed.goto(launchUrls.get(child)!);
     await expect(resumed.getByRole('status').filter({ hasText: 'Unsaved draft: Draft across restart' })).toBeVisible();
