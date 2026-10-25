@@ -105,10 +105,32 @@ test('effectiveDate in the future is refused', async () => {
   assert.equal(store.getDocument(), before);
 });
 
-test('a calendar day that has already started in a UTC+ zone (tomorrow in UTC) is accepted and recorded as now', async () => {
+test('dates are UTC calendar days: at 00:30 in Amsterdam (23:30Z the day before) the next local day is still the future', async () => {
   const store = await seeded('2026-10-31T23:30:00.000Z'); // 00:30 on 1 Nov in Amsterdam
-  const doc = await store.addPrice('i1', PRICE, { effectiveDate: '2026-11-01' });
+  const before = store.getDocument();
+  await rejectsInvalid(store.addPrice('i1', PRICE, { effectiveDate: '2026-11-01' }), /future/);
+  assert.equal(store.getDocument(), before);
+  // The UTC day is 31 Oct: that is "today" and is recorded as now.
+  const doc = await store.addPrice('i1', PRICE, { effectiveDate: '2026-10-31' });
   assert.equal(doc.ingredients[0].prices.at(-1).recordedAt, '2026-10-31T23:30:00.000Z');
+});
+
+test('a price dated D never shows in a comparison on D-1, in any time zone, including the 00:30 Amsterdam case', async () => {
+  const saved = process.env.TZ;
+  try {
+    for (const zone of ['Europe/Amsterdam', 'Pacific/Auckland', 'America/Los_Angeles']) {
+      process.env.TZ = zone;
+      for (const [clock, day] of [['2026-10-31T23:30:00.000Z', '2026-10-31'], ['2026-03-29T00:30:00.000Z', '2026-03-29'], ['2026-11-01T10:00:00.000Z', '2026-10-30']]) {
+        const store = await seeded(clock);
+        const { prices } = (await store.addPrice('i1', { ...PRICE, packPriceCents: 777 }, { effectiveDate: day })).ingredients[0];
+        const dayBefore = new Date(Date.parse(`${day}T23:59:59.999Z`) - 86_400_000).toISOString();
+        assert.equal(selectPriceAtDate(prices, dayBefore).packPriceCents, 500, `${zone} ${day} on D-1`);
+        assert.equal(selectPriceAtDate(prices, `${day}T23:59:59.999Z`).packPriceCents, 777, `${zone} ${day} on D`);
+      }
+    }
+  } finally {
+    if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved;
+  }
 });
 
 test('malformed effectiveDate values are refused', async () => {

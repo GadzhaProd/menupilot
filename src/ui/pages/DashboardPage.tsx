@@ -112,7 +112,7 @@ export function DashboardPage() {
         <DishImpactCards rows={data.dishes} />
       </>}
       <div className="mt-4 flex flex-wrap justify-between gap-3 border-t-2 border-line pt-5">
-        <span>{t('dashboard.total')}</span><strong className="tabular-nums">{total === null ? '—' : f.money(total)}</strong>
+        <span>{t('dashboard.total')}</span><strong className="tabular-nums">{total === null || noPricesOnDate ? '—' : f.money(total)}</strong>
         <div className="basis-full space-y-1 text-sm text-muted-foreground">
           <p>{plural('dashboard.withoutVolume', data.excludedWithoutVolume, { count: f.integer(data.excludedWithoutVolume) })}</p>
           {data.excludedWithVolume > 0 && <p>{plural('dashboard.excluded', data.excludedWithVolume, { count: f.integer(data.excludedWithVolume), reasons: reasons.join(', ') })}</p>}

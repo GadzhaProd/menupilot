@@ -361,7 +361,7 @@ export const contentNl: HelpDocument = {
           kind: 'note',
           tone: 'important',
           title: 'Prijs geldig vanaf, en een prijs van 0',
-          text: ['Het veld ', b('Prijs geldig vanaf'), ' is de datum van de factuur (datums in UTC). Het is vandaag, tenzij je het wijzigt. Je kunt een eerdere dag kiezen, maar niet vóór de datum van de vorige prijs en niet in de toekomst. Een prijs met een eerdere datum telt op het Overzicht vanaf die dag, dus je kunt vandaag de factuur van vorige week invoeren. Typ je een prijs van 0, dan waarschuwt MenuPilot dat recepten het product als gratis rekenen en wordt de prijs pas opgeslagen nadat je het vakje aanvinkt. Weet je de prijs niet, laat het veld dan leeg: recepten tonen dan “kosten onbekend”.'],
+          text: ['Het veld ', b('Prijs geldig vanaf'), ' is de datum van de factuur (datums zijn kalenderdagen in UTC, zoals overal in MenuPilot; vlak na middernacht in Nederland kan “vandaag” dus nog de datum van gisteren zijn). Het is vandaag, tenzij je het wijzigt. Je kunt een eerdere dag kiezen, maar niet vóór de datum van de vorige prijs en niet in de toekomst. Een prijs met een eerdere datum telt op het Overzicht vanaf die dag, dus je kunt vandaag de factuur van vorige week invoeren. Typ je een prijs van 0, dan waarschuwt MenuPilot dat recepten het product als gratis rekenen en wordt de prijs pas opgeslagen nadat je het vakje aanvinkt. Weet je de prijs niet, laat het veld dan leeg: recepten tonen dan “kosten onbekend”.'],
         },
         {
           kind: 'steps',

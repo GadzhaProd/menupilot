@@ -2,9 +2,6 @@ import { instantNotAfter } from './check.js';
 import { StoreError } from './errors.js';
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-/** UTC+14 is the furthest ahead any time zone is: a calendar day that has not started there has not started anywhere. */
-const LATEST_UTC_OFFSET_MS = 14 * 3_600_000;
-
 const isCalendarDay = (value) => typeof value === 'string' && DAY_PATTERN.test(value)
   && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
   && new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) === value;
@@ -25,7 +22,7 @@ function effectiveInstant(prices, effectiveDate, stamp) {
   if (last && effectiveDate < utcDay(last.recordedAt)) {
     throw new StoreError('invalid', `The price date ${effectiveDate} is earlier than the previous price (${utcDay(last.recordedAt)}).`);
   }
-  if (effectiveDate > utcDay(Date.parse(stamp) + LATEST_UTC_OFFSET_MS)) {
+  if (effectiveDate > utcDay(stamp)) {
     throw new StoreError('invalid', `The price date ${effectiveDate} is in the future.`);
   }
   return effectiveDate >= utcDay(stamp) ? stamp : `${effectiveDate}T00:00:00.000Z`;

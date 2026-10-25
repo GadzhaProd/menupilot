@@ -361,7 +361,7 @@ export const contentEn: HelpDocument = {
           kind: 'note',
           tone: 'important',
           title: 'Price valid from, and a price of 0',
-          text: ['The field ', b('Price valid from'), ' is the date on the invoice (dates are in UTC). It is today unless you change it. You may pick an earlier day, but not before the date of the previous price and not in the future. A price with an earlier date counts on the Dashboard from that day on, so you can enter last week’s invoice today. If you type a price of 0, MenuPilot warns you that recipes will count the product as free, and saves it only after you tick the box. If you do not know the price, leave it empty: recipes then show “cost unknown”.'],
+          text: ['The field ', b('Price valid from'), ' is the date on the invoice (dates are calendar days in UTC, like everywhere in MenuPilot, so just after midnight in the Netherlands “today” can still be yesterday’s date). It is today unless you change it. You may pick an earlier day, but not before the date of the previous price and not in the future. A price with an earlier date counts on the Dashboard from that day on, so you can enter last week’s invoice today. If you type a price of 0, MenuPilot warns you that recipes will count the product as free, and saves it only after you tick the box. If you do not know the price, leave it empty: recipes then show “cost unknown”.'],
         },
         {
           kind: 'steps',

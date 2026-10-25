@@ -35,7 +35,9 @@ describe('price form rules', () => {
   });
 
   it('knows today and the day of the last price', () => {
-    expect(todayInput(new Date('2026-10-24T23:30:00.000Z'))).toMatch(/^2026-10-2[45]$/);
+    // Calendar days are UTC days everywhere, whatever the local clock says.
+    expect(todayInput(new Date('2026-10-24T23:30:00.000Z'))).toBe('2026-10-24');
+    expect(todayInput(new Date('2026-10-25T00:00:00.000Z'))).toBe('2026-10-25');
     expect(lastPriceDay([])).toBeNull();
     expect(lastPriceDay([{ recordedAt: '2026-09-01T00:00:00.000Z' }, { recordedAt: '2026-09-03T23:30:00-02:00' }])).toBe('2026-09-04');
   });
@@ -218,6 +220,10 @@ describe('Dashboard without prices on the comparison date', () => {
     expect(impact.textContent).toContain('—');
     expect(impact.textContent).not.toContain('€0.00');
     expect(impact.textContent).not.toMatch(/incomplete/);
+    // The total under the table says the same, not €0.00.
+    const total = screen.getByText('Menu monthly impact (dishes with a volume estimate)');
+    expect(total.parentElement?.textContent).toContain('—');
+    expect(total.parentElement?.textContent).not.toContain('€0.00');
     expect(screen.getByRole('heading', { name: /Largest/ }).closest('section')?.textContent).toContain('No ingredient prices existed on 1 Jan 2026');
 
     await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));

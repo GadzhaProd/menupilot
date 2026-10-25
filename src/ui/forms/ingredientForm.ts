@@ -47,11 +47,9 @@ export type PriceField = 'packSize' | 'packPrice' | 'confirmZero' | 'validFrom';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Today as `YYYY-MM-DD`: the later of the local and the UTC day, so no calendar day that has started is refused. */
+/** Today as `YYYY-MM-DD`: the UTC calendar day, like every date in MenuPilot (Dashboard comparison, history). */
 export function todayInput(now: Date = new Date()): string {
-  const local = `${String(now.getFullYear()).padStart(4, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const utc = now.toISOString().slice(0, 10);
-  return local > utc ? local : utc;
+  return now.toISOString().slice(0, 10);
 }
 
 /** The UTC day of the newest price (the earliest "valid from" day the next one may have), or null. */
