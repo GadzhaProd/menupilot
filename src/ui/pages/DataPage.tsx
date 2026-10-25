@@ -7,7 +7,7 @@ import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
 import { downloadText } from '@/ui/data/downloadText';
 import { useLocale } from '@/ui/i18n';
 import { demoForLocale } from '@/ui/data/demo';
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { DownloadIcon, FilePlusIcon, RotateCcwIcon, UploadIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Surface } from '@/components/ui/surface';
@@ -17,11 +17,12 @@ import { ReplaceDataDialog } from '@/ui/data/ReplaceDataDialog';
 import { HelpLink } from '@/ui/help/HelpLink';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useSimulatorSessions } from '@/ui/simulator/session';
+import { localizedImportError } from '@/ui/data/importErrors';
 
 /** Same limit as the store: a backup is about the size of the whole browser storage quota. */
 const MAX_FILE_BYTES = 5_000_000;
 
-type Pending = { kind: 'import'; fileName: string; text: string; preview?: MenuDocument } | { kind: 'reset' } | { kind: 'empty' };
+type Pending = { kind: 'import'; fileName: string; text: string; preview: MenuDocument; exportedAt: string | null } | { kind: 'reset' } | { kind: 'empty' };
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
@@ -56,6 +57,10 @@ export function DataPage() {
   const fileInput = useRef<HTMLInputElement>(null);
   const openImport = useRef<HTMLButtonElement>(null);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const priorLocale = useRef(locale);
+  useEffect(() => {
+    if (priorLocale.current !== locale) { priorLocale.current = locale; setNotice(null); }
+  }, [locale]);
 
   function commandError(code: string, message: string, details: readonly string[]): string {
     if (locale === 'en') return [message, ...details, t('data.currentDataUnchanged')].filter(Boolean).join(' ');
@@ -101,14 +106,18 @@ export function DataPage() {
       setNotice({ tone: 'error', text: t('data.fileUnreadable', { file: file.name }) });
       return;
     }
-    let preview: MenuDocument | undefined;
-    if (local) {
-      const result = await previewImport(text);
-      if (!result.ok) { setNotice({ tone: 'error', text: commandError(result.code, result.error, result.details) }); return; }
-      preview = result.value;
+    const result = await previewImport(text);
+    if (!result.ok) {
+      setNotice({ tone: 'error', text: localizedImportError(t, result.code, result.details, text) });
+      return;
     }
+    let exportedAt: string | null = null;
+    try {
+      const value = JSON.parse(text), candidate = value.exportedAt ?? value.document?.exportedAt;
+      if (typeof candidate === 'string' && Number.isFinite(Date.parse(candidate))) exportedAt = candidate;
+    } catch { /* previewImport already validated the JSON */ }
     setNotice(null);
-    dialog.open({ kind: 'import', fileName: file.name, text, preview }, { currentTarget: openImport.current ?? input });
+    dialog.open({ kind: 'import', fileName: file.name, text, preview: result.value, exportedAt }, { currentTarget: openImport.current ?? input });
   }
 
   async function confirm(): Promise<string | null> {
@@ -119,7 +128,9 @@ export function DataPage() {
       : pending.kind === 'empty'
         ? (await execute((store) => store.resetToEmpty(), { report: false }))
         : (await execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false }));
-    if (!result.ok) return isSafetyError(result.code) ? null : commandError(result.code, result.error, result.details);
+    if (!result.ok) return isSafetyError(result.code) ? null : pending.kind === 'import'
+      ? localizedImportError(t, result.code, result.details, pending.text)
+      : commandError(result.code, result.error, result.details);
     sessions.clear(); recipes.clearAll();
     dialog.close();
     setNotice({ tone: 'ok', text: pending.kind === 'import'
@@ -175,14 +186,12 @@ export function DataPage() {
 
       {dialog.state !== null ? (
         <ReplaceDataDialog
+          key={locale}
           {...dialogText(dialog.state, t)}
-          preview={dialog.state.kind === 'import' && dialog.state.preview ? <div className="space-y-2 text-sm">
-            <p>{t('history.selected')}: {t('history.counts', {
-              dishes: dialog.state.preview.recipes.filter(r => r.kind === 'dish').length,
-              preps: dialog.state.preview.recipes.filter(r => r.kind === 'prep').length,
-              ingredients: dialog.state.preview.ingredients.length, scenarios: dialog.state.preview.scenarios.length,
-            })}</p>
-            <p>{locale === 'nl' ? 'Dit vervangt de lokale gegevens zonder samenvoegen. Een browserexport wordt een nieuwe dataset. De browserversie en dit bestand blijven ongewijzigd.' : 'This replaces local data without merging. A browser export becomes a new dataset. The browser version and your file stay unchanged.'}</p>
+          preview={dialog.state.kind === 'import' ? <div className="space-y-2 text-sm">
+            <p>{t('data.previewContent')}: {plural('count.dishes', dialog.state.preview.recipes.filter(r => r.kind === 'dish').length)} · {plural('count.preps', dialog.state.preview.recipes.filter(r => r.kind === 'prep').length)} · {plural('count.ingredients', dialog.state.preview.ingredients.length)} · {plural('count.scenarios', dialog.state.preview.scenarios.length)}</p>
+            <p>{dialog.state.exportedAt ? t('data.exportDate', { date: new Date(dialog.state.exportedAt).toLocaleString(locale === 'nl' ? 'nl-NL' : 'en-GB') }) : t('data.noExportDate')}</p>
+            <p>{t('data.importWarning')}</p>
           </div> : undefined}
           unsavedScenarios={unsaved}
           onClose={dialog.close}

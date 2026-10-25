@@ -766,10 +766,11 @@ export const contentEn: HelpDocument = {
           title: 'Put a backup back (Import backup)',
           steps: [
             { text: ['Click ', b('Data'), ', then in the card ', b('Import backup'), ' click the button ', b('Import backup'), '.'], result: 'A window of your computer opens to choose a file.' },
-            { text: 'Choose your backup file (the name starts with menupilot-backup) and click Open.', result: ['A window “Import this backup?” opens and shows the name of the file. It says that all current data will be replaced.'] },
-            { text: ['To go on, click ', b('Replace with backup'), '. To change your mind, click ', b('Cancel'), '.'], result: ['The message “Backup … was imported. Your data is replaced.” appears. If the file cannot be used, a red message appears in the window and tells why, and nothing is changed.'] },
+            { text: 'Choose your backup file (the name starts with menupilot-backup) and click Open.', result: ['MenuPilot checks the file first. If it is not valid, a clear red message appears on the Data page and no Replace button is shown. For a valid file, a preview window shows the number of dishes, preps, ingredients and scenarios, plus the export date when available.'] },
+            { text: ['Review the preview. To go on, click ', b('Replace with backup'), '. To change your mind, click ', b('Cancel'), '.'], result: 'The message “Backup … was imported. Your data is replaced.” appears.' },
           ],
         },
+        { kind: 'p', text: ['Previous versions show a short list of changed names. Click ', b('Preview version'), ' to review one, then click ', b('Restore this version'), ' only if you want to restore it. Restoring creates a new revision.'] },
         {
           kind: 'steps',
           title: 'Go back to the demo data (Reset to demo data)',

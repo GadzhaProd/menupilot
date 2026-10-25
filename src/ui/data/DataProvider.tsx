@@ -353,7 +353,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
   }, [store, t]);
   const previewImport = useCallback(async (text: string): Promise<CommandResult<MenuDocument>> => {
     try { return { ok: true, value: store!.previewImport(text) }; }
-    catch (error) { return { ok: false, code: error instanceof StoreError ? error.code : 'invalid', error: describe(error), details: [] }; }
+    catch (error) { return { ok: false, code: error instanceof StoreError ? error.code : 'invalid', error: describe(error), details: error instanceof StoreError ? error.details : [] }; }
   }, [store]);
   const migrationSource = useCallback(() => store?.browserRecovery?.migrationSource() ?? null, [store]);
   const confirmMigrationDownload = useCallback(async (raw: string) => {

@@ -131,7 +131,7 @@ test('local price history survives restart; session warning preserves a draft; b
     await page.locator('input[type="file"]').setInputFiles({ name: 'browser-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
     await expect(page.getByRole('alertdialog')).toBeVisible();
     await expect(page.getByRole('alertdialog')).toContainText('browser-backup.json');
-    await expect(page.getByRole('alertdialog')).toContainText('without merging');
+    await expect(page.getByRole('alertdialog')).toContainText('not merged with your current data');
     await page.getByRole('alertdialog').getByRole('button', { name: 'Replace with backup', exact: true }).click();
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
     await navigate(page, 'Ingredients');
@@ -236,7 +236,7 @@ test('owner acceptance: import, edit, compare CLI with Dashboard, approve price,
     const preview = page.getByRole('alertdialog');
     await expect(preview).toContainText('5 dishes');
     await expect(preview).toContainText('12 ingredients');
-    await expect(preview).toContainText('without merging');
+    await expect(preview).toContainText('not merged with your current data');
     await preview.getByRole('button', { name: 'Replace with backup', exact: true }).click();
     await expect(preview).toHaveCount(0);
 

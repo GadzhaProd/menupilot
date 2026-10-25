@@ -1,10 +1,10 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { useCommands, useDataState, useDocument } from '@/ui/data/DataProvider';
 import { dataReducer } from '@/ui/data/reducer';
 import type { MenuDocument } from '@/ui/domain/types';
-import { STORAGE_KEY, demo, memoryStorage, renderApp } from './helpers';
+import { STORAGE_KEY, demo, go, memoryStorage, renderApp } from './helpers';
 
 /** Shows the beef price history length and exposes buttons for store commands. */
 function Probe() {
@@ -122,4 +122,29 @@ describe('dataReducer', () => {
   it('dismisses the error', () => {
     expect(dataReducer({ ...empty, commandError: 'x' }, { type: 'errorDismissed' }).commandError).toBeNull();
   });
+});
+
+it('validates an import before showing replacement and displays its contents', async () => {
+  await renderApp(memoryStorage());
+  await go('#/data');
+  const input = screen.getByLabelText('Backup file') as HTMLInputElement;
+  await userEvent.upload(input, new File(['{bad'], 'broken.json', { type: 'application/json' }));
+  expect((await screen.findByRole('alert')).textContent).toMatch(/not valid JSON/i);
+  expect(screen.queryByRole('alertdialog')).toBeNull();
+  await userEvent.upload(input, new File([JSON.stringify(demo)], 'menu.json', { type: 'application/json' }));
+  const dialog = await screen.findByRole('alertdialog');
+  expect(dialog.textContent).toContain('5 dishes');
+  expect(dialog.textContent).toContain('Contents: 5 dishes');
+  expect(dialog.textContent).toContain('2 preps');
+  expect(dialog.textContent).toContain('Export date not included');
+  expect((within(dialog).getByRole('button', { name: 'Replace with backup' }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it('clears an import error when the interface language changes', async () => {
+  await renderApp(memoryStorage()); await go('#/data');
+  const input = screen.getByLabelText('Backup file') as HTMLInputElement;
+  await userEvent.upload(input, new File(['{bad'], 'broken.json', { type: 'application/json' }));
+  await screen.findByRole('alert');
+  await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+  expect(screen.queryByRole('alert')).toBeNull();
 });

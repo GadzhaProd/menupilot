@@ -63,7 +63,7 @@ describe('Data page', () => {
     expect(document.body.textContent).not.toContain('automatische kopieën zijn nog niet beschikbaar');
   });
 
-  it('localizes singular counts and includes the first NL validation detail for an invalid import', async () => {
+  it('localizes singular counts and rejects an invalid import before confirmation in Dutch', async () => {
     const doc = demoCopy();
     doc.ingredients = doc.ingredients.slice(0, 1);
     doc.recipes = [];
@@ -74,11 +74,10 @@ describe('Data page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
     expect(screen.getByText('Nu: 1 ingrediënt, 0 recepten, 0 opgeslagen scenario’s.')).toBeTruthy();
     await userEvent.upload(screen.getByLabelText('Reservekopiebestand'), jsonFile(JSON.stringify({ version: 1 })));
-    await userEvent.click(within(await dialog()).getByRole('button', { name: 'Vervangen door reservekopie' }));
-
-    const alert = await within(await dialog()).findByRole('alert');
-    expect(alert.textContent).toContain('Deze gegevens passen niet bij het MenuPilot-formaat');
-    expect(alert.textContent).toContain('settings');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Dit bestand past niet bij het MenuPilot-formaat');
+    expect(alert.textContent).not.toContain('settings');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(savedDocument(storage).ingredients).toHaveLength(1);
   });
 
@@ -126,10 +125,9 @@ describe('Data page', () => {
     await openData(storage);
     const before = storage.data.get('menupilot:v1');
     await chooseFile(jsonFile('{not json'));
-    await userEvent.click(within(await dialog()).getByRole('button', { name: 'Replace with backup' }));
-
-    const alert = await within(await dialog()).findByRole('alert');
+    const alert = await screen.findByRole('alert');
     expect(alert.textContent).toMatch(/not valid JSON.*current data was not changed/i);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(storage.data.get('menupilot:v1')).toBe(before);
     expect(storage.setCalls).toBe(0);
     expect(screen.getByText(/Now: 3 ingredients/)).toBeTruthy();
@@ -139,8 +137,8 @@ describe('Data page', () => {
     const storage = storageWith(sauceDoc());
     await openData(storage);
     await chooseFile(jsonFile(JSON.stringify({ ...sauceDoc(), version: 99 })));
-    await userEvent.click(within(await dialog()).getByRole('button', { name: 'Replace with backup' }));
-    expect((await within(await dialog()).findByRole('alert')).textContent).toMatch(/version 99.*supports version/);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/format this app does not support/i);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(storage.setCalls).toBe(0);
   });
 
@@ -152,8 +150,8 @@ describe('Data page', () => {
     if (!prep) throw new Error('demo has a prep');
     prep.lines.push({ ref: { kind: 'prep', id: prep.id }, netQtyMilli: 1000, yieldBp: 10_000 } as never);
     await chooseFile(jsonFile(JSON.stringify(cyclic)));
-    await userEvent.click(within(await dialog()).getByRole('button', { name: 'Replace with backup' }));
-    expect((await within(await dialog()).findByRole('alert')).textContent).toMatch(/not valid|cycle|itself/i);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/loop|lus/i);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(storage.setCalls).toBe(0);
   });
 

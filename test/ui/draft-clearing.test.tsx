@@ -46,7 +46,7 @@ it('restoring history clears recipe and simulator caches without unmounting the 
   expect(screen.getByRole('button', { name: 'Save scenario' })).toBeTruthy();
   await go('#/data');
   await userEvent.click(screen.getByRole('button', { name: 'Preview version' }));
-  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore version' }));
+  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore this version' }));
   await go('#/recipe/dish_classic_burger');
   expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Classic Burger');
   await go('#/simulator/dish_classic_burger');
