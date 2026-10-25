@@ -90,18 +90,22 @@ export function centsToInput(cents: number, locale?: Locale): string {
 }
 
 /** Basis points to the text of a percent field: 10000 becomes "100", 8550 becomes "85.5". */
-export function basisPointsToInput(basisPoints: number): string {
+export function basisPointsToInput(basisPoints: number, locale: Locale = 'en'): string {
   const remainder = basisPoints % 100;
   const whole = (basisPoints - remainder) / 100;
   const fraction = String(remainder).padStart(2, '0').replace(/0+$/, '');
-  return fraction === '' ? String(whole) : `${whole}.${fraction}`;
+  return fraction === '' ? String(whole) : `${whole}${decimal(locale)}${fraction}`;
 }
 
 /**
  * A stored quantity (thousandths of g, ml or pc) as the text and unit a person would type:
  * 1 500 000 g-thousandths is "1.5 kg", 250 000 is "250 g".
  */
-export function quantityToInput(milli: number, base: BaseUnit, locale?: Locale): { text: string; unit: EnteredUnit } {
+export function quantityToInput(milli: number, base: BaseUnit, locale?: Locale, preferredUnit?: EnteredUnit): { text: string; unit: EnteredUnit } {
+  if (preferredUnit === 'kg' || preferredUnit === 'l') {
+    return { text: scaled(milli, 1_000_000, locale), unit: preferredUnit };
+  }
+  if (preferredUnit) return { text: scaled(milli, 1_000, locale), unit: preferredUnit };
   if (base !== 'pc' && milli >= 1_000_000 && milli % 1_000 === 0) {
     return { text: scaled(milli, 1_000_000, locale), unit: base === 'g' ? 'kg' : 'l' };
   }

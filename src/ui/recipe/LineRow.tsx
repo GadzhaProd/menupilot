@@ -6,7 +6,7 @@ import { Select } from '@/components/ui/select';
 import { QuantityField } from '@/components/numeric-field';
 import type { LineCost } from '@/ui/domain/recipeCosts';
 import type { Ingredient, Prep } from '@/ui/domain/types';
-import { localizedUnit, quantityToInput, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
+import { localizedUnit, parseQuantityField, quantityToInput, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
 import {
   baseUnitOfRef, lineErrorKey, type Catalog, type FieldErrors, type LineDraft,
 } from '@/ui/forms/recipeForm';
@@ -40,15 +40,20 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
       const ingredient = ingredients.find(entry => `ingredient:${entry.id}` === ref);
       if (ingredient) {
         const pack = ingredient.prices.at(-1);
-        unit = pack ? quantityToInput(pack.packSizeMilli, ingredient.unit).unit
-          : ingredient.unit === 'g' ? 'kg' : ingredient.unit === 'ml' ? 'l' : 'pc';
+        unit = pack ? quantityToInput(pack.packSizeMilli, ingredient.unit, locale).unit : ingredient.unit;
       }
     } else if (ref.startsWith('prep:')) {
       const prep = preps.find(entry => `prep:${entry.id}` === ref);
-      if (prep) unit = quantityToInput(prep.outputMilli, prep.outputUnit).unit;
+      if (prep) unit = quantityToInput(prep.outputMilli, prep.outputUnit, locale).unit;
     }
     onChange({ ...line, ref, unit: unit ?? (nextBase === null ? line.unit : unitsFor(nextBase)[0] ?? line.unit), stored: null });
   }
+
+  const parsedQuantity = parseQuantityField(line.qty, line.unit, '');
+  const cautionLimit = base === 'pc' ? 1_000_000 : 10_000_000;
+  const largeQuantity = parsedQuantity.ok && parsedQuantity.value.milli > cautionLimit
+    ? quantityToInput(parsedQuantity.value.milli, parsedQuantity.value.unit, locale)
+    : null;
 
   return (
     <li data-line={line.id}>
@@ -83,6 +88,7 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
             onValueChange={(qty) => onChange({ ...line, qty })}
             placeholder="150"
           />
+          {largeQuantity && <p className="col-span-2 text-sm text-amber-800 dark:text-amber-300">{t('local.quantityLargeWarning', { amount: largeQuantity.text, unit: localizedUnit(largeQuantity.unit, locale) })}</p>}
           <FormField label={t('recipe.unit')}>
             {(control) => (
               <Select

@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createBaselineSnapshot } from '@/ui/domain/calc';
 import type { MenuDocument } from '@/ui/domain/types';
 import { formatQuantityLocale } from '@/ui/forms/numbers';
-import { vatOptions } from '@/ui/forms/recipeForm';
+import { createRecipeDraftCache } from '@/ui/recipe/sessionDrafts';
+import { blankDraft, vatOptions } from '@/ui/forms/recipeForm';
 import {
   demoCopy, go, memoryStorage, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
@@ -86,6 +87,31 @@ describe('localized numeric and link presentation', () => {
 });
 
 describe('recipe session drafts', () => {
+  it('offers a saved draft without navigating automatically, and opens or deletes it on request', async () => {
+    createRecipeDraftCache(window.localStorage, null).write('new:dish', {
+      draft: { ...blankDraft('dish', 900), name: 'Stored after restart' }, baseline: blankDraft('dish', 900), conflicts: [],
+    });
+    await open('#/', memoryStorage());
+    expect((await screen.findByRole('status')).textContent).toMatch(/unsaved draft: Stored after restart/i);
+    expect(screen.getByRole('heading', { level: 1, name: 'What has changed on your menu?' })).toBeTruthy();
+    await user().click(screen.getByRole('button', { name: 'Open' }));
+    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Stored after restart');
+    await go('#/');
+    await screen.findByRole('button', { name: 'Delete' });
+    await user().click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByText(/unsaved draft:/i)).toBeNull();
+  });
+
+  it('does not warn on beforeunload for a draft whose form is not open', async () => {
+    createRecipeDraftCache(window.localStorage, null).write('new:dish', {
+      draft: { ...blankDraft('dish', 900), name: 'Hidden draft' }, baseline: blankDraft('dish', 900), conflicts: [],
+    });
+    await open('#/', memoryStorage());
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it('restores an unsaved new dish after opening Help and warns before leaving', async () => {
     const u = user();
     await open('#/recipe/new?kind=dish');
@@ -129,7 +155,7 @@ describe('recipe session drafts', () => {
     expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Draft Burger');
   });
 
-  it('drops a saved-recipe draft when its source recipe has changed', async () => {
+  it('shows a saved-recipe draft as a conflict when its source recipe has changed', async () => {
     const u = user();
     const storage = await open('#/recipe/dish_classic_burger', storageWith(demoCopy()));
     await u.clear(screen.getByLabelText('Name'));
@@ -140,7 +166,8 @@ describe('recipe session drafts', () => {
     storage.setItem(STORAGE_KEY, JSON.stringify(replaced));
     (await renderApp(storage));
     await go('#/recipe/dish_classic_burger');
-    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Unsaved draft');
+    expect(await screen.findByText(/Both tabs changed these fields/i)).toBeTruthy();
+    expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Unsaved draft');
   });
 
   it('does not restore the new-dish draft after the dish was saved', async () => {
@@ -577,10 +604,27 @@ describe('Editing a saved recipe', () => {
 
   it('shows the lines of a stored dish with the quantity in the typed unit', async () => {
     await open('#/recipe/dish_classic_burger');
-    const beefLine = within(screen.getByDisplayValue('180').closest('[role="group"]') as HTMLElement);
+    const beefLine = within(screen.getByDisplayValue('0.18').closest('[role="group"]') as HTMLElement);
     expect(beefLine.getByLabelText('Ingredient or prep')).toHaveProperty('value', 'ingredient:ing_beef');
-    expect(beefLine.getByLabelText('Unit')).toHaveProperty('value', 'g');
-    expect(beefLine.getByText('€3.06')).toBeTruthy(); // 180 g at €17.00/kg
+    expect(beefLine.getByLabelText('Unit')).toHaveProperty('value', 'kg');
+    expect(beefLine.getByText('€3.06')).toBeTruthy(); // 180 g displays as 0.18 kg at €17.00/kg
+  });
+
+  it('uses base units without a price and warns softly above the batch quantity threshold', async () => {
+    const u = user();
+    const document = demoCopy();
+    document.ingredients.find(item => item.id === 'ing_beef')!.prices = [];
+    const storage = await open('#/recipe/new?kind=dish', storageWith(document));
+    await fillLine(u, 1, 'ingredient:ing_beef', '1');
+    expect(line(1).getByLabelText('Unit')).toHaveProperty('value', 'g');
+    await u.clear(line(1).getByLabelText(/Net quantity/));
+    await u.type(line(1).getByLabelText(/Net quantity/), '1000000');
+    expect(await screen.findByText(/Is this really 1000 kg\?/i)).toBeTruthy();
+    await u.type(screen.getByLabelText('Name'), 'Large batch');
+    await u.type(screen.getByLabelText(/Menu price/), '12.00');
+    await u.click(screen.getByRole('button', { name: 'Save dish' }));
+    expect(await screen.findByText(/Is this really 1000 kg\?/i)).toBeTruthy();
+    expect(savedDocument(storage).recipes.some(recipe => recipe.name === 'Large batch')).toBe(true);
   });
 });
 
