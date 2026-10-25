@@ -54,7 +54,7 @@ export function LocalPlans() {
   useEffect(() => client?.subscribe(value => { setFailed(value === null); if (value) setPlans(value); }), [client]);
   useEffect(() => { if (done) { const timer = setTimeout(() => setDone(null), 5000); return () => clearTimeout(timer); } }, [done]);
   const pending = plans.filter(p => p.status === 'pending');
-  const recent = plans.filter(p => ['stale', 'expired', 'superseded'].includes(p.status));
+  const recent = plans.filter(p => ['stale', 'expired', 'superseded', 'rejected'].includes(p.status));
   const start = offset < pending.length ? offset : 0;
   const shown = pending.slice(start, start + pageSize);
   if (!local || !client) return null;
@@ -92,7 +92,7 @@ export function LocalPlans() {
       <summary className="cursor-pointer font-medium">{t('plans.inactiveList', { count: recent.length })}</summary>
       <ul className="mt-3 space-y-3">{recent.map(plan => <li key={plan.id} className="border-l-2 pl-3">
         <p className="font-medium">{plan.ingredient.name}</p>
-        <p className="text-muted-foreground">{t(plan.status === 'stale' ? 'plans.reasonStale' : plan.status === 'expired' ? 'plans.reasonExpired' : 'plans.reasonSuperseded')}</p>
+        <p className="text-muted-foreground">{t(plan.status === 'stale' ? 'plans.reasonStale' : plan.status === 'expired' ? 'plans.reasonExpired' : plan.status === 'rejected' ? 'plans.reasonRejected' : 'plans.reasonSuperseded')}</p>
       </li>)}</ul>
       <p className="mt-3 text-muted-foreground">{t('plans.askAgain')}</p>
     </details>}

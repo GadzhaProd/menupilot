@@ -85,8 +85,9 @@ test('plans bound cards, paginate, show inactive reasons and confirm reject all'
   expect(screen.getAllByRole('article')).toHaveLength(3);
   await user.click(screen.getByRole('button', { name: '2 more' }));
   expect(screen.getAllByRole('article')).toHaveLength(2);
-  await user.click(screen.getByText('Inactive proposals (1)'));
+  await user.click(screen.getByText('Inactive proposals (2)'));
   expect(screen.getByText('This proposal expired after 24 hours.')).toBeTruthy();
+  expect(screen.getByText('Rejected by you.')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Reject all' }));
   expect(calls).toEqual([]); expect(screen.getByRole('alertdialog').textContent).toContain('5 proposals');
   await user.click(screen.getByRole('button', { name: 'Confirm rejection' }));
