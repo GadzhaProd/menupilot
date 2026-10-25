@@ -67,7 +67,7 @@ export function VersionHistory() {
   ].join(' · ');
   async function restore() {
     if (!dialog.state) return;
-    const result = (await execute(store => store.restoreHistory(dialog.state!.entry.id), { report: false }));
+    const result = (await execute(store => store.restoreHistory(dialog.state!.entry.id), { report: false, clearRecipeDrafts: true }));
     if (!result.ok) { setError(isSafetyError(result.code) ? null : t(result.details.some(detail => detail.includes('must not be in the future')) ? 'history.futurePrices' : 'history.failed')); return; }
     recipes.clearAll(); sessions.clear(); dialog.close(); setRestored(true);
   }

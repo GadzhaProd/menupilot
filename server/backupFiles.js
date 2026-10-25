@@ -162,7 +162,10 @@ export async function publishSnapshot(db, dir, { now = Date.now(), reason, seque
 }
 /** Actual SQLite restore into a disposable database, followed by full checks. */
 export async function verifySnapshot(dir, id) {
-  const source = backupPath(dir, id), temp = await mkdtemp(join(tmpdir(), 'menupilot-verify-'));
+  if (typeof id !== 'string' || !ID.test(id)) throw new StoreError('not-found', `Backup “${String(id)}” was not found. Run backup list to see available backup IDs.`);
+  const source = backupPath(dir, id);
+  if (!existsSync(source)) throw new StoreError('not-found', `Backup “${id}” was not found. Run backup list to see available backup IDs.`);
+  const temp = await mkdtemp(join(tmpdir(), 'menupilot-verify-'));
   let db, checking = false;
   try {
     db = new DatabaseSync(source, { readOnly: true });

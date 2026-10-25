@@ -12,6 +12,7 @@ import {
 import { StoreError, createStore, STORAGE_KEY, type StorageLike, type Store } from '@/ui/domain/store';
 import type { MenuDocument } from '@/ui/domain/types';
 import { dataReducer, type DataState } from './reducer';
+import { attachUnassignedRecipeDrafts, clearAllRecipeDrafts, createRecipeDraftCache, hasAnyRecipeDrafts } from '@/ui/recipe/sessionDrafts';
 
 /** Commands return the new document, or `{ id, document }` when they create something. */
 type CommandOutput = MenuDocument | { document: MenuDocument };
@@ -36,12 +37,16 @@ export interface ExecuteOptions {
    * error next to its own Save button passes `false` to avoid saying it twice.
    */
   report?: boolean;
+  clearRecipeDrafts?: boolean;
+  clearRecipeDraftKey?: string;
+  resetDemoNotice?: boolean;
 }
 
 export type DraftTarget = { kind: 'ingredient' | 'recipe'; id: string };
 
 interface DataContextValue {
   state: DataState;
+  documentId: string | null;
   safety: string | null;
   removedTargets: readonly DraftTarget[];
   historyWarning: boolean;
@@ -66,6 +71,8 @@ interface DataContextValue {
    */
   execute<R extends CommandOutput>(command: (store: Store) => Promise<R>, options?: ExecuteOptions): Promise<CommandResult<R>>;
   commandStatus: 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
+  demoWelcome: boolean;
+  dismissDemoWelcome(): void;
   /** The saved document as backup JSON. Read-only: it cannot change data. */
   exportBackup(): Promise<CommandResult<string>>;
   dismissError(): void;
@@ -93,6 +100,36 @@ interface Loaded {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : 'Something unexpected went wrong.';
+}
+
+const DEMO_DISMISSED = 'menupilot.demo-dismissed.v2:';
+const demoPreferenceKey = (documentId: string | null) => `${DEMO_DISMISSED}${encodeURIComponent(documentId ?? 'unassigned')}`;
+function demoSignature(value: unknown): string {
+  const canonical = (current: unknown): unknown => {
+    if (Array.isArray(current)) return current.map(canonical);
+    if (current && typeof current === 'object') return Object.fromEntries(Object.entries(current)
+      .filter(([key]) => key !== 'recordedAt').sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)]));
+    return current;
+  };
+  return JSON.stringify(canonical(value));
+}
+function isDemoDocument(document: MenuDocument | null, demo: unknown): boolean {
+  try {
+    if (!document) return false;
+    const signature = demoSignature(document);
+    return [demo, demoForLocale('en'), demoForLocale('nl')].some(candidate => signature === demoSignature(candidate));
+  } catch { return false; }
+}
+function readPreference(key: string): string | null { try { return window.localStorage.getItem(key); } catch { return null; } }
+function writePreference(key: string, value: string | null) {
+  try { if (value === null) window.localStorage.removeItem(key); else window.localStorage.setItem(key, value); } catch { /* The notice still works for this visit if storage is blocked. */ }
+}
+
+function documentIdFromRaw(raw: string): string | null {
+  try {
+    const value = JSON.parse(raw) as { version?: unknown; schemaVersion?: unknown; documentId?: unknown };
+    return value.version === 2 && value.schemaVersion === 2 && typeof value.documentId === 'string' ? value.documentId : null;
+  } catch { return null; }
 }
 
 /** Create the store and read saved data. Reading never writes, so repeating it is harmless. */
@@ -197,8 +234,17 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
   const lastRaw = useRef(loaded.raw);
   const [state, dispatch] = useReducer(dataReducer, loaded.state);
   const [store, setStore] = useState(loaded.store);
+  const [documentId, setDocumentId] = useState<string | null>(() => loaded.store?.getDocumentId() ?? null);
   const [recoveryRaw, setRecoveryRaw] = useState(loaded.raw);
   const [loadCode, setLoadCode] = useState(loaded.loadCode);
+  const [demoWelcome, setDemoWelcome] = useState(() => isDemoDocument(loaded.state.document, props.demo)
+    && readPreference(demoPreferenceKey(loaded.store?.getDocumentId() ?? null)) !== '1');
+  const syncDemoWelcome = useCallback((next: MenuDocument, id: string | null) => {
+    const key = demoPreferenceKey(id);
+    if (isDemoDocument(next, props.demo)) setDemoWelcome(readPreference(key) !== '1');
+    else { writePreference(key, '1'); setDemoWelcome(false); }
+  }, [props.demo]);
+  const dismissDemoWelcome = useCallback(() => { writePreference(demoPreferenceKey(documentId), '1'); setDemoWelcome(false); }, [documentId]);
 
 
   const activateEditing = useCallback(async () => {
@@ -227,6 +273,10 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
           throw new Error('draft-target-removed');
         }
       } });
+      const latestDocumentId = store.getDocumentId();
+      if (documentId === null && latestDocumentId !== null) attachUnassignedRecipeDrafts(latestDocumentId);
+      setDocumentId(latestDocumentId);
+      syncDemoWelcome(document, latestDocumentId);
       lastRaw.current = store.browserRecovery?.getRaw() ?? null;
       dispatch({ type: 'documentReplaced', document });
       setSafety(null);
@@ -243,15 +293,15 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
       else dispatch({ type: 'loadFailed', message: latest.state.loadError! });
       setSafety(null);
     } finally { pending.current = false; }
-  }, [store, activateEditing, props.demo, props.now, props.createId]);
+  }, [store, documentId, activateEditing, props.demo, props.now, props.createId, syncDemoWelcome]);
 
   useEffect(() => {
     async function changed(event?: StorageEvent) {
-      if (event && (event.key !== null && event.key !== STORAGE_KEY)) return;
-      if (event?.storageArea && event.storageArea !== props.storage) return;
+      if (event && event.key !== null && event.key !== STORAGE_KEY && !event.key.startsWith('menupilot.recipe-draft.v2:')) return;
+      if (event?.storageArea && props.storage && event.storageArea !== props.storage) return;
       if (!store?.browserRecovery || state.loadError || pending.current) return;
       try {
-        const hasDrafts = [...draftSources.current].some(source => source()) || !!document.querySelector('form, [role="dialog"], [role="alertdialog"]');
+        const hasDrafts = [...draftSources.current].some(source => source()) || hasAnyRecipeDrafts() || !!document.querySelector('form, [role="dialog"], [role="alertdialog"]');
         const raw = store.browserRecovery?.readRaw();
         if (raw === lastRaw.current) {
           if (!hasDrafts) setSafety(current => current && ['conflict', 'draft-target-removed', 'write-busy'].includes(current) ? null : current);
@@ -260,11 +310,23 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
         if (raw === null && lastRaw.current !== null) { setSafety('storage-cleared'); return; }
         // A mounted form is conservative protection, including an untouched editor.
         if (hasDrafts) {
+          // A concurrent first save may assign an ID to a dataset that was still in memory.
+          // Adopt only that initial identity so its unassigned draft remains addressable;
+          // keep the displayed document untouched until the owner chooses Load latest.
+          const observedDocumentId = documentId === null && raw !== null ? documentIdFromRaw(raw) : null;
+          if (observedDocumentId) {
+            attachUnassignedRecipeDrafts(observedDocumentId);
+            setDocumentId(observedDocumentId);
+          }
           setSafety('conflict');
         } else {
           pending.current = true;
           try {
             const document = await store.load();
+            const latestDocumentId = store.getDocumentId();
+            if (documentId === null && latestDocumentId !== null) attachUnassignedRecipeDrafts(latestDocumentId);
+            setDocumentId(latestDocumentId);
+            syncDemoWelcome(document, latestDocumentId);
             lastRaw.current = store.browserRecovery?.getRaw() ?? null;
             dispatch({ type: 'documentReplaced', document });
             setSafety(null);
@@ -275,7 +337,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     recheck.current = changed;
     const focus = () => changed();
     // Recheck after Cancel/close, but not on unrelated text mutations from a notice.
-    const forms = () => [...document.querySelectorAll('form, [role="dialog"], [role="alertdialog"]')];
+    const forms = () => typeof window === 'undefined' ? [] : [...window.document.querySelectorAll('form, [role="dialog"], [role="alertdialog"]')];
     let previous = forms();
     const observer = new MutationObserver(() => {
       const next = forms();
@@ -291,7 +353,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
       window.removeEventListener('storage', changed); window.removeEventListener('focus', focus);
     };
     // D/C can push an invalidation from their transport without changing screens.
-  }, [store, props.storage, state.loadError, reloadLatest]);
+  }, [store, props.storage, state.loadError, reloadLatest, syncDemoWelcome, documentId]);
   useEffect(() => props.adapter?.subscribe?.(() => {
     if ([...draftSources.current].some(source => source()) || document.querySelector('form, [role="dialog"], [role="alertdialog"]')) setSafety('conflict');
     else void reloadLatest();
@@ -299,7 +361,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
 
   const execute = useCallback(async <R extends CommandOutput>(
     command: (store: Store) => Promise<R>,
-    { report = true }: ExecuteOptions = {},
+    { report = true, clearRecipeDrafts = false, clearRecipeDraftKey, resetDemoNotice = false }: ExecuteOptions = {},
   ): Promise<CommandResult<R>> => {
     if (pending.current) return { ok: false, code: 'write-busy', error: t('commands.busy'), details: [] };
     pending.current = true;
@@ -310,6 +372,15 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
         throw new StoreError('not-loaded', 'Data is not loaded, so nothing can be changed.');
       }
       const value = await command(store);
+      const nextDocument = ('document' in value ? value.document : value) as MenuDocument;
+      const nextDocumentId = store.getDocumentId();
+      if (documentId === null && nextDocumentId !== null) attachUnassignedRecipeDrafts(nextDocumentId);
+      setDocumentId(nextDocumentId);
+      if (clearRecipeDrafts) clearAllRecipeDrafts();
+      if (clearRecipeDraftKey) createRecipeDraftCache(undefined, nextDocumentId).clear(clearRecipeDraftKey);
+      if (resetDemoNotice && isDemoDocument(nextDocument, props.demo)) {
+        writePreference(demoPreferenceKey(nextDocumentId), null); setDemoWelcome(true);
+      } else syncDemoWelcome(nextDocument, nextDocumentId);
       lastRaw.current = store.browserRecovery?.getRaw() ?? null;
       setSafety(null);
       setHistoryWarning(store.getHistoryWarning());
@@ -320,7 +391,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     } catch (error) {
       const code = error instanceof StoreError ? String(error.code) : 'unexpected';
       const special = ['conflict', 'write-busy', 'write-unavailable', 'migration-backup-required'].includes(code);
-      const message = code === 'conflict' ? t('safety.changed')
+      const message = code === 'session-expired' ? t('local.sessionSaveError') : code === 'conflict' ? t('safety.changed')
         : code === 'write-busy' ? t('safety.busy')
           : code === 'write-unavailable' ? t('safety.unavailable') : code === 'migration-backup-required' ? t('migration.required') : describe(error);
       setCommandStatus(code === 'conflict' ? 'conflict' : 'error');
@@ -336,7 +407,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
         structuredDetails: error instanceof StoreError ? (error as StoreError & { structuredDetails: readonly ImportValidationDetail[] }).structuredDetails : [],
       };
     } finally { pending.current = false; }
-  }, [store, t]);
+  }, [store, documentId, t, props.demo, syncDemoWelcome]);
 
   const exportBackup = useCallback(async (): Promise<CommandResult<string>> => {
     try {
@@ -387,9 +458,9 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener('storage', refresh); };
   }, [store]);
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
-  const value = useMemo(() => ({ commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest,
-    activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode }),
-  [commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
+  const value = useMemo(() => ({ commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, documentId, execute, exportBackup, dismissError, safety, reloadLatest,
+    activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, demoWelcome, dismissDemoWelcome }),
+  [commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, documentId, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, demoWelcome, dismissDemoWelcome]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -407,6 +478,8 @@ export function useDataState(): DataState {
   return useData().state;
 }
 
+export function useDataIdentity(): string | null { return useData().documentId; }
+
 /** The document on screen; throws if the saved data could not be opened (check `loadError` first). */
 export function useDocument(): MenuDocument {
   const { document } = useData().state;
@@ -421,6 +494,8 @@ export function useCommands(): Pick<DataContextValue, 'execute' | 'exportBackup'
   const { execute, exportBackup, dismissError, commandStatus, previewImport } = useData();
   return { execute, exportBackup, dismissError, commandStatus, previewImport };
 }
+
+export function useDemoWelcome() { const { demoWelcome, dismissDemoWelcome } = useData(); return { demoWelcome, dismissDemoWelcome }; }
 
 /** Recovery and cross-tab controls. */
 export function useDataSafety() {

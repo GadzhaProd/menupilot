@@ -96,32 +96,36 @@ export function blankDraft(kind: 'dish' | 'prep', defaultVatRateBp: number): Rec
   };
 }
 
-function lineToDraft(line: RecipeLine, catalog: Catalog): LineDraft {
+function lineToDraft(line: RecipeLine, catalog: Catalog, locale: 'en' | 'nl' = 'en'): LineDraft {
   const base = baseUnitOfRef(refKey(line.ref), catalog) ?? 'g';
-  const { text, unit } = quantityToInput(line.netQtyMilli, base);
+  const ingredient = line.ref.kind === 'ingredient' ? catalog.ingredients.find(entry => entry.id === line.ref.id) : undefined;
+  const preferred = ingredient?.prices.at(-1)
+    ? quantityToInput(ingredient.prices.at(-1)!.packSizeMilli, ingredient.unit, locale).unit
+    : ingredient?.unit;
+  const { text, unit } = quantityToInput(line.netQtyMilli, base, locale, preferred);
   return {
     id: line.id,
     ref: refKey(line.ref),
     qty: text,
     unit,
-    yieldPct: basisPointsToInput(line.yieldBp),
+    yieldPct: basisPointsToInput(line.yieldBp, locale),
     stored: { milli: line.netQtyMilli, qty: text, unit },
   };
 }
 
-export function draftFromRecipe(recipe: Recipe, catalog: Catalog): RecipeDraft {
-  const lines = recipe.lines.map((line) => lineToDraft(line, catalog));
+export function draftFromRecipe(recipe: Recipe, catalog: Catalog, locale: 'en' | 'nl' = 'en'): RecipeDraft {
+  const lines = recipe.lines.map((line) => lineToDraft(line, catalog, locale));
   if (recipe.kind === 'dish') {
     return {
       ...blankDraft('dish', recipe.vatRateBp),
       name: recipe.name,
-      menuPrice: centsToInput(recipe.menuPriceInclVatCents),
+      menuPrice: centsToInput(recipe.menuPriceInclVatCents, locale),
       portions: String(recipe.portions),
       monthlyVolume: recipe.monthlyVolume === null || recipe.monthlyVolume === undefined ? '' : String(recipe.monthlyVolume),
       lines,
     };
   }
-  const output = quantityToInput(recipe.outputMilli, recipe.outputUnit);
+  const output = quantityToInput(recipe.outputMilli, recipe.outputUnit, locale);
   return {
     ...blankDraft('prep', 900),
     name: recipe.name,

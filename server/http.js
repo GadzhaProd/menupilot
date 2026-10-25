@@ -125,7 +125,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
         res.setHeader('Set-Cookie', exchanged.cookie); send(res, 200, { token: exchanged.token }); return;
       }
       if (path === '/menupilot/local-config.json' && req.method === 'GET') {
-        if (!session.authorize(req.headers.authorization?.replace(/^Bearer /, ''))) { send(res, 401, { code: 'session-expired', message: 'Open the address from the terminal.' }); return; }
+        if (!session.authorize(req.headers.authorization?.replace(/^Bearer /, ''))) { send(res, 401, { code: 'session-expired', message: 'MenuPilot restarted. Open the new address from the terminal window running npm start. If needed, run npm run menupilot -- open-url.' }); return; }
         send(res, 200, { mode: 'local', apiVersion: 1, dataDir }); return;
       }
       if (req.method === 'GET' && bootstraps.has(path)) {
@@ -138,7 +138,7 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
       if (path.startsWith('/api/')) {
         const token = req.headers.authorization?.replace(/^Bearer /, '');
         const source = session.authorize(token) ? 'ui' : tokenMatches(token, cliToken) ? 'cli' : null;
-        if (!source) { send(res, 401, { code: 'session-expired', message: 'The local server session changed. Copy any unsaved drafts, then reload this page.' }); return; }
+        if (!source) { send(res, 401, { code: 'session-expired', message: 'MenuPilot restarted. Open the new address from the terminal window running npm start. If needed, run npm run menupilot -- open-url.' }); return; }
         if (req.method !== 'GET' && req.headers.origin !== address && source !== 'cli') { send(res, 403, { code: 'origin', message: 'Same-origin request required.' }); return; }
         if (stopping && req.method !== 'GET') throw stoppingError();
         // A body that finishes arriving after shutdown began is refused, never half-accepted.

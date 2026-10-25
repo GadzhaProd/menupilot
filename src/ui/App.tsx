@@ -3,7 +3,7 @@ import { DataSafetyNotice } from '@/ui/data/DataSafetyNotice';
 import { RecoveryPage } from '@/ui/recovery/RecoveryPage';
 import { useLocale, type TranslationKey } from '@/ui/i18n';
 import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useEffect } from 'react';
-import { useDataState } from '@/ui/data/DataProvider';
+import { useDataIdentity, useDataState } from '@/ui/data/DataProvider';
 import { Shell } from '@/ui/layout/Shell';
 import { DashboardPage } from '@/ui/pages/DashboardPage';
 import { DataPage } from '@/ui/pages/DataPage';
@@ -97,6 +97,7 @@ export function App() {
   const { t } = useLocale();
   const route = useRoute();
   const { loadError } = useDataState();
+  const documentId = useDataIdentity();
 
   useEffect(() => {
     document.title = `${t(TITLES[route.name])} · MenuPilot`;
@@ -105,7 +106,7 @@ export function App() {
   return (
     <ErrorBoundary>
       {/* One provider above every route, so unsaved scenario drafts survive a visit to the guide. */}
-      <RecipeDraftProvider><SimulatorSessionProvider>
+      <RecipeDraftProvider documentId={documentId}><SimulatorSessionProvider>
         <Shell route={route}>
           <DataSafetyNotice />
           {route.name === 'help' ? (

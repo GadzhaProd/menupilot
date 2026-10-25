@@ -54,9 +54,9 @@ export function RecoveryPage() {
   async function confirm() {
     const pending = dialog.state;
     if (!pending) return;
-    const result = pending.kind === 'import' ? (await execute(store => store.importJSON(pending.text), { report: false }))
-      : pending.kind === 'empty' ? (await execute(store => store.resetToEmpty(), { report: false }))
-        : (await execute(store => store.resetToDemo(demoForLocale(locale)), { report: false }));
+    const result = pending.kind === 'import' ? (await execute(store => store.importJSON(pending.text), { report: false, clearRecipeDrafts: true }))
+      : pending.kind === 'empty' ? (await execute(store => store.resetToEmpty(), { report: false, clearRecipeDrafts: true }))
+        : (await execute(store => store.resetToDemo(demoForLocale(locale)), { report: false, clearRecipeDrafts: true, resetDemoNotice: true }));
     if (result.ok) { recipes.clearAll(); sessions.clear(); dialog.close(); }
     else if (['conflict', 'write-busy', 'write-unavailable'].includes(result.code)) setError(null);
     else setError(t('recovery.failed'));

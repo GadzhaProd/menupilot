@@ -1,0 +1,17 @@
+export const localNl = {
+  'local.restartNotice': 'Je sessie is afgelopen (bijvoorbeeld doordat MenuPilot opnieuw is gestart of je aanmelding is verlopen). Open het nieuwe adres in het terminalvenster waarin npm start actief is, of voer npm run menupilot -- open-url uit. Receptconcepten blijven bewaard; niet-opgeslagen invoer in ingrediënten- en leveranciersprijsvensters kan niet worden hersteld.',
+  'local.sessionSaveError': 'Je sessie is afgelopen (bijvoorbeeld doordat MenuPilot opnieuw is gestart of je aanmelding is verlopen). Open het nieuwe adres in het terminalvenster waarin npm start actief is, of voer npm run menupilot -- open-url uit. Receptconcepten blijven bewaard; niet-opgeslagen invoer in ingrediënten- en leveranciersprijsvensters kan niet worden hersteld.',
+  'local.folderLabel': 'Lokale modus · gegevens: ',
+  'local.demoNotice': 'Dit is een voorbeeld van een fictief restaurant.',
+  'local.demoStart': 'Begin met mijn eigen gegevens',
+  'local.demoContinue': 'Bekijk het voorbeeld verder',
+  'local.demoConfirm': 'Beginnen met je eigen gegevens?',
+  'local.demoConfirmText': 'De voorbeeldingrediënten, prijzen en recepten worden verwijderd. Exporteer eerst een reservekopie als je ze wilt bewaren.',
+  'local.demoConfirmAction': 'Beginnen met mijn eigen gegevens',
+  'local.pathFull': 'Volledig gegevensmappad tonen',
+  'local.draftAvailable': 'Niet-opgeslagen concept: {name}',
+  'local.draftOpen': 'Openen',
+  'local.draftDelete': 'Verwijderen',
+  'local.quantityLargeWarning': 'Klopt {amount} {unit} echt?',
+  'local.draftsStorageHelp': 'Receptconcepten worden maximaal 7 dagen in deze browser op deze computer voor deze dataset bewaard.',
+} as const;

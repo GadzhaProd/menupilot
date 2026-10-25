@@ -1,0 +1,17 @@
+export const localEn = {
+  'local.restartNotice': 'Your session ended (for example, MenuPilot restarted or sign-in expired). Open the new address in the terminal window running npm start, or run npm run menupilot -- open-url. Recipe drafts are kept; unsaved ingredient and supplier-price form entries cannot be restored.',
+  'local.sessionSaveError': 'Your session ended (for example, MenuPilot restarted or sign-in expired). Open the new address in the terminal window running npm start, or run npm run menupilot -- open-url. Recipe drafts are kept; unsaved ingredient and supplier-price form entries cannot be restored.',
+  'local.folderLabel': 'Local mode · data: ',
+  'local.demoNotice': 'This is a fictional restaurant example.',
+  'local.demoStart': 'Start with my own data',
+  'local.demoContinue': 'Continue exploring the example',
+  'local.demoConfirm': 'Start with your own data?',
+  'local.demoConfirmText': 'The example ingredients, prices and recipes will be removed. You can export a backup first if you want to keep them.',
+  'local.demoConfirmAction': 'Start with my own data',
+  'local.pathFull': 'Show full data folder path',
+  'local.draftAvailable': 'Unsaved draft: {name}',
+  'local.draftOpen': 'Open',
+  'local.draftDelete': 'Delete',
+  'local.quantityLargeWarning': 'Is this really {amount} {unit}?',
+  'local.draftsStorageHelp': 'Recipe drafts are stored in this browser on this computer for this dataset for up to 7 days.',
+} as const;

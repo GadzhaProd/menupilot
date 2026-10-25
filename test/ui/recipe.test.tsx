@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createBaselineSnapshot } from '@/ui/domain/calc';
 import type { MenuDocument } from '@/ui/domain/types';
 import { formatQuantityLocale } from '@/ui/forms/numbers';
-import { vatOptions } from '@/ui/forms/recipeForm';
+import { createRecipeDraftCache } from '@/ui/recipe/sessionDrafts';
+import { blankDraft, vatOptions } from '@/ui/forms/recipeForm';
 import {
   demoCopy, go, memoryStorage, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
@@ -86,6 +87,31 @@ describe('localized numeric and link presentation', () => {
 });
 
 describe('recipe session drafts', () => {
+  it('offers a saved draft without navigating automatically, and opens or deletes it on request', async () => {
+    createRecipeDraftCache(window.localStorage, null).write('new:dish', {
+      draft: { ...blankDraft('dish', 900), name: 'Stored after restart' }, baseline: blankDraft('dish', 900), conflicts: [],
+    });
+    await open('#/', memoryStorage());
+    expect((await screen.findByRole('status')).textContent).toMatch(/unsaved draft: Stored after restart/i);
+    expect(screen.getByRole('heading', { level: 1, name: 'What has changed on your menu?' })).toBeTruthy();
+    await user().click(screen.getByRole('button', { name: 'Open' }));
+    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Stored after restart');
+    await go('#/');
+    await screen.findByRole('button', { name: 'Delete' });
+    await user().click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByText(/unsaved draft:/i)).toBeNull();
+  });
+
+  it('does not warn on beforeunload for a draft whose form is not open', async () => {
+    createRecipeDraftCache(window.localStorage, null).write('new:dish', {
+      draft: { ...blankDraft('dish', 900), name: 'Hidden draft' }, baseline: blankDraft('dish', 900), conflicts: [],
+    });
+    await open('#/', memoryStorage());
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it('restores an unsaved new dish after opening Help and warns before leaving', async () => {
     const u = user();
     await open('#/recipe/new?kind=dish');
@@ -129,7 +155,7 @@ describe('recipe session drafts', () => {
     expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Draft Burger');
   });
 
-  it('drops a saved-recipe draft when its source recipe has changed', async () => {
+  it('shows a saved-recipe draft as a conflict when its source recipe has changed', async () => {
     const u = user();
     const storage = await open('#/recipe/dish_classic_burger', storageWith(demoCopy()));
     await u.clear(screen.getByLabelText('Name'));
@@ -140,7 +166,8 @@ describe('recipe session drafts', () => {
     storage.setItem(STORAGE_KEY, JSON.stringify(replaced));
     (await renderApp(storage));
     await go('#/recipe/dish_classic_burger');
-    expect(await screen.findByLabelText('Name')).toHaveProperty('value', 'Imported Burger');
+    expect(await screen.findByText(/Both tabs changed these fields/i)).toBeTruthy();
+    expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Unsaved draft');
   });
 
   it('does not restore the new-dish draft after the dish was saved', async () => {
@@ -242,9 +269,9 @@ describe('Scenario 4: one sauce for a dish (the manual example from the architec
     await u.type(screen.getByLabelText('Name'), 'Tomato sauce');
     await u.type(screen.getByLabelText(/One batch makes/), '1');
     await u.selectOptions(screen.getByLabelText('Batch unit'), 'kg');
-    await fillLine(u, 1, 'ingredient:ing_tomato', '800');
+    await fillLine(u, 1, 'ingredient:ing_tomato', '800', { unit: 'g' });
     await u.click(screen.getByRole('button', { name: 'Add line' }));
-    await fillLine(u, 2, 'ingredient:ing_spice', '20');
+    await fillLine(u, 2, 'ingredient:ing_spice', '20', { unit: 'g' });
 
     expect(line(1).getByText('€1.60')).toBeTruthy();
     expect(line(2).getByText('€0.20')).toBeTruthy();
@@ -263,7 +290,7 @@ describe('Scenario 4: one sauce for a dish (the manual example from the architec
     await screen.findByRole('heading', { level: 1, name: 'New dish' });
     await u.type(screen.getByLabelText('Name'), 'Pasta');
     await u.type(screen.getByLabelText(/Menu price/), '16,50');
-    await fillLine(u, 1, `prep:${prep?.id}`, '150');
+    await fillLine(u, 1, `prep:${prep?.id}`, '150', { unit: 'g' });
     expect(line(1).getByText('€0.27')).toBeTruthy();
     expect(costOf('Batch cost, all portions (excl. VAT)')).toBe('€0.27');
     expect(costOf(/Recipe-based ingredient cost per portion/)).toBe('€0.27');
@@ -379,17 +406,20 @@ describe('Scenario 3: a new dish', () => {
   it('the unit follows what is chosen: weight, volume or pieces', async () => {
     const u = user();
     const doc = sauceDoc();
-    doc.ingredients.push({ id: 'ing_milk', name: 'Milk', unit: 'ml', prices: [] }, { id: 'ing_egg', name: 'Egg', unit: 'pc', prices: [] });
+    doc.ingredients[0]!.prices = [{ packPriceCents: 1000, packSizeMilli: 5_000_000, recordedAt: '2026-01-01T00:00:00.000Z', seq: 1 }];
+    doc.ingredients.push({ id: 'ing_milk', name: 'Milk', unit: 'ml', prices: [{ packPriceCents: 1000, packSizeMilli: 1_000_000, recordedAt: '2026-01-01T00:00:00.000Z', seq: 1 }] }, { id: 'ing_egg', name: 'Egg', unit: 'pc', prices: [] });
     await open('#/recipe/new?kind=dish', storageWith(doc));
     const row = line(1);
     const units = () => within(row.getByLabelText('Unit')).getAllByRole('option').map((option) => option.textContent);
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_milk');
     expect(units()).toEqual(['ml', 'l']);
+    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('l');
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_egg');
     expect(units()).toEqual(['pc']);
     expect((row.getByLabelText('Unit') as HTMLSelectElement).disabled).toBe(true);
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_tomato');
     expect(units()).toEqual(['g', 'kg']);
+    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('kg');
   });
 });
 
@@ -422,7 +452,7 @@ describe('Form errors', () => {
     await open('#/recipe/new?kind=dish', storageWith(sauceDoc()));
     await u.type(screen.getByLabelText('Name'), 'X');
     await u.type(screen.getByLabelText(/Menu price/), '5');
-    await fillLine(u, 1, 'ingredient:ing_tomato', '1.234', { yieldPct: '0' });
+    await fillLine(u, 1, 'ingredient:ing_tomato', '1.234', { unit: 'g', yieldPct: '0' });
     await u.click(screen.getByRole('button', { name: 'Save dish' }));
     expect(line(1).getByLabelText(/Net quantity/).getAttribute('aria-invalid')).toBe('true');
     expect(line(1).getByLabelText('Yield %').getAttribute('aria-invalid')).toBe('true');
@@ -574,10 +604,27 @@ describe('Editing a saved recipe', () => {
 
   it('shows the lines of a stored dish with the quantity in the typed unit', async () => {
     await open('#/recipe/dish_classic_burger');
-    const beefLine = within(screen.getByDisplayValue('180').closest('[role="group"]') as HTMLElement);
+    const beefLine = within(screen.getByDisplayValue('0.18').closest('[role="group"]') as HTMLElement);
     expect(beefLine.getByLabelText('Ingredient or prep')).toHaveProperty('value', 'ingredient:ing_beef');
-    expect(beefLine.getByLabelText('Unit')).toHaveProperty('value', 'g');
-    expect(beefLine.getByText('€3.06')).toBeTruthy(); // 180 g at €17.00/kg
+    expect(beefLine.getByLabelText('Unit')).toHaveProperty('value', 'kg');
+    expect(beefLine.getByText('€3.06')).toBeTruthy(); // 180 g displays as 0.18 kg at €17.00/kg
+  });
+
+  it('uses base units without a price and warns softly above the batch quantity threshold', async () => {
+    const u = user();
+    const document = demoCopy();
+    document.ingredients.find(item => item.id === 'ing_beef')!.prices = [];
+    const storage = await open('#/recipe/new?kind=dish', storageWith(document));
+    await fillLine(u, 1, 'ingredient:ing_beef', '1');
+    expect(line(1).getByLabelText('Unit')).toHaveProperty('value', 'g');
+    await u.clear(line(1).getByLabelText(/Net quantity/));
+    await u.type(line(1).getByLabelText(/Net quantity/), '1000000');
+    expect(await screen.findByText(/Is this really 1000 kg\?/i)).toBeTruthy();
+    await u.type(screen.getByLabelText('Name'), 'Large batch');
+    await u.type(screen.getByLabelText(/Menu price/), '12.00');
+    await u.click(screen.getByRole('button', { name: 'Save dish' }));
+    expect(await screen.findByText(/Is this really 1000 kg\?/i)).toBeTruthy();
+    expect(savedDocument(storage).recipes.some(recipe => recipe.name === 'Large batch')).toBe(true);
   });
 });
 

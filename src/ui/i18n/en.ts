@@ -4,6 +4,7 @@ import { safetyEn } from './safety.en';
 import { part2EN } from './part2.en';
 import { part3En } from './part3.en';
 import { dataEn } from './data.en';
+import { localEn } from './local.en';
 
 /** Stable semantic keys. Add a complete message; never key dictionaries by rendered English. */
 const baseEn = {
@@ -75,5 +76,5 @@ const baseEn = {
   'count.scenarios.one': '{count} scenario',
   'count.scenarios.other': '{count} scenarios',
 } as const;
-export const en = { ...baseEn, ...part3En, ...dataEn } as const;
+export const en = { ...baseEn, ...part3En, ...dataEn, ...localEn } as const;
 export type TranslationKey = keyof typeof en;

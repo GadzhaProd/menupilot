@@ -36,7 +36,7 @@ async function navigate(page: Page, name: string) {
   await page.getByRole('link', { name, exact: true }).click();
 }
 
-test('local price history survives restart; session warning preserves a draft; browser import replaces with preview', async ({ page, context }, info) => {
+test('local price history and recipe drafts survive restart; browser import replaces with preview', async ({ page, context }, info) => {
   const dir = await mkdtemp(join(tmpdir(), 'menupilot-e2e-')), port = await freePort();
   const origin = `http://127.0.0.1:${port}`; const external: string[] = [];
   const cspErrors: string[] = [];
@@ -90,9 +90,17 @@ test('local price history survives restart; session warning preserves a draft; b
     await dialog.getByLabel(/Pack price/).fill('3.50');
     await dialog.getByRole('button', { name: 'Save price', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    // An unfinished editor must survive polling a restarted server.
+    // A recipe draft is registered in localStorage so a fresh tab can recover it.
     await page.getByRole('button', { name: 'New price for Local flour', exact: true }).click();
     await page.getByRole('dialog').getByLabel(/Pack price/).fill('4.00');
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await navigate(page, 'Recipes');
+    await page.getByRole('region', { name: 'No dishes yet' }).getByRole('link', { name: 'New dish', exact: true }).click();
+    await page.getByLabel('Name', { exact: true }).fill('Draft across restart');
+    await page.getByLabel('Menu price (incl. VAT)', { exact: true }).fill('12.00');
+    const draftLine = page.getByRole('group', { name: 'Line 1', exact: true });
+    await draftLine.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'Local flour · g' });
+    await draftLine.getByLabel(/Net quantity/).fill('10');
     await stop(child);
     // Persist a detected clock jump and a damaged snapshot while the writer is stopped.
     const db = new DatabaseSync(join(dir, 'menupilot.db'));
@@ -101,42 +109,45 @@ test('local price history survives restart; session warning preserves a draft; b
     const { writeFile } = await import('node:fs/promises');
     await writeFile(join(dir, 'backups', `${Date.now()}-${crypto.randomUUID()}.sqlite`), 'damaged snapshot');
     child = await launch(dir, port);
-    await expect(page.getByText('MenuPilot restarted. Copy any unsaved drafts, then open it again with npm run menupilot -- open-url.')).toBeVisible();
-    await expect(page.getByRole('dialog').getByLabel(/Pack price/)).toHaveValue('4.00');
-    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-    await page.goto(launchUrls.get(child)!);
-    // Fragment login exchanges the new key and then reloads asynchronously.
-    // Wait for the previous session warning to disappear before opening the mobile menu.
-    await expect(page.getByText('MenuPilot restarted. Copy any unsaved drafts, then open it again with npm run menupilot -- open-url.')).toHaveCount(0);
-    await navigate(page, 'Ingredients');
-    await page.getByRole('button', { name: 'Price history of Local flour', exact: true }).click();
-    await expect(page.getByRole('dialog').getByRole('row')).toHaveCount(3);
-    await expect(page.getByRole('dialog').getByText('€3.50', { exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.getByTestId('backup-status')).toContainText('Last backup:');
-    await expect(page.getByTestId('backup-status')).not.toContainText('Last backup: none yet');
-    await expect(page.getByTestId('backup-status')).toContainText('Automatic backup deletion is paused');
-    await expect(page.getByTestId('backup-status')).toContainText('Damaged backups');
-    await page.screenshot({ path: info.outputPath('local.png'), fullPage: true });
-    await page.getByRole('button', { name: 'NL – Nederlands' }).click();
-    await expect(page.getByTestId('backup-status')).toContainText('Laatste reservekopie:');
-    await expect(page.getByTestId('backup-status')).toContainText('Externe kopie mislukt');
-    await expect(page.getByTestId('backup-status')).toContainText('bewijst niet');
-    await expect(page.getByTestId('backup-status')).toContainText('Automatisch verwijderen');
-    await expect(page.getByTestId('backup-status')).toContainText('Beschadigde reservekopieën');
-    await page.screenshot({ path: info.outputPath('local-backups-nl.png'), fullPage: true });
-    await page.getByRole('button', { name: 'EN – English' }).click();
-    await navigate(page, 'Data');
+    await expect(page.getByText(/Your session ended \(for example, MenuPilot restarted or sign-in expired\)/)).toBeVisible();
+    await page.getByRole('button', { name: 'Save dish', exact: true }).click();
+    await expect(page.getByText(/Your session ended \(for example, MenuPilot restarted or sign-in expired\)/)).toBeVisible();
+    const resumed = await context.newPage();
+    await resumed.goto(launchUrls.get(child)!);
+    await expect(resumed.getByRole('status').filter({ hasText: 'Unsaved draft: Draft across restart' })).toBeVisible();
+    await resumed.getByRole('button', { name: 'Open', exact: true }).click();
+    await expect(resumed.getByLabel('Name', { exact: true })).toHaveValue('Draft across restart');
+    await expect(resumed.getByLabel(/Menu price/)).toHaveValue('12.00');
+    await expect(resumed.getByTestId('local-mode')).toBeVisible();
+    await navigate(resumed, 'Ingredients');
+    await resumed.getByRole('button', { name: 'Price history of Local flour', exact: true }).click();
+    await expect(resumed.getByRole('dialog').getByRole('row')).toHaveCount(3);
+    await expect(resumed.getByRole('dialog').getByText('€3.50', { exact: true })).toBeVisible();
+    await resumed.keyboard.press('Escape');
+    await expect(resumed.getByTestId('backup-status')).toContainText('Last backup:');
+    await expect(resumed.getByTestId('backup-status')).not.toContainText('Last backup: none yet');
+    await expect(resumed.getByTestId('backup-status')).toContainText('Automatic backup deletion is paused');
+    await expect(resumed.getByTestId('backup-status')).toContainText('Damaged backups');
+    await resumed.screenshot({ path: info.outputPath('local.png'), fullPage: true });
+    await resumed.getByRole('button', { name: 'NL – Nederlands' }).click();
+    await expect(resumed.getByTestId('backup-status')).toContainText('Laatste reservekopie:');
+    await expect(resumed.getByTestId('backup-status')).toContainText('Externe kopie mislukt');
+    await expect(resumed.getByTestId('backup-status')).toContainText('bewijst niet');
+    await expect(resumed.getByTestId('backup-status')).toContainText('Automatisch verwijderen');
+    await expect(resumed.getByTestId('backup-status')).toContainText('Beschadigde reservekopieën');
+    await resumed.screenshot({ path: info.outputPath('local-backups-nl.png'), fullPage: true });
+    await resumed.getByRole('button', { name: 'EN – English' }).click();
+    await navigate(resumed, 'Data');
     const imported = { version: 1, settings: { defaultVatRateBp: 900 }, ingredients: [{ id: 'imported', name: 'Browser export', unit: 'g', prices: [] }], recipes: [], scenarios: [] };
-    await page.locator('input[type="file"]').setInputFiles({ name: 'browser-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
-    await expect(page.getByRole('alertdialog')).toBeVisible();
-    await expect(page.getByRole('alertdialog')).toContainText('browser-backup.json');
-    await expect(page.getByRole('alertdialog')).toContainText('not merged with your current data');
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Replace with backup', exact: true }).click();
-    await expect(page.getByRole('alertdialog')).toHaveCount(0);
-    await navigate(page, 'Ingredients');
-    await expect(page.getByText('Browser export', { exact: true })).toBeVisible();
-    await expect(page.getByText('Local flour', { exact: true })).toHaveCount(0);
+    await resumed.locator('input[type="file"]').setInputFiles({ name: 'browser-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
+    await expect(resumed.getByRole('alertdialog')).toBeVisible();
+    await expect(resumed.getByRole('alertdialog')).toContainText('browser-backup.json');
+    await expect(resumed.getByRole('alertdialog')).toContainText('not merged with your current data');
+    await resumed.getByRole('alertdialog').getByRole('button', { name: 'Replace with backup', exact: true }).click();
+    await expect(resumed.getByRole('alertdialog')).toHaveCount(0);
+    await navigate(resumed, 'Ingredients');
+    await expect(resumed.getByText('Browser export', { exact: true })).toBeVisible();
+    await expect(resumed.getByText('Local flour', { exact: true })).toHaveCount(0);
     expect(external).toEqual([]);
     expect(cspErrors).toEqual([]);
   } finally { await stop(child); await rm(dir, { recursive: true }); }

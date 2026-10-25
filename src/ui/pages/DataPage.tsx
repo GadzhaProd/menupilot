@@ -119,10 +119,10 @@ export function DataPage() {
     const pending = dialog.state;
     if (pending === null) return null;
     const result = pending.kind === 'import'
-      ? (await execute((store) => store.importJSON(pending.text), { report: false }))
+      ? (await execute((store) => store.importJSON(pending.text), { report: false, clearRecipeDrafts: true }))
       : pending.kind === 'empty'
-        ? (await execute((store) => store.resetToEmpty(), { report: false }))
-        : (await execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false }));
+        ? (await execute((store) => store.resetToEmpty(), { report: false, clearRecipeDrafts: true }))
+        : (await execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false, clearRecipeDrafts: true, resetDemoNotice: true }));
     if (!result.ok) {
       if (isSafetyError(result.code)) return null;
       if (pending.kind === 'import') return {
