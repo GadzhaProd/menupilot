@@ -32,7 +32,7 @@ it('failed version restoration keeps recipe and simulator caches',async()=>{
   const name=screen.getByLabelText('Scenario name');await userEvent.clear(name);await userEvent.type(name,'Persistent scenario draft');
   await go('#/data');await userEvent.click(screen.getByRole('button',{name:'Preview version'}));
   storage.failOnSet=new Error('full');
-  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Restore version'}));
+  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Restore this version'}));
   expect(screen.getByRole('alert').textContent).toMatch(/could not be restored/);
   await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Cancel'}));
   await go('#/recipe/dish_classic_burger');expect(screen.getByLabelText('Name')).toHaveProperty('value','Persistent recipe draft');

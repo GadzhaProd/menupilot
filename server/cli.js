@@ -151,7 +151,7 @@ async function run(args) {
 
 async function runExistingServerCommand(args, dir, wantJson = false) {
   const open = args[0] === 'open-url' && (args.length === 1 || (args.length === 2 && args[1] === '--revoke-sessions'));
-  const list = args[0] === 'backup' && args[1] === 'list' && args.length === 2;
+  const list = args[0] === 'backup' && args[1] === 'list' && (args.length === 2 || (args.length === 3 && args[2] === '--json'));
   const verify = args[0] === 'backup' && args[1] === 'verify' && args.length === 3;
   const restore = args[0] === 'backup' && args[1] === 'restore' && (args.length === 3 || (args.length === 4 && args[3] === '--yes'));
   const stop = args[0] === 'stop' && args.length === 1;
@@ -170,11 +170,19 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
     if (!hasValidOpenResult(result)) throw cliError('server-error', 'MenuPilot returned an invalid browser-open response.');
     console.log(result.opened ? 'MenuPilot opened in your browser.' : 'Could not open the browser. Open the address from the terminal window running npm start, or restart npm start.');
   } else if (list) {
-    const entries = await api('backups'); for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
-    if (!entries.length) console.log('No backups yet. A backup is created within five minutes of a change, and on normal shutdown.');
+    const entries = await api('backups');
+    if (wantJson) { const version = await api('version'); printJson({ apiVersion: 1, command: 'backup list', documentId: version.documentId, revision: version.revision, data: entries, warnings: [] }); }
+    else for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
+    if (!entries.length && !wantJson) console.log('No backups yet. A backup is created within five minutes of a change, and on normal shutdown.');
   } else if (verify) {
-    const checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } });
-    console.log(`Verified by restoring to a temporary database: ${checked.id}, revision ${checked.revision}.`);
+    let checked;
+    try { checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } }); }
+    catch (error) { if (error.code === 'not-found') throw cliError('not-found', `Backup “${args[2]}” was not found. Run backup list to see available backup IDs.`); throw error; }
+    if (wantJson) {
+      const version = await api('version');
+      printJson({ apiVersion: 1, command: 'backup verify', documentId: version.documentId, revision: version.revision,
+        data: { id: checked.id, backupRevision: checked.revision, verified: true }, warnings: [] });
+    } else console.log(`Verified by restoring to a temporary database: ${checked.id}, revision ${checked.revision}.`);
   } else {
     const checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } });
     const current = await api('version'); await confirm(`Replace current revision ${current.revision} with the document from backup ${checked.id} (revision ${checked.revision})? A verified copy of the current data will be created first.`, args[3] === '--yes');

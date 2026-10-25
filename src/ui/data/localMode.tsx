@@ -44,8 +44,8 @@ export async function loadLocalConfig(): Promise<LocalConfig | null> {
       ? 'MenuPilot is al geopend in een ander tabblad. Open het hier met npm run menupilot -- open-url.'
       : 'MenuPilot is already open in another tab. To open it here, run npm run menupilot -- open-url.');
     throw new Error(document.documentElement.lang === 'nl'
-      ? 'MenuPilot is opnieuw gestart. Open het opnieuw met npm run menupilot -- open-url.'
-      : 'MenuPilot was restarted. Open it again with npm run menupilot -- open-url.');
+      ? 'Je sessie is afgelopen (bijvoorbeeld doordat MenuPilot opnieuw is gestart of je aanmelding is verlopen). Open het nieuwe adres in het terminalvenster waarin npm start actief is, of voer npm run menupilot -- open-url uit. Receptconcepten blijven bewaard; niet-opgeslagen invoer in ingrediënten- en leveranciersprijsvensters kan niet worden hersteld.'
+      : 'Your session ended (for example, MenuPilot restarted or sign-in expired). Open the new address in the terminal window running npm start, or run npm run menupilot -- open-url. Recipe drafts are kept; unsaved ingredient and supplier-price form entries cannot be restored.');
   }
 }
 export type ConnectionState = 'offline' | 'session-expired' | null;

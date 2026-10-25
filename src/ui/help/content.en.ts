@@ -209,6 +209,7 @@ export const contentEn: HelpDocument = {
       title: 'First start: the demo cafe',
       blocks: [
         { kind: 'p', text: ['When you open MenuPilot for the first time, it already contains a made-up burger cafe: 12 ingredients, 5 dishes and 2 preps. Use it to learn. When you have practised, you can empty the program and enter your own data (', secLink('data'), ').'] },
+        { kind: 'note', tone: 'safe', title: 'Local version', text: ['The local version starts empty; its demo notice appears only after demo data is loaded. After a restart, open the new address printed in the terminal window running npm start. If needed, run npm run menupilot -- open-url. Recipe drafts are stored in this browser on this computer for this dataset for up to 7 days, including across tabs. Unsaved ingredient and supplier-price dialog entries are not retained.'] },
         {
           kind: 'note',
           tone: 'safe',
@@ -358,6 +359,12 @@ export const contentEn: HelpDocument = {
         },
         { kind: 'p', text: 'Adding a new price keeps the earlier entries in the history. Deleting the ingredient also deletes its price history. The Dashboard uses the old prices to tell you what a dish cost a month ago.' },
         {
+          kind: 'note',
+          tone: 'important',
+          title: 'Price valid from, and a price of 0',
+          text: ['The field ', b('Price valid from'), ' is the date on the invoice (dates are calendar days in UTC, like everywhere in MenuPilot, so just after midnight in the Netherlands “today” can still be yesterday’s date). It is today unless you change it. You may pick an earlier day, but not before the date of the previous price and not in the future. A price with an earlier date counts on the Dashboard from that day on, so you can enter last week’s invoice today. If you type a price of 0, MenuPilot warns you that recipes will count the product as free, and saves it only after you tick the box. If you do not know the price, leave it empty: recipes then show “cost unknown”.'],
+        },
+        {
           kind: 'steps',
           title: 'Rename an ingredient',
           steps: [
@@ -369,7 +376,7 @@ export const contentEn: HelpDocument = {
           kind: 'steps',
           title: 'Delete an ingredient (example: remove the Olive oil you added)',
           steps: [
-            { text: ['In the row of Olive oil click ', b('Delete'), '.'], result: ['A window “Delete Olive oil?” opens. It says that this cannot be undone.'], image: img('ingredient-delete', 'The window Delete Olive oil? with the buttons Cancel and Delete ingredient.', 'Cancel keeps the ingredient.') },
+            { text: ['In the row of Olive oil click ', b('Delete'), '.'], result: ['A window “Delete Olive oil?” opens. It says that you can get it back from Previous versions on the Data page.'], image: img('ingredient-delete', 'The window Delete Olive oil? with the buttons Cancel and Delete ingredient.', 'Cancel keeps the ingredient.') },
             { text: ['Click the red button ', b('Delete ingredient'), '. To keep the ingredient, click ', b('Cancel'), ' instead.'], result: 'The ingredient and its price history disappear from the list.' },
           ],
         },
@@ -581,7 +588,8 @@ export const contentEn: HelpDocument = {
           items: [
             { message: '—', meaning: ['No monthly sales number was entered for this dish (the table says “Volume missing”). It is left out of the monthly total. Open the dish. Enter the number of portions in ', b('Monthly volume (optional)'), '. Click ', b('Save changes'), '.'] },
             { message: 'cost unknown', meaning: ['A price is missing for an ingredient of this dish. Add the price on the Ingredients page.'] },
-            { message: 'no price on this date', meaning: ['One of the ingredients had no price yet on the chosen date, because you started entering prices later. Choose a more recent date.'] },
+            { message: 'no price on this date', meaning: ['One of the ingredients had no price yet on the chosen date, because you started entering prices later. Choose a more recent date, or add a past price with the date of the invoice (', b('New price'), ', field ', b('Price valid from'), ').'] },
+            { message: 'No dish has complete ingredient prices on …', meaning: ['The Dashboard shows this note instead of a bare €0.00 when no dish has all of its ingredient prices on the chosen date. There is nothing to compare with, so this is not “no change”. Choose a later date, or add a past price with the date of the invoice.'] },
             { message: 'n/a', meaning: ['The number cannot be calculated, for example a percentage when the menu price is €0.00.'] },
             { message: '(incomplete)', meaning: ['Next to the monthly impact: some dishes with a monthly volume had to be left out, and a line below says why.'] },
             { message: 'No comparable dish became more expensive in this period.', meaning: ['None of the dishes with known prices on both dates became more expensive. Also check whether other dishes show cost unknown or no price on this date. Choose a longer period or an older date to look further back.'] },
@@ -738,7 +746,7 @@ export const contentEn: HelpDocument = {
       id: 'data',
       title: 'Your data and backups',
       blocks: [
-        { kind: 'p', text: 'Your data is saved after you successfully use a save button. MenuPilot does not upload it to a server. It stays in this browser on this computer. Someone with access to this browser may see it. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects you.' },
+        { kind: 'p', text: 'Your data is saved after you successfully use a save button. MenuPilot does not upload it to a server. It stays in this browser on this computer. Recipe drafts are also stored in this browser on this computer for this dataset for up to 7 days. Someone with access to this browser may see them. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects saved data.' },
         { kind: 'image', image: img('data-page', 'The Data page with the cards Export backup, Import backup, Reset to demo data and Start with empty data.', 'Make a backup before replacing or removing data.') },
         {
           kind: 'note',
@@ -766,10 +774,11 @@ export const contentEn: HelpDocument = {
           title: 'Put a backup back (Import backup)',
           steps: [
             { text: ['Click ', b('Data'), ', then in the card ', b('Import backup'), ' click the button ', b('Import backup'), '.'], result: 'A window of your computer opens to choose a file.' },
-            { text: 'Choose your backup file (the name starts with menupilot-backup) and click Open.', result: ['A window “Import this backup?” opens and shows the name of the file. It says that all current data will be replaced.'] },
-            { text: ['To go on, click ', b('Replace with backup'), '. To change your mind, click ', b('Cancel'), '.'], result: ['The message “Backup … was imported. Your data is replaced.” appears. If the file cannot be used, a red message appears in the window and tells why, and nothing is changed.'] },
+            { text: 'Choose your backup file (the name starts with menupilot-backup) and click Open.', result: ['MenuPilot checks the file first. If it is not valid, a clear red message appears on the Data page and no Replace button is shown. For a valid file, a preview window shows the number of dishes, preps, ingredients and scenarios, plus the export date when available.'] },
+            { text: ['Review the preview. To go on, click ', b('Replace with backup'), '. To change your mind, click ', b('Cancel'), '.'], result: 'The message “Backup … was imported. Your data is replaced.” appears.' },
           ],
         },
+        { kind: 'p', text: ['Previous versions show a short list of changed names. Click ', b('Preview version'), ' to review one, then click ', b('Restore this version'), ' only if you want to restore it. Restoring creates a new revision.'] },
         {
           kind: 'steps',
           title: 'Go back to the demo data (Reset to demo data)',

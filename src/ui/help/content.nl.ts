@@ -209,6 +209,7 @@ export const contentNl: HelpDocument = {
       title: 'Eerste keer: het voorbeeldcafé',
       blocks: [
         { kind: 'p', text: ['Als je MenuPilot voor het eerst opent, zit er al een verzonnen burgercafé in: 12 ingrediënten, 5 gerechten en 2 basisrecepten. Leer ermee werken. Heb je geoefend, dan kun je het programma leegmaken en je eigen gegevens invullen (', secLink('data'), ').'] },
+        { kind: 'note', tone: 'safe', title: 'Lokale versie', text: ['De lokale versie begint leeg; de demomelding verschijnt alleen nadat demogegevens zijn geladen. Open na een herstart het nieuwe adres in het terminalvenster waarin npm start actief is. Voer zo nodig npm run menupilot -- open-url uit. Receptconcepten worden maximaal 7 dagen in deze browser op deze computer voor deze dataset bewaard, ook tussen tabbladen. Niet-opgeslagen invoer in ingrediënten- en leveranciersprijsvensters blijft niet bewaard.'] },
         {
           kind: 'note',
           tone: 'safe',
@@ -358,6 +359,12 @@ export const contentNl: HelpDocument = {
         },
         { kind: 'p', text: 'Een nieuwe prijs toevoegen laat de eerdere regels in de geschiedenis staan. Verwijder je het ingrediënt, dan verdwijnt ook de prijsgeschiedenis. Het Overzicht gebruikt de oude prijzen om te zeggen wat een gerecht een maand geleden kostte.' },
         {
+          kind: 'note',
+          tone: 'important',
+          title: 'Prijs geldig vanaf, en een prijs van 0',
+          text: ['Het veld ', b('Prijs geldig vanaf'), ' is de datum van de factuur (datums zijn kalenderdagen in UTC, zoals overal in MenuPilot; vlak na middernacht in Nederland kan “vandaag” dus nog de datum van gisteren zijn). Het is vandaag, tenzij je het wijzigt. Je kunt een eerdere dag kiezen, maar niet vóór de datum van de vorige prijs en niet in de toekomst. Een prijs met een eerdere datum telt op het Overzicht vanaf die dag, dus je kunt vandaag de factuur van vorige week invoeren. Typ je een prijs van 0, dan waarschuwt MenuPilot dat recepten het product als gratis rekenen en wordt de prijs pas opgeslagen nadat je het vakje aanvinkt. Weet je de prijs niet, laat het veld dan leeg: recepten tonen dan “kosten onbekend”.'],
+        },
+        {
           kind: 'steps',
           title: 'Een ingrediënt hernoemen',
           steps: [
@@ -369,7 +376,7 @@ export const contentNl: HelpDocument = {
           kind: 'steps',
           title: 'Een ingrediënt verwijderen (voorbeeld: haal de Olijfolie weg die je toevoegde)',
           steps: [
-            { text: ['Klik in de rij van Olijfolie op ', b('Verwijderen'), '.'], result: ['Een venster “Olijfolie verwijderen?” opent. Er staat dat dit niet ongedaan gemaakt kan worden.'], image: img('ingredient-delete', 'Het venster Olijfolie verwijderen? met de knoppen Annuleren en Ingrediënt verwijderen.', 'Annuleren laat het ingrediënt staan.') },
+            { text: ['Klik in de rij van Olijfolie op ', b('Verwijderen'), '.'], result: ['Een venster “Olijfolie verwijderen?” opent. Er staat dat je het kunt terughalen via Vorige versies op de pagina Gegevens.'], image: img('ingredient-delete', 'Het venster Olijfolie verwijderen? met de knoppen Annuleren en Ingrediënt verwijderen.', 'Annuleren laat het ingrediënt staan.') },
             { text: ['Klik op de rode knop ', b('Ingrediënt verwijderen'), '. Wil je het ingrediënt houden, klik dan op ', b('Annuleren'), '.'], result: 'Het ingrediënt en de prijsgeschiedenis verdwijnen uit de lijst.' },
           ],
         },
@@ -581,7 +588,8 @@ export const contentNl: HelpDocument = {
           items: [
             { message: '—', meaning: ['Voor dit gerecht is geen verkoopaantal per maand ingevuld (de tabel zegt “Aantal ontbreekt”). Het wordt weggelaten uit het maandtotaal. Open het gerecht. Vul het aantal porties in bij ', b('Verkocht per maand (optioneel)'), '. Klik op ', b('Wijzigingen opslaan'), '.'] },
             { message: 'kosten onbekend', meaning: ['Er ontbreekt een prijs voor een ingrediënt van dit gerecht. Voeg de prijs toe op de pagina Ingrediënten.'] },
-            { message: 'geen prijs op deze datum', meaning: ['Een van de ingrediënten had op de gekozen datum nog geen prijs, omdat je later met prijzen invullen begon. Kies een recentere datum.'] },
+            { message: 'geen prijs op deze datum', meaning: ['Een van de ingrediënten had op de gekozen datum nog geen prijs, omdat je later met prijzen invullen begon. Kies een recentere datum, of voeg een eerdere prijs toe met de datum van de factuur (', b('Nieuwe prijs'), ', veld ', b('Prijs geldig vanaf'), ').'] },
+            { message: 'Op … heeft nog geen enkel gerecht volledige ingrediëntprijzen', meaning: ['Het Overzicht toont deze melding in plaats van een kaal € 0,00 als geen enkel gerecht op de gekozen datum alle ingrediëntprijzen heeft. Er is niets om mee te vergelijken, dus dit is niet “geen verandering”. Kies een latere datum, of voeg een eerdere prijs toe met de datum van de factuur.'] },
             { message: 'n.v.t.', meaning: ['Het getal is niet te berekenen, bijvoorbeeld een percentage als de menukaartprijs € 0,00 is.'] },
             { message: '(onvolledig)', meaning: ['Naast het maandeffect: sommige gerechten met een aantal per maand moesten worden weggelaten en een regel eronder zegt waarom.'] },
             { message: 'Geen vergelijkbaar gerecht is in deze periode duurder geworden.', meaning: ['Van de gerechten waarvoor op beide datums prijzen bekend zijn, is geen gerecht duurder geworden. Controleer ook of andere gerechten “kosten onbekend” of “geen prijs op deze datum” tonen. Kies een langere periode of een oudere datum om verder terug te kijken.'] },
@@ -738,7 +746,7 @@ export const contentNl: HelpDocument = {
       id: 'data',
       title: 'Je gegevens en reservekopieën',
       blocks: [
-        { kind: 'p', text: 'Je gegevens worden opgeslagen nadat je met succes een opslaanknop gebruikt. MenuPilot uploadt ze niet naar een server. Ze blijven in deze browser op deze computer. Wie toegang heeft tot deze browser kan ze zien. De keerzijde: worden de browsergegevens gewist, of open je MenuPilot in een andere browser of op een andere computer, dan zijn je gegevens daar niet. Een reservekopie beschermt je.' },
+        { kind: 'p', text: 'Je gegevens worden opgeslagen nadat je met succes een opslaanknop gebruikt. MenuPilot uploadt ze niet naar een server. Ze blijven in deze browser op deze computer. Receptconcepten worden maximaal 7 dagen in deze browser op deze computer voor deze dataset bewaard. Wie toegang heeft tot deze browser kan ze zien. De keerzijde: worden de browsergegevens gewist, of open je MenuPilot in een andere browser of op een andere computer, dan zijn je gegevens daar niet. Een reservekopie beschermt opgeslagen gegevens.' },
         { kind: 'image', image: img('data-page', 'De pagina Gegevens met de kaarten Reservekopie exporteren, Reservekopie importeren, Terugzetten naar voorbeeldgegevens en Begin met lege gegevens.', 'Maak eerst een reservekopie voordat je gegevens vervangt of verwijdert.') },
         {
           kind: 'note',
@@ -766,10 +774,11 @@ export const contentNl: HelpDocument = {
           title: 'Een reservekopie terugzetten (Reservekopie importeren)',
           steps: [
             { text: ['Klik op ', b('Gegevens'), ' en klik dan in de kaart ', b('Reservekopie importeren'), ' op de knop ', b('Reservekopie importeren'), '.'], result: 'Een venster van je computer opent om een bestand te kiezen.' },
-            { text: 'Kies je reservekopiebestand (de naam begint met menupilot-backup) en klik op Openen.', result: ['Een venster “Deze reservekopie importeren?” opent en toont de naam van het bestand. Er staat dat alle huidige gegevens worden vervangen.'] },
-            { text: ['Klik om door te gaan op ', b('Vervangen door reservekopie'), '. Wil je toch niet doorgaan? Klik op ', b('Annuleren'), '.'], result: ['De melding “Reservekopie … is geïmporteerd. Je gegevens zijn vervangen.” verschijnt. Is het bestand onbruikbaar, dan verschijnt in het venster een rode melding die zegt waarom, en er verandert niets.'] },
+            { text: 'Kies je reservekopiebestand (de naam begint met menupilot-backup) en klik op Openen.', result: ['MenuPilot controleert het bestand eerst. Is het niet geldig, dan verschijnt er een duidelijke rode melding op de pagina Gegevens en staat er geen knop Vervangen. Bij een geldig bestand toont een voorbeeldvenster het aantal gerechten, basisrecepten, ingrediënten en scenario’s, plus de exportdatum als die beschikbaar is.'] },
+            { text: ['Bekijk het voorbeeld. Klik om door te gaan op ', b('Vervangen door reservekopie'), '. Wil je toch niet doorgaan? Klik op ', b('Annuleren'), '.'], result: 'De melding “Reservekopie … is geïmporteerd. Je gegevens zijn vervangen.” verschijnt.' },
           ],
         },
+        { kind: 'p', text: ['Vorige versies tonen kort welke namen zijn gewijzigd. Klik op ', b('Versie bekijken'), ' om een versie te bekijken en daarna op ', b('Deze versie herstellen'), ' als je die wilt herstellen. Herstellen maakt een nieuwe revisie.'] },
         {
           kind: 'steps',
           title: 'Terug naar de voorbeeldgegevens (Terugzetten naar voorbeeldgegevens)',

@@ -48,13 +48,13 @@ export function LocalPlans() {
   const [choice, setChoice] = useState<{ plans: readonly PricePlan[]; action: 'apply' | 'reject' } | null>(null);
   const [busy, setBusy] = useState(false), saving = useRef(false);
   const [error, setError] = useState<string | null>(null), [done, setDone] = useState<'applied' | 'rejected' | null>(null);
-  const [hidden, setHidden] = useState<readonly string[]>([]), [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(0);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const heading = useRef<HTMLHeadingElement | null>(null);
   useEffect(() => client?.subscribe(value => { setFailed(value === null); if (value) setPlans(value); }), [client]);
   useEffect(() => { if (done) { const timer = setTimeout(() => setDone(null), 5000); return () => clearTimeout(timer); } }, [done]);
   const pending = plans.filter(p => p.status === 'pending');
-  const recent = plans.filter(p => ['stale', 'expired', 'rejected', 'superseded'].includes(p.status) && !hidden.includes(p.id));
+  const recent = plans.filter(p => ['stale', 'expired', 'superseded', 'rejected'].includes(p.status));
   const start = offset < pending.length ? offset : 0;
   const shown = pending.slice(start, start + pageSize);
   if (!local || !client) return null;
@@ -88,7 +88,14 @@ export function LocalPlans() {
     <h2 ref={heading} tabIndex={-1} id="plans-title" className="text-xl font-semibold">{t(pending.length ? 'plans.title' : 'plans.recent')}</h2>
     <p role="status" className={done ? '' : 'sr-only'}>{done ? t(done === 'applied' ? 'plans.applied' : 'plans.rejected') : t('plans.pendingCount', { count: pending.length })}</p>
     {failed && <p role="alert">{t('plans.loadError')}</p>}
-    {recent.length > 0 && <div className="flex flex-wrap items-center gap-2 text-sm"><span>{t('plans.inactive', { count: recent.length })}</span><Button variant="ghost" onClick={() => { setDone(null); setHidden(current => [...current, ...recent.map(p => p.id)]); }}>{t('plans.hide')}</Button></div>}
+    {recent.length > 0 && <details className="border-t pt-3 text-sm">
+      <summary className="cursor-pointer font-medium">{t('plans.inactiveList', { count: recent.length })}</summary>
+      <ul className="mt-3 space-y-3">{recent.map(plan => <li key={plan.id} className="border-l-2 pl-3">
+        <p className="font-medium">{plan.ingredient.name}</p>
+        <p className="text-muted-foreground">{t(plan.status === 'stale' ? 'plans.reasonStale' : plan.status === 'expired' ? 'plans.reasonExpired' : plan.status === 'rejected' ? 'plans.reasonRejected' : 'plans.reasonSuperseded')}</p>
+      </li>)}</ul>
+      <p className="mt-3 text-muted-foreground">{t('plans.askAgain')}</p>
+    </details>}
     {pending.length >= 2 && <Button variant="outline" onClick={e => choose(e.currentTarget, pending, 'reject')}>{t('plans.rejectAll')}</Button>}
     {shown.map(plan => <article key={plan.id} className="space-y-3 border-t pt-4">
       <h3 className="font-semibold">{plan.ingredient.name}</h3><p className="text-sm text-muted-foreground">{t('plans.source')}</p>

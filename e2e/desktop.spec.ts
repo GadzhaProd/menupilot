@@ -56,7 +56,7 @@ test('a dish uses an ingredient and prep at exact costs, and used prep deletion 
   await page.getByLabel('Batch unit', { exact: true }).selectOption('kg');
   const prepLine = page.getByRole('group', { name: 'Line 1', exact: true });
   await prepLine.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'Beef mince 80/20 · g' });
-  await prepLine.getByLabel(/Net quantity/).fill('100');
+  await prepLine.getByLabel(/Net quantity/).fill('0.1');
   await prepLine.getByLabel('Yield %', { exact: true }).fill('100');
   const prepCost = page.getByRole('region', { name: 'Cost', exact: true });
   const prepValues = prepCost.getByRole('definition');
@@ -74,12 +74,12 @@ test('a dish uses an ingredient and prep at exact costs, and used prep deletion 
   await page.getByLabel('Menu price (incl. VAT)', { exact: true }).fill('12.00');
   const dishLine1 = page.getByRole('group', { name: 'Line 1', exact: true });
   await dishLine1.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'Beef mince 80/20 · g' });
-  await dishLine1.getByLabel(/Net quantity/).fill('50');
+  await dishLine1.getByLabel(/Net quantity/).fill('0.05');
   await dishLine1.getByLabel('Yield %', { exact: true }).fill('100');
   await page.getByRole('button', { name: 'Add line', exact: true }).click();
   const dishLine2 = page.getByRole('group', { name: 'Line 2', exact: true });
   await dishLine2.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'e2e basisrecept · g' });
-  await dishLine2.getByLabel(/Net quantity/).fill('50');
+  await dishLine2.getByLabel(/Net quantity/).fill('0.05');
   await dishLine2.getByLabel('Yield %', { exact: true }).fill('100');
   const dishCost = page.getByRole('region', { name: 'Cost', exact: true });
   await expect(dishCost.getByRole('definition').nth(1)).toHaveText('€0.94');
@@ -217,11 +217,8 @@ test('backup export, demo reset, valid import and invalid files preserve data sa
   await page.getByRole('link', { name: 'Data', exact: true }).click();
   await screen(page, 'Data');
   await page.getByLabel('Backup file', { exact: true }).setInputFiles({ name: 'invalid-schema.json', mimeType: 'application/json', buffer: Buffer.from('{"version":1}') });
-  const invalidImportDialog = page.getByRole('alertdialog');
-  await invalidImportDialog.getByRole('button', { name: 'Replace with backup', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('The data is not valid:');
-  await expect(page.getByRole('alert')).toContainText('Your current data was not changed.');
-  await invalidImportDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('This file does not match the MenuPilot format.');
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
   await page.getByRole('link', { name: 'Recipes', exact: true }).click();
   await screen(page, 'Recipes');
   await expect(page.getByRole('link', { name: 'Backup burger', exact: true })).toBeVisible();
@@ -331,18 +328,20 @@ test('two tabs preserve a price history through a stale rename conflict and retr
   expect(mince.prices.map((entry: { packPriceCents: number }) => entry.packPriceCents)).toEqual([1400, 1700, 1800]);
 });
 
-test('a recipe draft survives Help and another tab update without overwriting it', async ({ page }) => {
+test('a recipe draft survives a concurrent update and shows the save conflict', async ({ page }) => {
   await page.goto('#/recipe/new?kind=dish');
   await screen(page, 'New dish');
   await page.getByLabel('Name', { exact: true }).fill('Saved after conflict');
   await page.getByLabel('Menu price (incl. VAT)', { exact: true }).fill('12.00');
   const line = page.getByRole('group', { name: 'Line 1', exact: true });
   await line.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'Beef mince 80/20 · g' });
-  await line.getByLabel(/Net quantity/).fill('100');
+  await line.getByLabel(/Net quantity/).fill('0.1');
   await line.getByLabel('Yield %', { exact: true }).fill('100');
   await page.getByRole('link', { name: 'Help for this page', exact: true }).click();
   await screen(page, 'MenuPilot: step-by-step guide');
   await expect(page).toHaveURL(/#\/help\/dishes$/);
+  const savedDraftNotice = page.getByRole('status').filter({ hasText: 'Unsaved draft: Saved after conflict' });
+  await expect(savedDraftNotice).toBeVisible();
 
   const second = await page.context().newPage();
   await second.clock.install({ time: new Date('2026-10-20T12:00:00.000Z') });
@@ -354,13 +353,14 @@ test('a recipe draft survives Help and another tab update without overwriting it
   await priceDialog.getByRole('button', { name: 'Save price', exact: true }).click();
 
   await page.bringToFront();
+  const conflictNotice = page.getByRole('status').filter({ hasText: 'Another tab changed the saved data' });
+  await expect(savedDraftNotice).toBeVisible();
   // Navigate inside the app so its in-memory recipe draft cache remains alive.
   await page.getByRole('link', { name: 'Recipes', exact: true }).click();
   await page.getByRole('link', { name: 'New dish', exact: true }).click();
   await screen(page, 'New dish');
+  await expect(savedDraftNotice).toBeVisible();
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Saved after conflict');
-  const conflictNotice = page.getByRole('status').filter({ hasText: 'Another tab changed the saved data' });
-  await expect(conflictNotice).toBeVisible();
   await page.getByRole('button', { name: 'Save dish', exact: true }).click();
   await expect(conflictNotice).toBeVisible();
   await page.getByRole('button', { name: 'Load latest data', exact: true }).click();
@@ -473,8 +473,8 @@ test('version history restores previous data as a new revision and archives the 
   await page.getByRole('link', { name: 'Data', exact: true }).click();
   await page.getByRole('button', { name: 'Preview version', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
-  await expect(dialog).toContainText('Changed entries: 0 ingredients, 1 recipes');
-  await dialog.getByRole('button', { name: 'Restore version', exact: true }).click();
+  await expect(dialog).toContainText('Changed: Second saved burger (recipe)');
+  await dialog.getByRole('button', { name: 'Restore this version', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Preview version', exact: true })).toHaveCount(2);
   expect(await page.evaluate(() => localStorage.getItem('menupilot:revision'))).not.toBe(revision);
   await page.goto('#/recipe/dish_classic_burger');

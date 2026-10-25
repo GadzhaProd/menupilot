@@ -142,8 +142,9 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
       return persist(structuredClone(doc), { checkFuture: true });
     },
 
-    async addIngredient({ id = createId('ing'), name, unit, price }) {
-      const prices = price ? [newPrice([], price, isoNow())] : [];
+    /** `effectiveDate` (YYYY-MM-DD, UTC) is the optional "valid from" day of the initial price. */
+    async addIngredient({ id = createId('ing'), name, unit, price, effectiveDate }) {
+      const prices = price ? [newPrice([], price, isoNow(), effectiveDate)] : [];
       return { id, document: await change((draft) => { draft.ingredients.push({ id, name, unit, prices }); }) };
     },
 
@@ -162,10 +163,13 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
       });
     },
 
-    /** Append a price record; earlier records are never changed. */
-    addPrice(ingredientId, price) {
+    /**
+     * Append a price record; earlier records are never changed. `effectiveDate` (YYYY-MM-DD, UTC)
+     * is the optional "valid from" day: not before the previous price's day, not in the future.
+     */
+    addPrice(ingredientId, price, { effectiveDate } = {}) {
       return change((draft) => {
-        appendPrice(draft, ingredientId, price, isoNow());
+        appendPrice(draft, ingredientId, price, isoNow(), effectiveDate);
       });
     },
 

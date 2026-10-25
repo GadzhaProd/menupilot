@@ -71,36 +71,45 @@ export function parseYieldPercent(text: string): ParseResult<number> {
 /* ---- stored integer to input text ---- */
 
 /** value / scale as text without trailing zeros, using integer arithmetic only. */
-function scaled(value: number, scale: 1_000 | 1_000_000): string {
+function inputLocale(locale?: Locale): Locale {
+  if (locale) return locale;
+  return typeof document !== 'undefined' && document.documentElement.lang === 'nl' ? 'nl' : 'en';
+}
+function decimal(locale?: Locale): string { return inputLocale(locale) === 'nl' ? ',' : '.'; }
+function scaled(value: number, scale: 1_000 | 1_000_000, locale?: Locale): string {
   const remainder = value % scale;
   const whole = (value - remainder) / scale;
   const fraction = String(remainder).padStart(scale === 1_000 ? 3 : 6, '0').replace(/0+$/, '');
-  return fraction === '' ? String(whole) : `${whole}.${fraction}`;
+  return fraction === '' ? String(whole) : `${whole}${decimal(locale)}${fraction}`;
 }
 
 /** Cents to the text of a money field: 1250 becomes "12.50". */
-export function centsToInput(cents: number): string {
+export function centsToInput(cents: number, locale?: Locale): string {
   const remainder = cents % 100;
-  return `${(cents - remainder) / 100}.${String(remainder).padStart(2, '0')}`;
+  return `${(cents - remainder) / 100}${decimal(locale)}${String(remainder).padStart(2, '0')}`;
 }
 
 /** Basis points to the text of a percent field: 10000 becomes "100", 8550 becomes "85.5". */
-export function basisPointsToInput(basisPoints: number): string {
+export function basisPointsToInput(basisPoints: number, locale: Locale = 'en'): string {
   const remainder = basisPoints % 100;
   const whole = (basisPoints - remainder) / 100;
   const fraction = String(remainder).padStart(2, '0').replace(/0+$/, '');
-  return fraction === '' ? String(whole) : `${whole}.${fraction}`;
+  return fraction === '' ? String(whole) : `${whole}${decimal(locale)}${fraction}`;
 }
 
 /**
  * A stored quantity (thousandths of g, ml or pc) as the text and unit a person would type:
  * 1 500 000 g-thousandths is "1.5 kg", 250 000 is "250 g".
  */
-export function quantityToInput(milli: number, base: BaseUnit): { text: string; unit: EnteredUnit } {
-  if (base !== 'pc' && milli >= 1_000_000 && milli % 1_000 === 0) {
-    return { text: scaled(milli, 1_000_000), unit: base === 'g' ? 'kg' : 'l' };
+export function quantityToInput(milli: number, base: BaseUnit, locale?: Locale, preferredUnit?: EnteredUnit): { text: string; unit: EnteredUnit } {
+  if (preferredUnit === 'kg' || preferredUnit === 'l') {
+    return { text: scaled(milli, 1_000_000, locale), unit: preferredUnit };
   }
-  return { text: scaled(milli, 1_000), unit: base };
+  if (preferredUnit) return { text: scaled(milli, 1_000, locale), unit: preferredUnit };
+  if (base !== 'pc' && milli >= 1_000_000 && milli % 1_000 === 0) {
+    return { text: scaled(milli, 1_000_000, locale), unit: base === 'g' ? 'kg' : 'l' };
+  }
+  return { text: scaled(milli, 1_000, locale), unit: base };
 }
 
 /** "250 g", "1.5 kg", "8 pc". */
@@ -116,14 +125,14 @@ export function localizedUnit(unit: EnteredUnit, locale: Locale): string {
 }
 
 export function formatQuantityLocale(milli: number, base: BaseUnit, locale: Locale): string {
-  const value = quantityToInput(milli, base);
-  const [integerPart, fractionPart] = value.text.split('.');
+  const value = quantityToInput(milli, base, locale);
+  const [integerPart, fractionPart] = value.text.split(decimal(locale));
   const number = new Intl.NumberFormat(locale);
   const integer = number.format(BigInt(integerPart ?? value.text));
-  const decimal = fractionPart
+  const decimalPart = fractionPart
     ? `${new Intl.NumberFormat(locale, { minimumFractionDigits: 1 }).formatToParts(1n).find((part) => part.type === 'decimal')?.value ?? '.'}${fractionPart}`
     : '';
-  return `${integer}${decimal} ${localizedUnit(value.unit, locale)}`;
+  return `${integer}${decimalPart} ${localizedUnit(value.unit, locale)}`;
 }
 
 /** Tenths of a percent as text: 285n becomes "28.5%". Works on BigInt, never converts to Number. */

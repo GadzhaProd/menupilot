@@ -10,6 +10,7 @@ import { useLocale } from '@/ui/i18n';
 import { LocaleSelect } from '@/ui/i18n/LocaleSelect';
 import { ThemeSelect } from '@/ui/theme/ThemeSelect';
 import { useTheme } from '@/ui/theme/ThemeProvider';
+import { RecipeDraftNotice } from '@/ui/recipe/RecipeDraftProvider';
 
 const NAV = [
   { key: 'nav.dashboard', route: { name: 'dashboard' }, active: ['dashboard'], utility: false },
@@ -62,15 +63,22 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
           </nav>
           <div className="shell-preferences"><ThemeSelect /><LocaleSelect /></div>
         </div>
-        {local && <div className="mx-auto max-w-7xl px-4 pb-2 text-xs text-muted-foreground break-all" data-testid="local-mode">
-          {locale === 'nl' ? 'Lokale modus · gegevens: ' : 'Local mode · data: '}{local.dataDir}
+        {local && <div className="mx-auto max-w-7xl px-4 pb-2 text-xs text-muted-foreground" data-testid="local-mode">
+          <details>
+            <summary className="cursor-pointer list-none max-sm:truncate max-sm:whitespace-nowrap" title={local.dataDir} aria-label={t('local.pathFull')}>
+              <span className="sm:hidden">{t('local.folderLabel')}{local.dataDir.split(/[\\/]/).filter(Boolean).slice(-2).join('/')}</span>
+              <span className="hidden sm:inline">{t('local.folderLabel')}{local.dataDir}</span>
+            </summary>
+            <p className="max-sm:break-all sm:hidden" role="status">{local.dataDir}</p>
+          </details>
         </div>}
         {local && <LocalBackupStatus />}
       </header>
       <main id="main" ref={mainRef} tabIndex={-1} className="shell-main space-y-6">
+        <RecipeDraftNotice />
         {local?.connection && <p role="status" className="rounded-md border p-3 text-sm">
           {local.connection === 'session-expired'
-            ? (locale === 'nl' ? 'MenuPilot is opnieuw gestart. Kopieer niet-opgeslagen invoer en open MenuPilot opnieuw met npm run menupilot -- open-url.' : 'MenuPilot restarted. Copy any unsaved drafts, then open it again with npm run menupilot -- open-url.')
+            ? t('local.restartNotice')
             : (locale === 'nl' ? 'De lokale server is niet bereikbaar. Houd deze pagina open en start npm start. Je invoer blijft hier bewaard.' : 'The local server is unavailable. Keep this page open and run npm start. Your drafts remain here.')}
         </p>}
         {(themeError || localeError) && <div role="status" className="text-sm text-muted-foreground print:hidden">

@@ -32,6 +32,9 @@ describe('number fields', () => {
     expect(basisPointsToInput(10_000)).toBe('100');
     expect(basisPointsToInput(8550)).toBe('85.5');
     expect(basisPointsToInput(1)).toBe('0.01');
+    expect(centsToInput(320, 'nl')).toBe('3,20');
+    expect(quantityToInput(1_500_000, 'ml', 'nl')).toEqual({ text: '1,5', unit: 'l' });
+    expect(basisPointsToInput(8550, 'nl')).toBe('85,5');
   });
 
   it('shows a quantity in kg or l when that is how it reads best, and always round-trips', () => {
@@ -199,7 +202,7 @@ describe('recipe form', () => {
     };
     const draft = draftFromRecipe(stored, catalog);
     expect(draft).toMatchObject({ menuPrice: '13.08', vatRateBp: '900', portions: '4', monthlyVolume: '300' });
-    expect(draft.lines.map((line) => [line.qty, line.unit, line.yieldPct])).toEqual([['2', 'kg', '85.5'], ['150', 'g', '100']]);
+    expect(draft.lines.map((line) => [line.qty, line.unit, line.yieldPct])).toEqual([['2000', 'g', '85.5'], ['150', 'g', '100']]);
     expect(buildRecipe(draft, 'dish_x', catalog)).toEqual({ ok: true, recipe: stored });
   });
 

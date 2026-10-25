@@ -138,7 +138,8 @@ declare module '@/store/store.js' {
     save(doc: T.MenuDocument): Promise<T.MenuDocument>;
     addIngredient(input: T.IngredientInput): Promise<{ id: string; document: T.MenuDocument }>;
     updateIngredient(id: string, changes: { name?: string; unit?: T.BaseUnit }): Promise<T.MenuDocument>;
-    addPrice(ingredientId: string, price: T.PriceInput): Promise<T.MenuDocument>;
+    /** `effectiveDate` (YYYY-MM-DD, UTC): the day the price is valid from; not before the previous price, not in the future. */
+    addPrice(ingredientId: string, price: T.PriceInput, options?: { effectiveDate?: string }): Promise<T.MenuDocument>;
     deleteIngredient(id: string): Promise<T.MenuDocument>;
     saveRecipe(recipe: T.RecipeInput): Promise<{ id: string; document: T.MenuDocument }>;
     deleteRecipe(id: string, options?: { deleteScenarios?: boolean }): Promise<T.MenuDocument>;
