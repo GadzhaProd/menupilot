@@ -56,6 +56,8 @@ interface DataContextValue {
    */
   execute<R extends CommandOutput>(command: (store: Store) => Promise<R>, options?: ExecuteOptions): Promise<CommandResult<R>>;
   commandStatus: 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
+  demoWelcome: boolean;
+  dismissDemoWelcome(): void;
   /** The saved document as backup JSON. Read-only: it cannot change data. */
   exportBackup(): Promise<CommandResult<string>>;
   dismissError(): void;
@@ -83,6 +85,29 @@ interface Loaded {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : 'Something unexpected went wrong.';
+}
+
+const DEMO_MARKER = 'menupilot.demo-welcome.v1';
+const DEMO_DISMISSED = 'menupilot.demo-dismissed.v1';
+function demoSignature(value: unknown): string {
+  const canonical = (current: unknown): unknown => {
+    if (Array.isArray(current)) return current.map(canonical);
+    if (current && typeof current === 'object') return Object.fromEntries(Object.entries(current)
+      .filter(([key]) => key !== 'recordedAt').sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)]));
+    return current;
+  };
+  return JSON.stringify(canonical(value));
+}
+function isDemoDocument(document: MenuDocument | null, demo: unknown): boolean {
+  try {
+    if (!document) return false;
+    const signature = demoSignature(document);
+    return [demo, demoForLocale('en'), demoForLocale('nl')].some(candidate => signature === demoSignature(candidate));
+  } catch { return false; }
+}
+function readPreference(key: string): string | null { try { return localStorage.getItem(key); } catch { return null; } }
+function writePreference(key: string, value: string | null) {
+  try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* The notice still works for this visit if storage is blocked. */ }
 }
 
 /** Create the store and read saved data. Reading never writes, so repeating it is harmless. */
@@ -189,6 +214,14 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
   const [store, setStore] = useState(loaded.store);
   const [recoveryRaw, setRecoveryRaw] = useState(loaded.raw);
   const [loadCode, setLoadCode] = useState(loaded.loadCode);
+  const [demoWelcome, setDemoWelcome] = useState(() => {
+    if (readPreference(DEMO_DISMISSED) === '1') return false;
+    const matchesDemo = isDemoDocument(loaded.state.document, props.demo);
+    const firstRunDemo = loaded.raw === null && matchesDemo;
+    if (firstRunDemo) writePreference(DEMO_MARKER, '1');
+    return matchesDemo && (firstRunDemo || readPreference(DEMO_MARKER) === '1');
+  });
+  const dismissDemoWelcome = useCallback(() => { writePreference(DEMO_DISMISSED, '1'); setDemoWelcome(false); }, []);
 
 
   const activateEditing = useCallback(async () => {
@@ -265,7 +298,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     recheck.current = changed;
     const focus = () => changed();
     // Recheck after Cancel/close, but not on unrelated text mutations from a notice.
-    const forms = () => [...document.querySelectorAll('form, [role="dialog"], [role="alertdialog"]')];
+    const forms = () => typeof window === 'undefined' ? [] : [...window.document.querySelectorAll('form, [role="dialog"], [role="alertdialog"]')];
     let previous = forms();
     const observer = new MutationObserver(() => {
       const next = forms();
@@ -300,6 +333,13 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
         throw new StoreError('not-loaded', 'Data is not loaded, so nothing can be changed.');
       }
       const value = await command(store);
+      const nextDocument = ('document' in value ? value.document : value) as MenuDocument;
+      if (isDemoDocument(nextDocument, props.demo)) {
+        writePreference(DEMO_MARKER, '1'); writePreference(DEMO_DISMISSED, null);
+        if (readPreference(DEMO_DISMISSED) !== '1') setDemoWelcome(true);
+      } else {
+        writePreference(DEMO_MARKER, null); writePreference(DEMO_DISMISSED, null); setDemoWelcome(false);
+      }
       lastRaw.current = store.browserRecovery?.getRaw() ?? null;
       setSafety(null);
       setHistoryWarning(store.getHistoryWarning());
@@ -310,7 +350,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     } catch (error) {
       const code = error instanceof StoreError ? String(error.code) : 'unexpected';
       const special = ['conflict', 'write-busy', 'write-unavailable', 'migration-backup-required'].includes(code);
-      const message = code === 'conflict' ? t('safety.changed')
+      const message = code === 'session-expired' ? t('local.sessionSaveError') : code === 'conflict' ? t('safety.changed')
         : code === 'write-busy' ? t('safety.busy')
           : code === 'write-unavailable' ? t('safety.unavailable') : code === 'migration-backup-required' ? t('migration.required') : describe(error);
       setCommandStatus(code === 'conflict' ? 'conflict' : 'error');
@@ -325,7 +365,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
         details: error instanceof StoreError ? error.details : [],
       };
     } finally { pending.current = false; }
-  }, [store, t]);
+  }, [store, t, props.demo]);
 
   const exportBackup = useCallback(async (): Promise<CommandResult<string>> => {
     try {
@@ -377,8 +417,8 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
   }, [store]);
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
   const value = useMemo(() => ({ commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest,
-    activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode }),
-  [commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode]);
+    activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, demoWelcome, dismissDemoWelcome }),
+  [commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, demoWelcome, dismissDemoWelcome]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -410,6 +450,8 @@ export function useCommands(): Pick<DataContextValue, 'execute' | 'exportBackup'
   const { execute, exportBackup, dismissError, commandStatus, previewImport } = useData();
   return { execute, exportBackup, dismissError, commandStatus, previewImport };
 }
+
+export function useDemoWelcome() { const { demoWelcome, dismissDemoWelcome } = useData(); return { demoWelcome, dismissDemoWelcome }; }
 
 /** Recovery and cross-tab controls. */
 export function useDataSafety() {

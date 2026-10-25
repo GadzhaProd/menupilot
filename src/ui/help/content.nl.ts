@@ -209,6 +209,7 @@ export const contentNl: HelpDocument = {
       title: 'Eerste keer: het voorbeeldcafé',
       blocks: [
         { kind: 'p', text: ['Als je MenuPilot voor het eerst opent, zit er al een verzonnen burgercafé in: 12 ingrediënten, 5 gerechten en 2 basisrecepten. Leer ermee werken. Heb je geoefend, dan kun je het programma leegmaken en je eigen gegevens invullen (', secLink('data'), ').'] },
+        { kind: 'note', tone: 'safe', title: 'Lokale versie', text: ['De lokale versie begint leeg; de demomelding verschijnt alleen nadat demogegevens zijn geladen. Open na een herstart het nieuwe adres in het terminalvenster waarin npm start actief is. Voer zo nodig npm run menupilot -- open-url uit. Receptconcepten in dit tabblad zijn na opnieuw aanmelden beschikbaar; concepten in ingrediënten- en leveranciersprijsvensters niet.'] },
         {
           kind: 'note',
           tone: 'safe',

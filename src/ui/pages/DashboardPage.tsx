@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HelpLink } from '@/ui/help/HelpLink';
 import type { Translate } from '@/ui/i18n/messages';
 import { hrefFor } from '@/ui/router/routes';
+import { DemoWelcome } from '@/ui/dashboard/DemoWelcome';
 
 function dateDaysAgo(days: number): string {
   const date = new Date();
@@ -73,6 +74,7 @@ export function DashboardPage() {
       <p className="text-muted-foreground">{t('dashboard.intro')}</p>
       <HelpLink section="dashboard" />
     </div>
+    <DemoWelcome />
     <div className="grid border-y border-line bg-surface lg:grid-cols-[0.6fr_1fr]">
       <section aria-labelledby="impact-title" className="space-y-3 p-5 sm:p-8">
         <h2 id="impact-title" className="text-xl font-semibold">{t('dashboard.monthly')}</h2>

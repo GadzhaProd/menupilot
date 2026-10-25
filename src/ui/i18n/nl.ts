@@ -3,6 +3,7 @@ import { safetyNl } from './safety.nl';
 import { part2NL } from './part2.nl';
 import type { TranslationKey } from './en';
 import { part3Nl } from './part3.nl';
+import { localNl } from './local.nl';
 /** Dutch terminology: basisrecept; Huidige situatie; Foodcostpercentage; je/jouw. */
 const baseNl = {
   ...plansNl,
@@ -71,5 +72,5 @@ const baseNl = {
   'count.ingredients.other': '{count} ingrediënten',
   'count.scenarios.one': '{count} scenario',
   'count.scenarios.other': '{count} scenario’s',
-} satisfies Record<Exclude<TranslationKey, keyof typeof part3Nl>, string>;
-export const nl = { ...baseNl, ...part3Nl } satisfies Record<TranslationKey, string>;
+} satisfies Record<Exclude<TranslationKey, keyof typeof part3Nl | keyof typeof localNl>, string>;
+export const nl = { ...baseNl, ...part3Nl, ...localNl } satisfies Record<TranslationKey, string>;

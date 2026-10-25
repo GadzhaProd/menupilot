@@ -209,6 +209,7 @@ export const contentEn: HelpDocument = {
       title: 'First start: the demo cafe',
       blocks: [
         { kind: 'p', text: ['When you open MenuPilot for the first time, it already contains a made-up burger cafe: 12 ingredients, 5 dishes and 2 preps. Use it to learn. When you have practised, you can empty the program and enter your own data (', secLink('data'), ').'] },
+        { kind: 'note', tone: 'safe', title: 'Local version', text: ['The local version starts empty; its demo notice appears only after demo data is loaded. After a restart, open the new address printed in the terminal window running npm start. If needed, run npm run menupilot -- open-url. Recipe drafts in this tab stay available after signing in again; ingredient and supplier-price dialog drafts do not.'] },
         {
           kind: 'note',
           tone: 'safe',
