@@ -131,6 +131,8 @@ export interface IngredientInput {
   name: string;
   unit: BaseUnit;
   price?: PriceInput;
+  /** Day (YYYY-MM-DD, UTC) the initial price is valid from; default: now. */
+  effectiveDate?: string;
 }
 
 /* ---- results of src/calc (BigInt fields: derived, never stored) ---- */
