@@ -28,6 +28,7 @@ export function VersionHistory() {
   const [error, setError] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [summaries, setSummaries] = useState<Record<string, string>>({});
+  const snapshotCache = useRef(new Map<string, MenuDocument>());
   const priorLocale = useRef(locale);
   const [result, setResult] = useState<CommandResult<readonly HistoryEntry[]>>({ ok: true, value: [] });
   useEffect(() => {
@@ -39,18 +40,19 @@ export function VersionHistory() {
       if (!active) return;
       setResult(value);
       if (!value.ok) return;
-      const snapshots = await Promise.all(value.value.map(async entry => {
+      const missing = value.value.filter(entry => !snapshotCache.current.has(entry.id));
+      await Promise.all(missing.map(async entry => {
         const read = await readHistory(entry.id);
-        return read.ok ? read.value : null;
+        if (read.ok) snapshotCache.current.set(entry.id, read.value);
       }));
       const nextSummaries: Record<string, string> = {};
       value.value.forEach((entry, index) => {
-        const older = snapshots[index];
-        const newer = index === 0 ? document : snapshots[index - 1];
+        const older = snapshotCache.current.get(entry.id);
+        const newer = index === 0 ? document : snapshotCache.current.get(value.value[index - 1]!.id);
         if (!older || !newer) { nextSummaries[entry.id] = t('history.noComparison'); return; }
         const changes = describeVersionChanges(older, newer);
-        const labels = { dish: t('history.kind.dish'), prep: t('history.kind.prep'), ingredient: t('history.kind.ingredient'), scenario: t('history.kind.scenario'), settings: t('history.kind.settings') };
-        nextSummaries[entry.id] = summarizeVersionChanges(changes, labels, count => plural('history.more', count)) || t('history.noChanges');
+        const labels = { dish: t('history.kind.dish'), prep: t('history.kind.prep'), ingredient: t('history.kind.ingredient'), newPrice: t('history.kind.newPrice'), scenario: t('history.kind.scenario'), settings: t('history.kind.settings') };
+        nextSummaries[entry.id] = summarizeVersionChanges(changes, labels, count => plural('history.more', count), t('history.settingsName')) || t('history.noChanges');
       });
       if (active) setSummaries(nextSummaries);
     });
@@ -83,8 +85,10 @@ export function VersionHistory() {
         </div>
         <Button type="button" variant="outline" onClick={async event => {
           const trigger = event.currentTarget;
+          const cached = snapshotCache.current.get(entry.id);
+          if (cached) { setError(null); dialog.open({ entry, document: cached }, { currentTarget: trigger }); return; }
           const snapshot = await readHistory(entry.id);
-          if (snapshot.ok) { setError(null); dialog.open({ entry, document: snapshot.value }, { currentTarget: trigger }); }
+          if (snapshot.ok) { snapshotCache.current.set(entry.id, snapshot.value); setError(null); dialog.open({ entry, document: snapshot.value }, { currentTarget: trigger }); }
           else setError(snapshot.error);
         }}>{t('history.preview')}</Button>
       </li>)}
@@ -96,8 +100,8 @@ export function VersionHistory() {
         {document ? <>
           <p>{t('history.current')}: {counts(document)}</p>
           <p>{t('history.changed', { changes: summarizeVersionChanges(describeVersionChanges(dialog.state.document, document), {
-            dish: t('history.kind.dish'), prep: t('history.kind.prep'), ingredient: t('history.kind.ingredient'), scenario: t('history.kind.scenario'), settings: t('history.kind.settings'),
-          }, count => plural('history.more', count)) || t('history.noChanges') })}</p>
+            dish: t('history.kind.dish'), prep: t('history.kind.prep'), ingredient: t('history.kind.ingredient'), newPrice: t('history.kind.newPrice'), scenario: t('history.kind.scenario'), settings: t('history.kind.settings'),
+          }, count => plural('history.more', count), t('history.settingsName')) || t('history.noChanges') })}</p>
         </> : <p>{t('history.noCurrent')}</p>}
         {error && <p role="alert">{error}</p>}
         <DialogFooter><DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('data.cancel')}</Button></DialogClose><CommandButton type="button" onClick={restore}>{t('history.restore')}</CommandButton></DialogFooter>

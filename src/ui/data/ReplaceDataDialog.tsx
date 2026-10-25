@@ -19,7 +19,7 @@ interface ReplaceDataDialogProps {
   onClose: () => void;
   onCloseAutoFocus: (event: Event) => void;
   /** Returns why the data could not be replaced, or null when it was. */
-  onConfirm: () => Promise<string | null>;
+  onConfirm: () => Promise<{ message: string; details?: readonly string[] } | null>;
 }
 
 /** Confirm before all current data is replaced (import or reset). Cancel changes nothing. */
@@ -27,8 +27,9 @@ export function ReplaceDataDialog({
   title, description, preview, confirmLabel, unsavedScenarios, onClose, onCloseAutoFocus, onConfirm,
 }: ReplaceDataDialogProps) {
   const { commandStatus } = useCommands();
-  const { t, plural } = useLocale();
-  const [error, setError] = useState<string | null>(null);
+  const { t, plural, locale } = useLocale();
+  const [error, setError] = useState<{ message: string; details?: readonly string[] } | null>(null);
+  const [errorLocale, setErrorLocale] = useState(locale);
   return (
     <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent role="alertdialog" onCloseAutoFocus={onCloseAutoFocus}>
@@ -40,12 +41,18 @@ export function ReplaceDataDialog({
         {unsavedScenarios > 0 ? (
           <InlineStatus>{plural('data.unsavedScenarios', unsavedScenarios)}</InlineStatus>
         ) : null}
-        {error !== null ? (
-          <InlineStatus tone="error">{error}</InlineStatus>
+        {error !== null && errorLocale === locale ? (
+          <InlineStatus tone="error">
+            <p>{error.message}</p>
+            {error.details?.length ? <details className="mt-2 text-xs">
+              <summary className="cursor-pointer">{t('data.importError.details')}</summary>
+              <pre className="mt-1 whitespace-pre-wrap break-words">{error.details.join('\n')}</pre>
+            </details> : null}
+          </InlineStatus>
         ) : null}
         <DialogFooter>
           <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('data.cancel')}</Button></DialogClose>
-          <CommandButton type="button" variant="destructive" onClick={async () => setError((await onConfirm()))}>{confirmLabel}</CommandButton>
+          <CommandButton type="button" variant="destructive" onClick={async () => { setErrorLocale(locale); setError(await onConfirm()); }}>{confirmLabel}</CommandButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

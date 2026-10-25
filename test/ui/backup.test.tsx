@@ -76,7 +76,7 @@ describe('Data page', () => {
     await userEvent.upload(screen.getByLabelText('Reservekopiebestand'), jsonFile(JSON.stringify({ version: 1 })));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Dit bestand past niet bij het MenuPilot-formaat');
-    expect(alert.textContent).not.toContain('settings');
+    expect(within(alert).getByText('Details').closest('details')?.open).toBe(false);
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(savedDocument(storage).ingredients).toHaveLength(1);
   });
@@ -207,6 +207,7 @@ describe('Data page', () => {
     const confirmation = await dialog();
     expect(within(confirmation).getByRole('heading', { name: 'Start with empty data?' })).toBeTruthy();
     expect(confirmation.textContent).toMatch(/Export a backup first/);
+    expect(confirmation.textContent).toMatch(/restore a previous version/i);
     await userEvent.click(within(confirmation).getByRole('button', { name: 'Start with empty data' }));
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());

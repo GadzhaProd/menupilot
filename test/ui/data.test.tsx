@@ -129,15 +129,23 @@ it('validates an import before showing replacement and displays its contents', a
   await go('#/data');
   const input = screen.getByLabelText('Backup file') as HTMLInputElement;
   await userEvent.upload(input, new File(['{bad'], 'broken.json', { type: 'application/json' }));
-  expect((await screen.findByRole('alert')).textContent).toMatch(/not valid JSON/i);
+  const error = await screen.findByRole('alert');
+  expect(error.textContent).toMatch(/not valid JSON/i);
+  expect(within(error).getByText('Details')).toBeTruthy();
   expect(screen.queryByRole('alertdialog')).toBeNull();
   await userEvent.upload(input, new File([JSON.stringify(demo)], 'menu.json', { type: 'application/json' }));
   const dialog = await screen.findByRole('alertdialog');
   expect(dialog.textContent).toContain('5 dishes');
   expect(dialog.textContent).toContain('Contents: 5 dishes');
   expect(dialog.textContent).toContain('2 preps');
-  expect(dialog.textContent).toContain('Export date not included');
+  expect(dialog.textContent).not.toContain('Export date');
   expect((within(dialog).getByRole('button', { name: 'Replace with backup' }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it('explains that cleared data can be restored from previous versions', async () => {
+  await renderApp(memoryStorage()); await go('#/data');
+  await userEvent.click(screen.getByRole('button', { name: 'Start with empty data' }));
+  expect((await screen.findByRole('alertdialog')).textContent).toMatch(/previous versions/i);
 });
 
 it('clears an import error when the interface language changes', async () => {

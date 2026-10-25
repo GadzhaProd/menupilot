@@ -22,7 +22,7 @@ import { localizedImportError } from '@/ui/data/importErrors';
 /** Same limit as the store: a backup is about the size of the whole browser storage quota. */
 const MAX_FILE_BYTES = 5_000_000;
 
-type Pending = { kind: 'import'; fileName: string; text: string; preview: MenuDocument; exportedAt: string | null } | { kind: 'reset' } | { kind: 'empty' };
+type Pending = { kind: 'import'; fileName: string; text: string; preview: MenuDocument } | { kind: 'reset' } | { kind: 'empty' };
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
@@ -37,7 +37,7 @@ function dialogText(pending: Pending, t: ReturnType<typeof useLocale>['t']) {
   if (pending.kind === 'empty') {
     return {
       title: t('data.confirmEmpty'),
-      description: t('data.confirmEmptyDescription'),
+      description: t('data.emptyHistoryDescription'),
       confirmLabel: t('data.confirmEmptyAction'),
     };
   }
@@ -56,7 +56,7 @@ export function DataPage() {
   const dialog = useDialogState<Pending>();
   const fileInput = useRef<HTMLInputElement>(null);
   const openImport = useRef<HTMLButtonElement>(null);
-  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; details?: readonly string[] } | null>(null);
   const priorLocale = useRef(locale);
   useEffect(() => {
     if (priorLocale.current !== locale) { priorLocale.current = locale; setNotice(null); }
@@ -108,19 +108,14 @@ export function DataPage() {
     }
     const result = await previewImport(text);
     if (!result.ok) {
-      setNotice({ tone: 'error', text: localizedImportError(t, result.code, result.details, text) });
+      setNotice({ tone: 'error', text: localizedImportError(t, result.code, result.details, result.structuredDetails), details: result.details.length ? result.details : [result.error] });
       return;
     }
-    let exportedAt: string | null = null;
-    try {
-      const value = JSON.parse(text), candidate = value.exportedAt ?? value.document?.exportedAt;
-      if (typeof candidate === 'string' && Number.isFinite(Date.parse(candidate))) exportedAt = candidate;
-    } catch { /* previewImport already validated the JSON */ }
     setNotice(null);
-    dialog.open({ kind: 'import', fileName: file.name, text, preview: result.value, exportedAt }, { currentTarget: openImport.current ?? input });
+    dialog.open({ kind: 'import', fileName: file.name, text, preview: result.value }, { currentTarget: openImport.current ?? input });
   }
 
-  async function confirm(): Promise<string | null> {
+  async function confirm(): Promise<{ message: string; details?: readonly string[] } | null> {
     const pending = dialog.state;
     if (pending === null) return null;
     const result = pending.kind === 'import'
@@ -128,9 +123,14 @@ export function DataPage() {
       : pending.kind === 'empty'
         ? (await execute((store) => store.resetToEmpty(), { report: false }))
         : (await execute((store) => store.resetToDemo(demoForLocale(locale)), { report: false }));
-    if (!result.ok) return isSafetyError(result.code) ? null : pending.kind === 'import'
-      ? localizedImportError(t, result.code, result.details, pending.text)
-      : commandError(result.code, result.error, result.details);
+    if (!result.ok) {
+      if (isSafetyError(result.code)) return null;
+      if (pending.kind === 'import') return {
+        message: localizedImportError(t, result.code, result.details, result.structuredDetails),
+        details: result.details.length ? result.details : [result.error],
+      };
+      return { message: commandError(result.code, result.error, result.details) };
+    }
     sessions.clear(); recipes.clearAll();
     dialog.close();
     setNotice({ tone: 'ok', text: pending.kind === 'import'
@@ -155,7 +155,13 @@ export function DataPage() {
       </div>
 
       {notice !== null ? (
-        <InlineStatus tone={notice.tone === 'error' ? 'error' : 'success'}>{notice.text}</InlineStatus>
+        <InlineStatus tone={notice.tone === 'error' ? 'error' : 'success'}>
+          <p>{notice.text}</p>
+          {notice.tone === 'error' && notice.details?.length ? <details className="mt-2 text-xs">
+            <summary className="cursor-pointer">{t('data.importError.details')}</summary>
+            <pre className="mt-1 whitespace-pre-wrap break-words">{notice.details.join('\n')}</pre>
+          </details> : null}
+        </InlineStatus>
       ) : null}
 
       <Surface aria-labelledby="export-title" className="space-y-4"><div className="space-y-1"><h2 id="export-title" className="text-xl font-semibold">{t('data.exportTitle')}</h2><p className="text-muted-foreground">{t('data.exportDescription')}</p></div><Button type="button" onClick={downloadBackup}><DownloadIcon aria-hidden="true" /> {t('data.export')}</Button></Surface>
@@ -186,11 +192,9 @@ export function DataPage() {
 
       {dialog.state !== null ? (
         <ReplaceDataDialog
-          key={locale}
           {...dialogText(dialog.state, t)}
           preview={dialog.state.kind === 'import' ? <div className="space-y-2 text-sm">
             <p>{t('data.previewContent')}: {plural('count.dishes', dialog.state.preview.recipes.filter(r => r.kind === 'dish').length)} · {plural('count.preps', dialog.state.preview.recipes.filter(r => r.kind === 'prep').length)} · {plural('count.ingredients', dialog.state.preview.ingredients.length)} · {plural('count.scenarios', dialog.state.preview.scenarios.length)}</p>
-            <p>{dialog.state.exportedAt ? t('data.exportDate', { date: new Date(dialog.state.exportedAt).toLocaleString(locale === 'nl' ? 'nl-NL' : 'en-GB') }) : t('data.noExportDate')}</p>
             <p>{t('data.importWarning')}</p>
           </div> : undefined}
           unsavedScenarios={unsaved}
