@@ -178,7 +178,11 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
     let checked;
     try { checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } }); }
     catch (error) { if (error.code === 'not-found') throw cliError('not-found', `Backup “${args[2]}” was not found. Run backup list to see available backup IDs.`); throw error; }
-    console.log(`Verified by restoring to a temporary database: ${checked.id}, revision ${checked.revision}.`);
+    if (wantJson) {
+      const version = await api('version');
+      printJson({ apiVersion: 1, command: 'backup verify', documentId: version.documentId, revision: version.revision,
+        data: { id: checked.id, backupRevision: checked.revision, verified: true }, warnings: [] });
+    } else console.log(`Verified by restoring to a temporary database: ${checked.id}, revision ${checked.revision}.`);
   } else {
     const checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } });
     const current = await api('version'); await confirm(`Replace current revision ${current.revision} with the document from backup ${checked.id} (revision ${checked.revision})? A verified copy of the current data will be created first.`, args[3] === '--yes');

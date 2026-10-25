@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { createSqliteStorage } from '../../server/sqlite.js';
+import { manageBackups } from '../../server/backups.js';
 import { StoreError } from '../../src/store/errors.js';
 import { serveLocal } from '../../server/http.js';
 import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
@@ -13,14 +14,15 @@ import { assertQuickCheck, dateFor, isSupportedNode, localDoctor } from '../../s
 import { hasValidOpenResult } from '../../server/cliSecurity.js';
 import { createServer } from 'node:net';
 
-async function fixture(t, document, backupStatus = {}) {
+async function fixture(t, document, backupStatus = {}, { realBackups = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-'));
   const dist = join(dir, 'dist');
   const { mkdirSync } = await import('node:fs'); mkdirSync(dist);
   writeFileSync(join(dist, 'index.html'), '<html><head></head><body></body></html>');
   const token = 'ab'.repeat(32);
-  const storage = createSqliteStorage(join(dir, 'menupilot.db'), { initialDocument: document });
-  storage.backups = { list: () => [], verify: async id => { throw new StoreError('not-found', `Backup ${id} was not found.`); }, status: () => ({ lastBackupAt: null, lastExternalBackupAt: null, externalConfigured: false,
+  const raw = createSqliteStorage(join(dir, 'menupilot.db'), { initialDocument: document });
+  const storage = realBackups ? await manageBackups(raw, dir, { timers: false }) : raw;
+  if (!realBackups) storage.backups = { list: () => [], verify: async id => { throw new StoreError('not-found', `Backup ${id} was not found.`); }, status: () => ({ lastBackupAt: null, lastExternalBackupAt: null, externalConfigured: false,
     dirty: false, overdue: false, externalOverdue: false, backupError: null, externalError: null, clockWarning: false, corruptBackups: 0, corruptExternalBackups: 0, ...backupStatus }) };
   const server = await serveLocal({ storage, dataDir: dir, distDir: dist, port: 0, cliToken: token, instanceId: 'test-instance' });
   writeFileSync(join(dir, 'lock'), JSON.stringify({ address: server.address, instanceId: 'test-instance' }));
@@ -102,15 +104,26 @@ test('administrative commands keep unavailable-server exit code 3', async t => {
   assert.equal(JSON.parse(result.stderr).error.code, 'unavailable');
 });
 
-test('backup list --json returns JSON and unknown backup verify uses not-found exit 4', async t => {
-  const f = await fixture(t, enDemo());
+test('backup list and verify --json return JSON; unknown verify and restore IDs use not-found exit 4', async t => {
+  const f = await fixture(t, enDemo(), {}, { realBackups: true });
   const listed = await invoke(f.dir, 'backup', 'list', '--json');
   assert.equal(listed.status, 0, listed.stderr);
   assert.deepEqual(JSON.parse(listed.stdout).data, []);
+  const invalid = await invoke(f.dir, 'backup', 'verify', 'not-an-id', '--json');
+  assert.equal(invalid.status, 4, invalid.stderr);
+  assert.equal(JSON.parse(invalid.stderr).error.code, 'not-found');
   const missing = await invoke(f.dir, 'backup', 'verify', '1760000000000-11111111-1111-4111-8111-111111111111', '--json');
   assert.equal(missing.status, 4, missing.stderr);
   assert.equal(JSON.parse(missing.stderr).error.code, 'not-found');
   assert.match(JSON.parse(missing.stderr).error.message, /backup/i);
+  const missingRestore = await invoke(f.dir, 'backup', 'restore', 'bad-id', '--yes', '--json');
+  assert.equal(missingRestore.status, 4, missingRestore.stderr);
+  assert.equal(JSON.parse(missingRestore.stderr).error.code, 'not-found');
+  const saved = await f.storage.backups.capture('test');
+  const verified = await invoke(f.dir, 'backup', 'verify', saved.id, '--json');
+  assert.equal(verified.status, 0, verified.stderr);
+  assert.deepEqual(Object.keys(JSON.parse(verified.stdout)), ['apiVersion', 'command', 'documentId', 'revision', 'data', 'warnings']);
+  assert.equal(JSON.parse(verified.stdout).command, 'backup verify');
 });
 
 test('CLI refuses duplicate exact names and returns candidate identities', async t => {
