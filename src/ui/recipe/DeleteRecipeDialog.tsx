@@ -8,7 +8,6 @@ import {
 import { useCommands, useDocument } from '@/ui/data/DataProvider';
 import type { Recipe } from '@/ui/domain/types';
 import { recipesUsing } from '@/ui/forms/recipeForm';
-import { usedByText } from '@/ui/forms/usage';
 import { UsedByList } from '@/ui/ingredients/UsedByList';
 import { useLocale } from '@/ui/i18n';
 import { InlineStatus } from '@/components/ui/inline-status';
@@ -59,7 +58,7 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
         ) : null}
         {error !== null ? (
           <InlineStatus tone="error">{error.code === 'in-use'
-            ? [t('recipe.error.inUse'), users.length > 0 ? t('prices.usedBy', { names: usedByText(users.map((user) => user.name), t) }) : ''].filter(Boolean).join(' ')
+            ? t('recipe.error.inUse')
             : locale === 'en' ? error.message : t('error.generic')}</InlineStatus>
         ) : null}
         {users.length > 0 ? (

@@ -1,6 +1,6 @@
 export const dataNl = {
   'history.previewTitle': 'Vorige versie bekijken',
-  'history.previewDescription': 'Bekijk deze opgeslagen versie voordat je die herstelt. Herstellen maakt een nieuwe revisie.',
+  'history.previewDescription': 'Bekijk deze opgeslagen versie voordat je die herstelt.',
   'history.restore': 'Deze versie herstellen',
   'history.changed': 'Gewijzigd: {changes}',
   'history.noChanges': 'Geen benoemde items gewijzigd.',

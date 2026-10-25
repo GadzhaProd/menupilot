@@ -376,7 +376,7 @@ export const contentEn: HelpDocument = {
           kind: 'steps',
           title: 'Delete an ingredient (example: remove the Olive oil you added)',
           steps: [
-            { text: ['In the row of Olive oil click ', b('Delete'), '.'], result: ['A window “Delete Olive oil?” opens. It says that this cannot be undone.'], image: img('ingredient-delete', 'The window Delete Olive oil? with the buttons Cancel and Delete ingredient.', 'Cancel keeps the ingredient.') },
+            { text: ['In the row of Olive oil click ', b('Delete'), '.'], result: ['A window “Delete Olive oil?” opens. It says that you can get it back from Previous versions on the Data page.'], image: img('ingredient-delete', 'The window Delete Olive oil? with the buttons Cancel and Delete ingredient.', 'Cancel keeps the ingredient.') },
             { text: ['Click the red button ', b('Delete ingredient'), '. To keep the ingredient, click ', b('Cancel'), ' instead.'], result: 'The ingredient and its price history disappear from the list.' },
           ],
         },
@@ -589,7 +589,7 @@ export const contentEn: HelpDocument = {
             { message: '—', meaning: ['No monthly sales number was entered for this dish (the table says “Volume missing”). It is left out of the monthly total. Open the dish. Enter the number of portions in ', b('Monthly volume (optional)'), '. Click ', b('Save changes'), '.'] },
             { message: 'cost unknown', meaning: ['A price is missing for an ingredient of this dish. Add the price on the Ingredients page.'] },
             { message: 'no price on this date', meaning: ['One of the ingredients had no price yet on the chosen date, because you started entering prices later. Choose a more recent date, or add a past price with the date of the invoice (', b('New price'), ', field ', b('Price valid from'), ').'] },
-            { message: 'No ingredient prices existed on …', meaning: ['The Dashboard shows this note instead of a bare €0.00 when no dish has a price on the chosen date. There is nothing to compare with, so this is not “no change”. Choose a later date, or add a past price with the date of the invoice.'] },
+            { message: 'No dish has complete ingredient prices on …', meaning: ['The Dashboard shows this note instead of a bare €0.00 when no dish has all of its ingredient prices on the chosen date. There is nothing to compare with, so this is not “no change”. Choose a later date, or add a past price with the date of the invoice.'] },
             { message: 'n/a', meaning: ['The number cannot be calculated, for example a percentage when the menu price is €0.00.'] },
             { message: '(incomplete)', meaning: ['Next to the monthly impact: some dishes with a monthly volume had to be left out, and a line below says why.'] },
             { message: 'No comparable dish became more expensive in this period.', meaning: ['None of the dishes with known prices on both dates became more expensive. Also check whether other dishes show cost unknown or no price on this date. Choose a longer period or an older date to look further back.'] },

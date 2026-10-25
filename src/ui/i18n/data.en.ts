@@ -1,6 +1,6 @@
 export const dataEn = {
   'history.previewTitle': 'Preview previous version',
-  'history.previewDescription': 'Review this saved version before restoring it. Restoring creates a new revision.',
+  'history.previewDescription': 'Review this saved version before restoring it.',
   'history.restore': 'Restore this version',
   'history.changed': 'Changed: {changes}',
   'history.noChanges': 'No named entries changed.',

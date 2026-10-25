@@ -2,8 +2,7 @@ import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { lastPriceDay, todayInput, validateNewIngredient, validatePrice } from '@/ui/forms/ingredientForm';
-import { summarizeUsers, usedByText } from '@/ui/forms/usage';
-import { createTranslator } from '@/ui/i18n/messages';
+import { summarizeUsers } from '@/ui/forms/usage';
 import {
   go, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
@@ -43,11 +42,8 @@ describe('price form rules', () => {
   });
 
   it('lists at most 3 users, then "and N more"', () => {
-    const t = createTranslator('en');
     expect(summarizeUsers(['a', 'b', 'c', 'd', 'e'])).toEqual({ shown: ['a', 'b', 'c'], more: 2 });
-    expect(usedByText(['A', 'B'], t)).toBe('A, B');
-    expect(usedByText(['A', 'B', 'C', 'D', 'E'], t)).toBe('A, B, C and 2 more');
-    expect(usedByText(['A', 'B', 'C', 'D', 'E'], createTranslator('nl'))).toBe('A, B, C en nog 2');
+    expect(summarizeUsers(['a', 'b'])).toEqual({ shown: ['a', 'b'], more: 0 });
   });
 });
 
@@ -182,7 +178,8 @@ describe('where it is used', () => {
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText(/cannot be deleted yet/)).toBeTruthy(); // warned before clicking
     await u.click(within(dialog).getByRole('button', { name: 'Delete ingredient' }));
-    expect(within(dialog).getByRole('alert').textContent).toContain('This ingredient is still used by recipes and cannot be deleted. Used by: Alpha, Bravo, Charlie and 2 more.');
+    expect(within(dialog).getByRole('alert').textContent).toBe('This ingredient is still used by recipes and cannot be deleted.');
+    expect(within(dialog).getByText(/and 2 more/)).toBeTruthy();
     expect(within(dialog).getAllByRole('link').map((link) => link.textContent)).toEqual(['Alpha', 'Bravo', 'Charlie']);
     expect(savedDocument(storage).ingredients.some((entry) => entry.id === 'ing_tomato')).toBe(true);
   });
@@ -204,7 +201,7 @@ describe('where it is used', () => {
     expect(within(dialog).getByText(/used by other recipes, so it cannot be deleted yet/)).toBeTruthy();
     expect(within(dialog).getAllByRole('link').map((link) => link.textContent)).toEqual(['Pasta', 'Pizza']);
     await u.click(within(dialog).getByRole('button', { name: 'Delete prep' }));
-    expect(within(dialog).getByRole('alert').textContent).toContain('This prep is still used by other recipes and cannot be deleted. Used by: Pasta, Pizza.');
+    expect(within(dialog).getByRole('alert').textContent).toBe('This prep is still used by other recipes and cannot be deleted.');
   });
 });
 
@@ -213,7 +210,7 @@ describe('Dashboard without prices on the comparison date', () => {
     const u = user();
     await renderApp();
     fireEvent.change(screen.getByLabelText('Choose date'), { target: { value: '2026-01-01' } });
-    const note = screen.getByText('No ingredient prices existed on 1 Jan 2026', { selector: 'p.font-semibold' }).closest('[role="status"]') as HTMLElement;
+    const note = screen.getByText('No dish has complete ingredient prices on 1 Jan 2026', { selector: 'p.font-semibold' }).closest('[role="status"]') as HTMLElement;
     expect(note.textContent).toMatch(/This is not “no change”/);
     expect(note.textContent).toMatch(/Choose a later date, or add a past price with the date on the invoice/);
     const impact = screen.getByRole('heading', { name: 'Monthly impact at your volume' }).closest('section') as HTMLElement;
@@ -224,12 +221,12 @@ describe('Dashboard without prices on the comparison date', () => {
     const total = screen.getByText('Menu monthly impact (dishes with a volume estimate)');
     expect(total.parentElement?.textContent).toContain('—');
     expect(total.parentElement?.textContent).not.toContain('€0.00');
-    expect(screen.getByRole('heading', { name: /Largest/ }).closest('section')?.textContent).toContain('No ingredient prices existed on 1 Jan 2026');
+    expect(screen.getByRole('heading', { name: /Largest/ }).closest('section')?.textContent).toContain('No dish has complete ingredient prices on 1 Jan 2026');
 
     await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
-    expect(screen.getByText('Op 1 jan 2026 bestonden er nog geen ingrediëntprijzen', { selector: 'p.font-semibold' })).toBeTruthy();
+    expect(screen.getByText('Op 1 jan 2026 heeft nog geen enkel gerecht volledige ingrediëntprijzen', { selector: 'p.font-semibold' })).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('Kies een datum'), { target: { value: '2026-10-11' } });
-    expect(screen.queryByText(/bestonden er nog geen ingrediëntprijzen/)).toBeNull();
+    expect(screen.queryByText(/heeft nog geen enkel gerecht volledige ingrediëntprijzen/)).toBeNull();
   });
 });

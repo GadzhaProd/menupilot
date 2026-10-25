@@ -19,7 +19,6 @@ import {
 import { formatQuantityLocale, quantityToInput, type EnteredUnit } from '@/ui/forms/numbers';
 import { recipesUsing } from '@/ui/forms/recipeForm';
 import { useFocusFirstInvalid } from '@/ui/hooks/useFocusFirstInvalid';
-import { usedByText } from '@/ui/forms/usage';
 import { PriceFields, useValidationCopy } from './PriceFields';
 import { UsedByList } from './UsedByList';
 import { useLocale, useFormatters } from '@/ui/i18n';
@@ -31,12 +30,12 @@ interface DialogProps {
 
 type StoreFailure = { code: string; error: string; details: readonly string[] };
 
-function SaveError({ failure, usedBy = [] }: { failure: StoreFailure | null; usedBy?: readonly string[] }) {
+function SaveError({ failure }: { failure: StoreFailure | null }) {
   const { t } = useLocale();
   if (failure === null || isSafetyError(failure.code)) return null;
   const writeReason = /\((.+?)\)\. Your previous data is unchanged\./.exec(failure.error)?.[1] ?? '';
   const message = failure.code === 'in-use'
-    ? [t('ingredients.error.inUse'), usedBy.length > 0 ? t('prices.usedBy', { names: usedByText(usedBy, t) }) : ''].filter(Boolean).join(' ')
+    ? t('ingredients.error.inUse')
     : failure.code === 'quota' ? t('ingredients.error.quota')
       : failure.code === 'write-failed' ? t('ingredients.error.writeFailure', { reason: writeReason })
         : t('error.generic');
@@ -278,7 +277,7 @@ export function DeleteIngredientDialog({ ingredient, onClose, onCloseAutoFocus }
           <DialogTitle>{t('ingredients.deleteTitle', { name: ingredient.name })}</DialogTitle>
           <DialogDescription>{t('ingredients.deleteDescription')}</DialogDescription>
         </DialogHeader>
-        <SaveError failure={saveError} usedBy={users.map((recipe) => recipe.name)} />
+        <SaveError failure={saveError} />
         {users.length > 0 ? (
           <div className="text-sm">
             <p>{t('prices.ingredientInUseNow')}</p>

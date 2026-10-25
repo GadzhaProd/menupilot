@@ -379,7 +379,7 @@ export const contentRu: HelpDocument = {
           kind: 'steps',
           title: 'Удалить ингредиент (пример: убрать добавленное Olive oil)',
           steps: [
-            { text: ['В строке Olive oil нажмите ', b('Delete'), ' (Удалить).'], result: ['Откроется окно «Delete Olive oil?». В нём сказано, что отменить это нельзя.'], image: img('ingredient-delete', 'Окно Delete Olive oil? с кнопками Cancel и Delete ingredient.', 'Cancel оставляет ингредиент.') },
+            { text: ['В строке Olive oil нажмите ', b('Delete'), ' (Удалить).'], result: ['Откроется окно «Delete Olive oil?». В нём сказано, что вернуть ингредиент можно через Previous versions на странице Data.'], image: img('ingredient-delete', 'Окно Delete Olive oil? с кнопками Cancel и Delete ingredient.', 'Cancel оставляет ингредиент.') },
             { text: ['Нажмите красную кнопку ', b('Delete ingredient'), '. Чтобы оставить ингредиент, вместо этого нажмите ', b('Cancel'), '.'], result: 'Ингредиент и история его цен исчезнут из списка.' },
           ],
         },
@@ -592,7 +592,7 @@ export const contentRu: HelpDocument = {
             { message: '—', meaning: ['Для этого блюда не введены продажи в месяц (в таблице написано «Volume missing»). Оно не входит в месячный итог. Откройте блюдо. Введите число порций в ', b('Monthly volume (optional)'), '. Нажмите ', b('Save changes'), '.'] },
             { message: 'cost unknown', meaning: ['Не хватает цены какого-то ингредиента этого блюда. Добавьте цену на странице Ingredients.'] },
             { message: 'no price on this date', meaning: ['У одного из ингредиентов на выбранную дату ещё не было цены, потому что вы начали вносить цены позже. Выберите более позднюю дату или внесите цену задним числом с датой накладной (', b('New price'), ', поле ', b('Price valid from'), ').'] },
-            { message: 'No ingredient prices existed on …', meaning: ['Вместо голого €0.00 Dashboard показывает эту заметку, когда ни у одного блюда на выбранную дату нет цен. Сравнивать не с чем, поэтому это не «изменений нет». Выберите более позднюю дату или внесите цену задним числом с датой накладной.'] },
+            { message: 'No dish has complete ingredient prices on …', meaning: ['Вместо голого €0.00 Dashboard показывает эту заметку, когда ни у одного блюда на выбранную дату нет цен всех продуктов. Сравнивать не с чем, поэтому это не «изменений нет». Выберите более позднюю дату или внесите цену задним числом с датой накладной.'] },
             { message: 'n/a', meaning: ['Число посчитать нельзя, например процент при цене в меню €0.00.'] },
             { message: '(incomplete)', meaning: ['Рядом с влиянием на месяц: часть блюд с продажами в месяц пришлось исключить, а строка ниже объясняет почему.'] },
             { message: 'No comparable dish became more expensive in this period.', meaning: ['Среди блюд с известными ценами на обе даты подорожаний нет. Проверьте также, нет ли у других блюд пометок cost unknown или no price on this date. Выберите более длинный период или более раннюю дату, чтобы заглянуть дальше назад.'] },
