@@ -29,10 +29,14 @@ test('plans panel requires focused confirmation before applying and reports succ
 });
 test('plans panel shows stale/expired advice and does not enable apply', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ plans: [{ ...plan, status: 'stale' }, { ...plan, id: 'p2', status: 'expired' }] }), { status: 200 })));
-  mount(); await screen.findByText('Inactive proposals (outdated, rejected or replaced): 2');
+  mount(); await screen.findByText('Inactive proposals (2)');
   expect(screen.queryByRole('article')).toBeNull();
   expect(screen.getAllByRole('status')).toHaveLength(1);
   expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+  await userEvent.click(screen.getByText('Inactive proposals (2)'));
+  expect(screen.getByText('Data changed after this proposal was made.')).toBeTruthy();
+  expect(screen.getByText('This proposal expired after 24 hours.')).toBeTruthy();
+  expect(screen.getByText('Ask the agent to propose again.')).toBeTruthy();
 });
 
 test('plans rejection has its own confirmation and stale apply failure stays visible', async () => {
@@ -70,7 +74,7 @@ test('plans keep unknown amounts and null total distinct from zero in EN and NL'
   }
 });
 
-test('plans bound cards, paginate, hide inactive summary and confirm reject all', async () => {
+test('plans bound cards, paginate, show inactive reasons and confirm reject all', async () => {
   const user = userEvent.setup(), calls: string[] = [];
   const plans = Array.from({ length: 5 }, (_, i) => ({ ...plan, id: 'p' + i, ingredient: { ...plan.ingredient, name: 'Flour ' + i } }));
   vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
@@ -81,8 +85,8 @@ test('plans bound cards, paginate, hide inactive summary and confirm reject all'
   expect(screen.getAllByRole('article')).toHaveLength(3);
   await user.click(screen.getByRole('button', { name: '2 more' }));
   expect(screen.getAllByRole('article')).toHaveLength(2);
-  await user.click(screen.getByRole('button', { name: 'Hide' }));
-  expect(screen.queryByText(/Inactive proposals/)).toBeNull();
+  await user.click(screen.getByText('Inactive proposals (1)'));
+  expect(screen.getByText('This proposal expired after 24 hours.')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Reject all' }));
   expect(calls).toEqual([]); expect(screen.getByRole('alertdialog').textContent).toContain('5 proposals');
   await user.click(screen.getByRole('button', { name: 'Confirm rejection' }));
