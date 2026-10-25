@@ -209,7 +209,7 @@ export const contentNl: HelpDocument = {
       title: 'Eerste keer: het voorbeeldcafé',
       blocks: [
         { kind: 'p', text: ['Als je MenuPilot voor het eerst opent, zit er al een verzonnen burgercafé in: 12 ingrediënten, 5 gerechten en 2 basisrecepten. Leer ermee werken. Heb je geoefend, dan kun je het programma leegmaken en je eigen gegevens invullen (', secLink('data'), ').'] },
-        { kind: 'note', tone: 'safe', title: 'Lokale versie', text: ['De lokale versie begint leeg; de demomelding verschijnt alleen nadat demogegevens zijn geladen. Open na een herstart het nieuwe adres in het terminalvenster waarin npm start actief is. Voer zo nodig npm run menupilot -- open-url uit. Receptconcepten in dit tabblad zijn na opnieuw aanmelden beschikbaar; concepten in ingrediënten- en leveranciersprijsvensters niet.'] },
+        { kind: 'note', tone: 'safe', title: 'Lokale versie', text: ['De lokale versie begint leeg; de demomelding verschijnt alleen nadat demogegevens zijn geladen. Open na een herstart het nieuwe adres in het terminalvenster waarin npm start actief is. Voer zo nodig npm run menupilot -- open-url uit. Receptconcepten worden maximaal 7 dagen in deze browser op deze computer voor deze dataset bewaard, ook tussen tabbladen. Niet-opgeslagen invoer in ingrediënten- en leveranciersprijsvensters blijft niet bewaard.'] },
         {
           kind: 'note',
           tone: 'safe',
@@ -739,7 +739,7 @@ export const contentNl: HelpDocument = {
       id: 'data',
       title: 'Je gegevens en reservekopieën',
       blocks: [
-        { kind: 'p', text: 'Je gegevens worden opgeslagen nadat je met succes een opslaanknop gebruikt. MenuPilot uploadt ze niet naar een server. Ze blijven in deze browser op deze computer. Wie toegang heeft tot deze browser kan ze zien. De keerzijde: worden de browsergegevens gewist, of open je MenuPilot in een andere browser of op een andere computer, dan zijn je gegevens daar niet. Een reservekopie beschermt je.' },
+        { kind: 'p', text: 'Je gegevens worden opgeslagen nadat je met succes een opslaanknop gebruikt. MenuPilot uploadt ze niet naar een server. Ze blijven in deze browser op deze computer. Receptconcepten worden maximaal 7 dagen in deze browser op deze computer voor deze dataset bewaard. Wie toegang heeft tot deze browser kan ze zien. De keerzijde: worden de browsergegevens gewist, of open je MenuPilot in een andere browser of op een andere computer, dan zijn je gegevens daar niet. Een reservekopie beschermt opgeslagen gegevens.' },
         { kind: 'image', image: img('data-page', 'De pagina Gegevens met de kaarten Reservekopie exporteren, Reservekopie importeren, Terugzetten naar voorbeeldgegevens en Begin met lege gegevens.', 'Maak eerst een reservekopie voordat je gegevens vervangt of verwijdert.') },
         {
           kind: 'note',

@@ -209,7 +209,7 @@ export const contentEn: HelpDocument = {
       title: 'First start: the demo cafe',
       blocks: [
         { kind: 'p', text: ['When you open MenuPilot for the first time, it already contains a made-up burger cafe: 12 ingredients, 5 dishes and 2 preps. Use it to learn. When you have practised, you can empty the program and enter your own data (', secLink('data'), ').'] },
-        { kind: 'note', tone: 'safe', title: 'Local version', text: ['The local version starts empty; its demo notice appears only after demo data is loaded. After a restart, open the new address printed in the terminal window running npm start. If needed, run npm run menupilot -- open-url. Recipe drafts in this tab stay available after signing in again; ingredient and supplier-price dialog drafts do not.'] },
+        { kind: 'note', tone: 'safe', title: 'Local version', text: ['The local version starts empty; its demo notice appears only after demo data is loaded. After a restart, open the new address printed in the terminal window running npm start. If needed, run npm run menupilot -- open-url. Recipe drafts are stored in this browser on this computer for this dataset for up to 7 days, including across tabs. Unsaved ingredient and supplier-price dialog entries are not retained.'] },
         {
           kind: 'note',
           tone: 'safe',
@@ -739,7 +739,7 @@ export const contentEn: HelpDocument = {
       id: 'data',
       title: 'Your data and backups',
       blocks: [
-        { kind: 'p', text: 'Your data is saved after you successfully use a save button. MenuPilot does not upload it to a server. It stays in this browser on this computer. Someone with access to this browser may see it. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects you.' },
+        { kind: 'p', text: 'Your data is saved after you successfully use a save button. MenuPilot does not upload it to a server. It stays in this browser on this computer. Recipe drafts are also stored in this browser on this computer for this dataset for up to 7 days. Someone with access to this browser may see them. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects saved data.' },
         { kind: 'image', image: img('data-page', 'The Data page with the cards Export backup, Import backup, Reset to demo data and Start with empty data.', 'Make a backup before replacing or removing data.') },
         {
           kind: 'note',

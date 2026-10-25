@@ -304,7 +304,7 @@ Lock recovery is automatic for a dead process, a reused PID, an incomplete lock 
 - **Lock maintenance interrupted**: wait 30 seconds, then run `npm start` again.
 - **Cannot verify process identity**: allow process inspection, then run `npm start` again.
 
-After restarting the server, open the new address printed in the terminal window running `npm start`; `npm run menupilot -- open-url` is a fallback. Recipe drafts in the same browser tab are retained across sign-in. Ingredient and supplier-price dialog drafts are not retained. An interrupted write may have committed: reload the latest data before submitting a new command. There is no offline write queue.
+After restarting the server, open the new address printed in the terminal window running `npm start`; `npm run menupilot -- open-url` is a fallback. Recipe drafts are stored in this browser on this computer for this dataset for up to 7 days and are available after signing in again, including in a new tab. Unsaved ingredient and supplier-price dialog entries are not retained. An interrupted write may have committed: reload the latest data before submitting a new command. There is no offline write queue.
 
 ### Local security
 

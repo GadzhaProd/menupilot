@@ -36,7 +36,7 @@ export function DeleteRecipeDialog({ recipe, onClose, onCloseAutoFocus, onDelete
   async function confirm() {
     const result = (await execute(
       (store) => store.deleteRecipe(recipe.id, scenarios.length > 0 ? { deleteScenarios: true } : {}),
-      { report: false },
+      { report: false, clearRecipeDraftKey: recipe.id },
     ));
     if (result.ok) onDeleted();
     else setError(isSafetyError(result.code) ? null : { code: result.code, message: result.error });

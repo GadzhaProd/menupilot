@@ -10,6 +10,7 @@ import { useLocale } from '@/ui/i18n';
 import { LocaleSelect } from '@/ui/i18n/LocaleSelect';
 import { ThemeSelect } from '@/ui/theme/ThemeSelect';
 import { useTheme } from '@/ui/theme/ThemeProvider';
+import { RecipeDraftNotice } from '@/ui/recipe/RecipeDraftProvider';
 
 const NAV = [
   { key: 'nav.dashboard', route: { name: 'dashboard' }, active: ['dashboard'], utility: false },
@@ -74,6 +75,7 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
         {local && <LocalBackupStatus />}
       </header>
       <main id="main" ref={mainRef} tabIndex={-1} className="shell-main space-y-6">
+        <RecipeDraftNotice />
         {local?.connection && <p role="status" className="rounded-md border p-3 text-sm">
           {local.connection === 'session-expired'
             ? t('local.restartNotice')

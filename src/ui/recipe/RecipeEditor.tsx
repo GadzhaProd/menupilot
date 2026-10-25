@@ -50,7 +50,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   const sourceSnapshot = useMemo(() => JSON.stringify(source) ?? '', [source]);
   const sourceSnapshotRef = useRef(sourceSnapshot);
   const sourceChanged = sourceSnapshotRef.current !== sourceSnapshot;
-  const [initial] = useState(() => recipe ? draftFromRecipe(recipe, document) : blankDraft(kind, document.settings.defaultVatRateBp));
+  const [initial] = useState(() => recipe ? draftFromRecipe(recipe, document, locale) : blankDraft(kind, document.settings.defaultVatRateBp));
   const [starting] = useState(() => {
     const cached = draftCache.read(draftKey);
     return cached ? mergeDraft(cached.baseline, cached.draft, recipe ? initial : { ...initial, lines: cached.baseline.lines }, cached.conflicts)
@@ -73,14 +73,14 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   useEffect(() => {
     if (!sourceChanged) return;
     sourceSnapshotRef.current = sourceSnapshot;
-    const fresh = recipe ? draftFromRecipe(recipe, document) : { ...blankDraft(kind, document.settings.defaultVatRateBp), lines: baseline.lines };
+    const fresh = recipe ? draftFromRecipe(recipe, document, locale) : { ...blankDraft(kind, document.settings.defaultVatRateBp), lines: baseline.lines };
     const merged = mergeDraft(baseline, draft, fresh, conflicts);
     setDraft(merged.draft);
     setConflicts(merged.conflicts);
     setBaseline(fresh);
     setAttempt(0);
     setSaveError(null);
-  }, [sourceChanged, sourceSnapshot, draftKey, recipe, document, kind, baseline, draft, conflicts]);
+  }, [sourceChanged, sourceSnapshot, draftKey, recipe, document, kind, baseline, draft, conflicts, locale]);
 
   useEffect(() => {
     if (sourceChanged) return;
@@ -171,7 +171,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     const { id: _unsaved, ...input } = built.recipe;
     const toSave = recipe ? { ...input, id: recipe.id } : input;
     const startedAtHash = window.location.hash;
-    const result = (await execute((store) => store.saveRecipe(toSave), { report: false }));
+    const result = (await execute((store) => store.saveRecipe(toSave), { report: false, clearRecipeDraftKey: draftKey }));
     if (!result.ok) {
       // The draft stays exactly as typed; the saved data is unchanged.
       setSaveError(isSafetyError(result.code) ? null : localizedRecipeSaveError(locale, t, result.code, result.error, result.details));
@@ -185,7 +185,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
     }
     const stored = result.value.document.recipes.find((entry) => entry.id === recipe.id);
     if (stored) {
-      const fresh = draftFromRecipe(stored, result.value.document);
+      const fresh = draftFromRecipe(stored, result.value.document, locale);
       setDraft(fresh);
       setBaseline(fresh);
     }
@@ -194,6 +194,7 @@ export function RecipeEditor({ recipe, kind }: RecipeEditorProps) {
   }
 
   function discard() {
+    draftCache.clear(draftKey);
     setDraft(baseline);
     setConflicts([]);
     setAttempt(0);

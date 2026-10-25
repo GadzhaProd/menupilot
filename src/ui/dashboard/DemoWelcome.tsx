@@ -22,7 +22,7 @@ export function DemoWelcome() {
         <DialogFooter>
           <Button type="button" variant="outline" disabled={commandStatus === 'saving'} onClick={() => setConfirming(false)}>{t('data.cancel')}</Button>
           <Button type="button" disabled={commandStatus === 'saving'} onClick={async () => {
-            const result = await execute(store => store.resetToEmpty(), { report: false });
+            const result = await execute(store => store.resetToEmpty(), { report: false, clearRecipeDrafts: true });
             if (result.ok) { setConfirming(false); dismissDemoWelcome(); }
           }}>{t('local.demoConfirmAction')}</Button>
         </DialogFooter>
