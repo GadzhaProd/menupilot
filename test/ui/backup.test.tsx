@@ -1,3 +1,4 @@
+import { createTranslator } from '@/ui/i18n';
 import { STORAGE_KEY } from '@/ui/domain/store';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -157,10 +158,43 @@ describe('Data page', () => {
 
   it('a file that is too large is refused before it is read', async () => {
     const storage = await openData();
-    await chooseFile(new File([new Uint8Array(5_000_001)], 'huge.json', { type: 'application/json' }));
+    await chooseFile(new File([new Uint8Array(15_090_001)], 'huge.json', { type: 'application/json' }));
     expect((await screen.findByRole('alert')).textContent).toMatch(/huge\.json is too large.*not changed/i);
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(storage.setCalls).toBe(0);
+  });
+
+  it('imports a multibyte backup over 5 MB within the serialized character budget', async () => {
+    const document = sauceDoc(), template = document.ingredients[0]!;
+    document.ingredients = Array.from({ length: 2000 }, (_, i) => ({ ...template, id: `i${i}`,
+      name: '界'.repeat(200), prices: Array.from({ length: 20 }, (_, seq) => ({ ...template.prices[0]!, seq: seq + 1 })) }));
+    const text = JSON.stringify(document), file = jsonFile(text, 'unicode.json');
+    expect(text.length).toBeLessThan(5_000_000);
+    expect(file.size).toBeGreaterThan(5_000_000);
+    const storage = await openData();
+    await chooseFile(file);
+    await userEvent.click(within(await dialog()).getByRole('button', { name: 'Replace with backup' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(savedDocument(storage)).toEqual(document);
+  });
+
+  it.each([
+    ['en', /version-history safety limit/],
+    ['nl', /veiligheidslimiet van de versiegeschiedenis/],
+  ])('names an internal history limit in %s without claiming browser storage is full', async (locale, message) => {
+    const t = createTranslator(locale as 'en' | 'nl');
+    const storage = storageWith(sauceDoc());
+    const raw = storage.getItem(STORAGE_KEY)!;
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, schemaVersion: 2, documentId: 'own', revision: 1, document: sauceDoc() }));
+    storage.setItem('menupilot:history:0', JSON.stringify({ id: 'old', order: Number.MAX_SAFE_INTEGER, savedAt: NOW, raw }));
+    storage.setItem('menupilot.ui.locale.v1', locale);
+    await renderApp(storage); await go('#/data');
+    await userEvent.click(screen.getByRole('button', { name: t('data.startEmpty') }));
+    const confirmation = await dialog();
+    await userEvent.click(within(confirmation).getByRole('button', { name: t('data.confirmEmptyAction') }));
+    expect((await within(confirmation).findByRole('alert')).textContent).toMatch(message);
+    expect(within(confirmation).getByRole('alert').textContent).not.toMatch(/storage is full|opslagruimte.*vol/);
+    expect(savedDocument(storage)).toEqual(sauceDoc());
   });
 
   it('cancel in the import dialog changes nothing', async () => {

@@ -1,5 +1,7 @@
 declare module '@/store/serialization.js' {
   export const SCHEMA_VERSION: 2;
+  export const MAX_DOCUMENT_CHARS: number;
+  export const MAX_BACKUP_CHARS: number;
   export function parseBackup(text: string, source?: string, options?: { now?: string }): import('./storageAdapter').StoredDocument;
   export function serializeBackup(value: import('./storageAdapter').StoredDocument, pretty?: boolean): string;
 }

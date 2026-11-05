@@ -100,7 +100,7 @@ describe('Add ingredient', () => {
     expect(name.getAttribute('aria-invalid')).toBe('true');
     expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent).toBe('Enter a name.');
     expect(document.getElementById(size.getAttribute('aria-describedby')?.split(' ').at(-1) ?? '')?.textContent).toMatch(/greater than zero/);
-    expect(document.getElementById(price.getAttribute('aria-describedby')?.split(' ').at(-1) ?? '')?.textContent).toMatch(/non-negative/);
+    expect(document.getElementById(price.getAttribute('aria-describedby')?.split(' ').at(-1) ?? '')?.textContent).toBe('Price cannot be negative.');
     expect(document.activeElement).toBe(name);
     expect(screen.getByRole('dialog')).toBe(dialog);
     expect((size as HTMLInputElement).value).toBe('0');
@@ -132,6 +132,48 @@ describe('Add ingredient', () => {
     await u.click(within(dialog).getByRole('button', { name: 'Add ingredient' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(rowOf('Basil')).toBeTruthy();
+  });
+
+  it('explains each invalid supplier price in English and Dutch, and warns for zero', async () => {
+    const u = user();
+    await openIngredients(storageWith(sauceDoc()));
+    await u.click(screen.getByRole('button', { name: 'Add ingredient' }));
+    const dialog = await screen.findByRole('dialog');
+    await u.type(within(dialog).getByLabelText('Name'), 'Price checks');
+    await u.type(within(dialog).getByLabelText(/Pack size/), '1');
+    const price = within(dialog).getByLabelText(/Pack price/);
+    const message = () => document.getElementById(price.getAttribute('aria-describedby')?.split(' ').at(-1) ?? '')?.textContent;
+    const cases = [
+      ['', 'Enter a supplier price.', 'Vul een leveranciersprijs in.'],
+      ['abc', 'Enter a number, for example 12.50.', 'Vul een getal in, bijvoorbeeld 12,50.'],
+      ['1.234', 'Use no more than two decimal places.', 'Gebruik maximaal twee decimalen.'],
+      ['-1', 'Price cannot be negative.', 'De prijs mag niet negatief zijn.'],
+    ];
+    for (const [value, english] of cases) {
+      await u.clear(price);
+      if (value) await u.type(price, value);
+      await u.click(within(dialog).getByRole('button', { name: 'Add ingredient' }));
+      expect(message()).toBe(english);
+    }
+    await u.clear(price);
+    await u.type(price, '0');
+    expect(within(dialog).getByText(/This price is €0.00/)).toBeTruthy();
+    await u.keyboard('{Escape}');
+    await u.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+    await u.click(screen.getByRole('button', { name: 'Ingrediënt toevoegen' }));
+    const dutchDialog = await screen.findByRole('dialog');
+    const dutchPrice = within(dutchDialog).getByLabelText(/Verpakkingsprijs/);
+    const dutchMessage = () => document.getElementById(dutchPrice.getAttribute('aria-describedby')?.split(' ').at(-1) ?? '')?.textContent;
+    for (const [value, , dutch] of cases) {
+      await u.type(within(dutchDialog).getByLabelText('Naam'), 'Prijscontrole');
+      await u.type(within(dutchDialog).getByLabelText('Verpakking (kg)'), '1');
+      if (value) await u.type(dutchPrice, value);
+      await u.click(within(dutchDialog).getByRole('button', { name: 'Ingrediënt toevoegen' }));
+      expect(dutchMessage()).toBe(dutch);
+      if (value) await u.clear(dutchPrice);
+    }
+    await u.type(dutchPrice, '0');
+    expect(within(dutchDialog).getByText(/Deze prijs is €0,00/)).toBeTruthy();
   });
 });
 

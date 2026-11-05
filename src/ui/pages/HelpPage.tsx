@@ -1,7 +1,9 @@
 import { ArrowUpIcon, PrinterIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { HELP_CONTENT } from '@/ui/help/content';
+import { useLocalMode } from '@/ui/data/localMode';
+import { HELP_CONTENT, LOCAL_HELP_CONTENT } from '@/ui/help/content';
+import { LicensesPage } from '@/ui/help/LicensesPage';
 import { HelpBlockView } from '@/ui/help/HelpBlocks';
 import { HelpNavContext, useSectionLink } from '@/ui/help/HelpNav';
 import { languageFromInterface, readHelpLanguage, saveHelpLanguage } from '@/ui/help/language';
@@ -88,7 +90,8 @@ export function HelpPage({ section }: { section: string | null }) {
   const lang = chosen ?? languageFromInterface(locale);
   const [showTop, setShowTop] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
-  const doc = HELP_CONTENT[lang];
+  const local = useLocalMode();
+  const doc = (local ? LOCAL_HELP_CONTENT : HELP_CONTENT)[lang];
   const target = asSectionId(section);
 
   const scrollTo = useCallback((id: HelpSectionId | null) => {
@@ -100,7 +103,7 @@ export function HelpPage({ section }: { section: string | null }) {
   }, []);
 
   // Follow the address: #/help goes to the start, #/help/<id> to that section, anything else to the start.
-  useEffect(() => { scrollTo(target); }, [target, scrollTo]);
+  useEffect(() => { if (section !== 'licenses') scrollTo(target); }, [target, section, scrollTo]);
 
   const open = useCallback((id: HelpSectionId | null) => {
     const hash = hrefFor({ name: 'help', section: id });
@@ -120,12 +123,16 @@ export function HelpPage({ section }: { section: string | null }) {
     saveHelpLanguage(next);
   }
 
+  if (section === 'licenses') return <LicensesPage ui={doc.ui} lang={lang} />;
+
   return (
     <HelpNavContext.Provider value={open}>
       <article lang={lang} className="mx-auto max-w-[70ch] space-y-8 text-lg leading-relaxed" aria-labelledby="help-title">
         <header className="space-y-4">
           <h1 id="help-title" ref={titleRef} tabIndex={-1} className="text-4xl font-semibold outline-none">{doc.title}</h1>
           <p className="text-xl">{doc.subtitle}</p>
+          {local && <p className="break-all">{doc.ui.dataFolder}: {local.dataDir}</p>}
+          <a className="inline-flex min-h-12 items-center underline underline-offset-4 focus-visible:ring-[3px] focus-visible:ring-ring" href="#/help/licenses">{doc.ui.licenses}</a>
           <Toolbar doc={doc} lang={lang} onLanguage={chooseLanguage} />
         </header>
 

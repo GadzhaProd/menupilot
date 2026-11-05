@@ -89,4 +89,13 @@ describe('Dashboard date comparison', () => {
     expect(screen.getByRole('heading', { name: 'What has changed on your menu?' })).toBeTruthy();
     expect(dishCells('Classic Burger').slice(1, 3)).toEqual(['€4.20', '€4.85']);
   });
+
+  it('uses the injected clock for both the default comparison date and date maximum', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-05T12:00:00.000Z'));
+    await renderApp(undefined, { now: () => new Date('2027-01-31T12:00:00.000Z') });
+    const datePicker = screen.getByLabelText('Choose date') as HTMLInputElement;
+    expect(datePicker.value).toBe('2027-01-01');
+    expect(datePicker.max).toBe('2027-01-31');
+  });
 });

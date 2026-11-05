@@ -5,10 +5,12 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 const dir = mkdtempSync(join(tmpdir(), 'menupilot-mutants-'));
 try {
-  for (const path of ['server', 'src', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'tsconfig.json', 'data', 'README.md', 'docs/planning']) {
+  // Route all server-test temporary data under this disposable root. The final
+  // recursive removal then cleans leftovers even if a test or child exits early.
+  const testTempDir = join(dir, 'test-tmp'); mkdirSync(testTempDir);
+  for (const path of ['server', 'src', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'vite.config.js', 'scripts', 'third_party', 'tsconfig.json', 'package.json', 'package-lock.json', 'index.html', 'public', 'data', 'README.md', 'docs/planning']) {
     mkdirSync(join(dir, path, '..'), { recursive: true }); cpSync(path, join(dir,path), { recursive: true });
   }
-  writeFileSync(join(dir,'package.json'),'{"type":"module"}');
   symlinkSync(join(process.cwd(), 'node_modules'), join(dir, 'node_modules'), 'dir');
   const mutants = [
     ['obsolete launch file cleanup', 'server/session.js', "unlinkSync(join(dir, 'launch-secret'));", '', 'test/server/review.test.js'],
@@ -97,7 +99,7 @@ try {
     ['CLI token mode disabled', 'server/cli.js', 'mode !== 0o600', 'false', 'test/server/cli.test.js'],
     ['CLI open response allows capability fields', 'server/cliSecurity.js', "Object.keys(result).length === 1", 'true', 'test/server/cli.test.js'],
     ['CLI doctor quick_check disabled', 'server/cliRead.js', "rows.length !== 1 || rows[0].quick_check !== 'ok'", 'false', 'test/server/cli.test.js'],
-    ['CLI human candidates disabled', 'server/cli.js', 'for (const candidate of error.candidates ?? [])', 'for (const candidate of [])', 'test/server/cli.test.js'],
+    ['CLI human candidates disabled', 'server/cli.js', 'for (const candidate of safeHumanValue(error.candidates ?? []))', 'for (const candidate of [])', 'test/server/cli.test.js'],
     ['CLI Dashboard 30 day window', 'server/cliRead.js', 'date.setTime(date.getTime() - days * 86400000)', 'date.setTime(date.getTime())', 'test/server/cli.test.js'],
     ['CLI not-found exit code', 'server/cli.js', "'not-found': 4, ambiguous: 4", "'not-found': 1, ambiguous: 4", 'test/server/cli.test.js'],
     ['CLI safe volume integer', 'server/cliRead.js', 'Number.isSafeInteger(value)', 'Number.isInteger(value)', 'test/server/cli.test.js'],
@@ -129,20 +131,47 @@ try {
     ].map(([before, after], i) => [`CSP/isolation ${i + 1}`, 'server/http.js', before, after, 'test/server/review.test.js']),
   ];
   const filter = process.env.MENUPILOT_MUTATION_FILTER;
+  const commandFor = test => test.endsWith('.tsx')
+    ? [join(dir, 'node_modules/vitest/vitest.mjs'), 'run', test, '-t', 'plan card labels'] : ['--test', test];
+  const options = { cwd: dir, encoding: 'utf8', timeout: 30000, env: { ...process.env, TMPDIR: testTempDir, TMP: testTempDir, TEMP: testTempDir, VITEST_MAX_WORKERS: '2' } };
+  const run = args => spawnSync(process.execPath, args, options);
+  const output = result => `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+  const assertGreen = (name, result) => {
+    if (result.error || result.status !== 0) throw new Error(`${name} failed (exit ${result.status}):\n${output(result)}`);
+  };
+  const isTestFailure = result => {
+    const text = output(result);
+    const hasFailureReport = /(?:^not ok |ℹ fail [1-9]\d*|\d+ failed|Failed Tests)/m.test(text);
+    const hasAssertionFailure = /(?:AssertionError|ERR_ASSERTION|StoreError|TypeError)/.test(text);
+    const isInfrastructureFailure = /(?:SyntaxError|ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION|Cannot find module|Failed to load (?:url|config)|Error \[ERR_(?!ASSERTION|TEST_FAILURE))/.test(text);
+    // Assertions inside a test can themselves mention SyntaxError (for example, a
+    // deliberate JSON parse check). Prefer an assertion signature; otherwise reject
+    // parser/module-load failures even if the runner wrapped them as a failed test.
+    return result.status !== 0 && !result.error && hasFailureReport
+      && (hasAssertionFailure || !isInfrastructureFailure);
+  };
+  let caught = 0, survived = 0;
+  // A neutral edit proves that a pre-existing failure can never be counted as a caught mutant.
+  const neutralPath = join(dir, 'server/plans.js'), neutralOriginal = readFileSync(neutralPath, 'utf8');
+  const neutralTest = 'test/server/plans.test.js', neutralArgs = commandFor(neutralTest);
+  assertGreen('Neutral-control baseline', run(neutralArgs));
+  writeFileSync(neutralPath, `// neutral mutation control\n${neutralOriginal}`);
+  try {
+    const neutral = run(neutralArgs);
+    if (neutral.status !== 0) throw new Error(`Neutral control changed behavior unexpectedly:\n${output(neutral)}`);
+    survived++; console.log('SURVIVED: neutral comment control');
+  } finally { writeFileSync(neutralPath, neutralOriginal); }
   for (const [name, file, before, after, test] of mutants.filter(([name]) => !filter || name.toLowerCase().includes(filter.toLowerCase()))) {
     const path = join(dir,file), original = readFileSync(path,'utf8');
     if (!original.includes(before)) throw new Error(`Missing mutation target: ${name}`);
-    const args = test.endsWith('.tsx')
-      ? [join(dir, 'node_modules/vitest/vitest.mjs'), 'run', test, '-t', 'plan card labels'] : ['--test', test];
-    const options = { cwd: dir, encoding: 'utf8', timeout: 30000, env: { ...process.env, VITEST_MAX_WORKERS: '2' } };
-    if (test.endsWith('.tsx')) {
-      const baseline = spawnSync(process.execPath, args, options);
-      if (baseline.status !== 0) throw new Error(`UI mutation baseline failed: ${baseline.stdout}\n${baseline.stderr}`);
-    }
+    const args = commandFor(test);
+    assertGreen(`Baseline for ${name} (${test})`, run(args));
     writeFileSync(path, original.replace(before,after));
-    const result = spawnSync(process.execPath, args, options);
-    writeFileSync(path, original);
-    if (result.status === 0 || result.error || !result.stdout.toLowerCase().includes('fail')) throw new Error(`Mutation not caught: ${name}\n${result.stdout}\n${result.stderr}`);
-    console.log(`CAUGHT: ${name}`);
+    let result;
+    try { result = run(args); } finally { writeFileSync(path, original); }
+    if (isTestFailure(result)) { caught++; console.log(`CAUGHT: ${name}`); }
+    else if (result.status === 0 && !result.error) { survived++; console.log(`SURVIVED: ${name}`); }
+    else throw new Error(`Mutation run was not an assertion result (${name}):\n${output(result)}`);
   }
+  console.log(`Mutation summary: ${caught} CAUGHT, ${survived} SURVIVED (includes neutral control)`);
 } finally { rmSync(dir,{recursive:true}); }

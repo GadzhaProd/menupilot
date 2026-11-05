@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { useCommands, useDocument } from '@/ui/data/DataProvider';
+import { useCommands, useDocument, useNow } from '@/ui/data/DataProvider';
 import { selectPriceAtDate } from '@/ui/domain/calc';
 import type { Ingredient } from '@/ui/domain/types';
 import {
@@ -46,9 +46,10 @@ function SaveError({ failure }: { failure: StoreFailure | null }) {
 
 export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) {
   const { t } = useLocale();
+  const now = useNow();
   const copy = useValidationCopy();
   const { execute, commandStatus } = useCommands();
-  const range = useMemo(() => ({ min: null, max: todayInput() }), []);
+  const range = useMemo(() => ({ min: null, max: todayInput(now) }), [now]);
   const [draft, setDraft] = useState<IngredientDraft>({ name: '', packSize: '', packSizeUnit: 'kg', packPrice: '', validFrom: range.max });
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<StoreFailure | null>(null);
@@ -102,11 +103,12 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
 
 export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: DialogProps & { ingredient: Ingredient }) {
   const { t, locale } = useLocale();
+  const now = useNow();
   const f = useFormatters();
   const copy = useValidationCopy();
   const { execute, commandStatus } = useCommands();
   const current = selectPriceAtDate(ingredient.prices);
-  const range = useMemo(() => ({ min: lastPriceDay(ingredient.prices), max: todayInput() }), [ingredient.prices]);
+  const range = useMemo(() => ({ min: lastPriceDay(ingredient.prices), max: todayInput(now) }), [ingredient.prices, now]);
   const [draft, setDraft] = useState<PriceDraft>(() => {
     // Prices change more often than pack sizes: start from the last pack size.
     const size = current ? quantityToInput(current.packSizeMilli, ingredient.unit) : null;

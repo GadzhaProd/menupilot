@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useLocale, useFormatters } from '@/ui/i18n';
 import type { PricePlan, PlanPackaging } from '@/ui/domain/plans';
+import { localizedUnit } from '@/ui/forms/numbers';
 import { useLocalMode } from './localMode';
 import { createHttpPlanAdapter } from './httpPlanAdapter';
 
@@ -59,9 +60,9 @@ export function LocalPlans() {
   const shown = pending.slice(start, start + pageSize);
   if (!local || !client) return null;
   if (!pending.length && !recent.length && !failed && !done && !choice) return null;
-  const per = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.money(BigInt(p.unitPrice.cents))}/{p.unitPrice.per}</span>;
+  const per = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.money(BigInt(p.unitPrice.cents))}/{localizedUnit(p.unitPrice.per, locale)}</span>;
   function prices(plan: PricePlan) {
-    const pack = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <><span className="whitespace-nowrap">{f.money(BigInt(p.packPriceCents))}</span> {t('plans.pack', { size: new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(p.packSizeMilli / 1000), unit: plan.ingredient.unit })}</>;
+    const pack = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <><span className="whitespace-nowrap">{f.money(BigInt(p.packPriceCents))}</span> {t('plans.pack', { size: new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(p.packSizeMilli / 1000), unit: localizedUnit(plan.ingredient.unit, locale) })}</>;
     return <div className="space-y-1 text-sm"><p>{pack(plan.previousPrice)} → {pack(plan.proposedPrice)} · {t('common.exclVat')}</p><p>{per(plan.previousPrice)} → {per(plan.proposedPrice)} · {t('common.exclVat')}</p></div>;
   }
   function choose(button: HTMLButtonElement, selected: readonly PricePlan[], action: 'apply' | 'reject') {

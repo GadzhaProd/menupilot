@@ -30,7 +30,7 @@ export function createHistory(storage, isoNow) {
   function list() {
     return slots().filter(s => s.entry).sort((a,b) => b.entry.order - a.entry.order).map(s => s.entry);
   }
-  function archive(raw, preservedId) {
+  function archive(raw, preservedId, required = false) {
     if (raw === null) return { available: true, protectedKey: null };
     try {
       const all = slots();
@@ -43,14 +43,19 @@ export function createHistory(storage, isoNow) {
       const entry = { id: newId(), order, savedAt: isoNow(), raw };
       const text = JSON.stringify(entry);
       const size = bytes(target.key, text);
-      if (size > HISTORY_LIMIT || !Number.isSafeInteger(order)) return { available: false, protectedKey: null };
+      // The automatic retention budget is soft for mandatory pre-replacement
+      // copies. Reserve exactly enough for the current bytes and, during restore,
+      // the selected version. Browser quota still applies; neither may be evicted.
+      const preservedSize = all.find(s => s.entry?.id === preservedId)?.size ?? 0;
+      const limit = required ? Math.max(HISTORY_LIMIT, size + preservedSize) : HISTORY_LIMIT;
+      if (size > limit || !Number.isSafeInteger(order)) return { available: false, protectedKey: null };
       let total = all.reduce((sum,s) => sum+s.size, 0) - target.size;
       // Retention and quota eviction remove only automatic snapshots, oldest first.
       const victims = eligible.filter(s => s.key !== target.key);
-      while (total + size > HISTORY_LIMIT && victims.length) {
+      while (total + size > limit && victims.length) {
         const victim = victims.shift(); remove(victim.key); total -= victim.size;
       }
-      if (total + size > HISTORY_LIMIT) return { available: false, protectedKey: null };
+      if (total + size > limit) return { available: false, protectedKey: null };
       for (;;) {
         try { storage.setItem(target.key, text); return { available: true, protectedKey: target.key }; }
         catch (error) {

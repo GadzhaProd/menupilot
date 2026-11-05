@@ -1,4 +1,9 @@
 export const pricesEn = {
+  'prices.priceEmpty': 'Enter a supplier price.',
+  'prices.priceNumber': 'Enter a number, for example 12.50.',
+  'prices.pricePrecision': 'Use no more than two decimal places.',
+  'prices.priceNegative': 'Price cannot be negative.',
+  'prices.priceTooLarge': 'This price is too large to save.',
   'prices.zeroWarning': 'This price is €0.00. Recipes will count this product as free. If you do not know the price yet, leave the price empty: recipes then show “cost unknown”.',
   'prices.zeroConfirm': 'Yes, this product really is free (€0.00)',
   'prices.zeroUnconfirmed': 'Tick the box to confirm a free product, or clear the price if you do not know it.',

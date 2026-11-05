@@ -45,6 +45,7 @@ export interface ExecuteOptions {
 export type DraftTarget = { kind: 'ingredient' | 'recipe'; id: string };
 
 interface DataContextValue {
+  now(): Date;
   state: DataState;
   documentId: string | null;
   safety: string | null;
@@ -202,6 +203,7 @@ function DocumentProvider(props: DataProviderProps) {
   return <ReadyDataProvider {...props} loaded={loaded}>{children}</ReadyDataProvider>;
 }
 function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
+  const now = useCallback(() => new Date(props.now?.() ?? Date.now()), [props.now]);
   const { children, loaded } = props;
   const { t } = useLocale();
   const pending = useRef(false);
@@ -301,7 +303,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
       if (event?.storageArea && props.storage && event.storageArea !== props.storage) return;
       if (!store?.browserRecovery || state.loadError || pending.current) return;
       try {
-        const hasDrafts = [...draftSources.current].some(source => source()) || hasAnyRecipeDrafts() || !!document.querySelector('form, [role="dialog"], [role="alertdialog"]');
+        const hasDrafts = [...draftSources.current].some(source => source()) || hasAnyRecipeDrafts(undefined, now().getTime()) || !!document.querySelector('form, [role="dialog"], [role="alertdialog"]');
         const raw = store.browserRecovery?.readRaw();
         if (raw === lastRaw.current) {
           if (!hasDrafts) setSafety(current => current && ['conflict', 'draft-target-removed', 'write-busy'].includes(current) ? null : current);
@@ -353,7 +355,7 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
       window.removeEventListener('storage', changed); window.removeEventListener('focus', focus);
     };
     // D/C can push an invalidation from their transport without changing screens.
-  }, [store, props.storage, state.loadError, reloadLatest, syncDemoWelcome, documentId]);
+  }, [store, props.storage, state.loadError, reloadLatest, syncDemoWelcome, documentId, now]);
   useEffect(() => props.adapter?.subscribe?.(() => {
     if ([...draftSources.current].some(source => source()) || document.querySelector('form, [role="dialog"], [role="alertdialog"]')) setSafety('conflict');
     else void reloadLatest();
@@ -458,9 +460,9 @@ function ReadyDataProvider(props: DataProviderProps & { loaded: Loaded }) {
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener('storage', refresh); };
   }, [store]);
   const dismissError = useCallback(() => dispatch({ type: 'errorDismissed' }), []);
-  const value = useMemo(() => ({ commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, documentId, execute, exportBackup, dismissError, safety, reloadLatest,
+  const value = useMemo(() => ({ now, commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, documentId, execute, exportBackup, dismissError, safety, reloadLatest,
     activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, demoWelcome, dismissDemoWelcome }),
-  [commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, documentId, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, demoWelcome, dismissDemoWelcome]);
+  [now, commandStatus, removedTargets, historyWarning, backupStatus, backupError, remindLater, listHistory, readHistory, previewImport, migrationSource, confirmMigrationDownload, recordExport, state, documentId, execute, exportBackup, dismissError, safety, reloadLatest, activateEditing, registerDraftSource, draftsChanged, recoveryRaw, loadCode, demoWelcome, dismissDemoWelcome]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
@@ -479,6 +481,15 @@ export function useDataState(): DataState {
 }
 
 export function useDataIdentity(): string | null { return useData().documentId; }
+
+/** The injected wall clock, stable across renders and refreshed when its UTC day changes. */
+export function useNow(): Date {
+  const current = useData().now();
+  const day = current.toISOString().slice(0, 10);
+  const cached = useRef<{ day: string; value: Date } | null>(null);
+  if (!cached.current || cached.current.day !== day) cached.current = { day, value: current };
+  return cached.current.value;
+}
 
 /** The document on screen; throws if the saved data could not be opened (check `loadError` first). */
 export function useDocument(): MenuDocument {

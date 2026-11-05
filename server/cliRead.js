@@ -80,14 +80,14 @@ function resolveOne(entries, value, type, locale = 'en') {
   throw cliError('not-found', `No ${type} matches “${value}”.${suggestions.length ? ` Perhaps you meant: ${suggestions.map(item => `${item.name} (${item.id})`).join(', ')}.` : ''}`, exactCandidates(suggestions, locale));
 }
 
-export function dashboardDateDaysAgo(days) { const date = new Date(); date.setUTCHours(0, 0, 0, 0); date.setTime(date.getTime() - days * 86400000); return date.toISOString().slice(0, 10); }
-export function dateFor(since) {
+export function dashboardDateDaysAgo(days, now = () => new Date()) { const date = new Date(now()); date.setUTCHours(0, 0, 0, 0); date.setTime(date.getTime() - days * 86400000); return date.toISOString().slice(0, 10); }
+export function dateFor(since, now = () => new Date()) {
   if (!since) since = '30d';
-  if (/^\d+d$/.test(since)) { const days = Number(since.slice(0, -1)); if (!Number.isSafeInteger(days) || days < 1) throw cliError('usage', '--since day range must be a positive integer.'); since = dashboardDateDaysAgo(days); }
+  if (/^\d+d$/.test(since)) { const days = Number(since.slice(0, -1)); if (!Number.isSafeInteger(days) || days < 1) throw cliError('usage', '--since day range must be a positive integer.'); since = dashboardDateDaysAgo(days, now); }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || Number.isNaN(Date.parse(`${since}T00:00:00.000Z`)) || new Date(`${since}T00:00:00.000Z`).toISOString().slice(0, 10) !== since) {
     throw cliError('usage', '--since must be Nd or a valid YYYY-MM-DD date.');
   }
-  if (since > new Date().toISOString().slice(0, 10)) throw cliError('invalid-argument', '--since cannot be in the future.');
+  if (since > new Date(now()).toISOString().slice(0, 10)) throw cliError('invalid-argument', '--since cannot be in the future.');
   return `${since}T23:59:59.999Z`;
 }
 
@@ -151,9 +151,9 @@ function prepOutput(prep, doc, locale) {
     lines: prep.lines.map(line => recipeLineOutput(line, line.ref.kind === 'ingredient' ? doc.ingredients.find(i => i.id === line.ref.id) : doc.recipes.find(r => r.id === line.ref.id), locale)) };
 }
 
-function evaluateSimulation(doc, dishToken, values, locale) {
+function evaluateSimulation(doc, dishToken, values, locale, now = () => new Date()) {
   const dish = resolveOne(doc.recipes.filter(r => r.kind === 'dish'), dishToken, 'dish', locale);
-  const takenAt = new Date().toISOString();
+  const takenAt = new Date(now()).toISOString();
   const baseline = createBaselineSnapshot(doc, dish.id, takenAt);
   const overrides = { ingredientPriceCents: {}, lineQtyMilli: {} };
   const menuPrice = parseOptions(values, '--menu-price');
@@ -283,7 +283,7 @@ async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) 
   return { node: process.versions.node, dataDir: dir, databaseVersion: dbVersion, documentFormat, lockStatus, checks, warnings };
 }
 
-export async function executeReadCommand(command, args, api) {
+export async function executeReadCommand(command, args, api, { now = () => new Date() } = {}) {
   const { flags, positional, values } = readArgs(args);
   const allowed = { 'what-changed': ['--since'], simulate: ['--dish', '--menu-price', '--ingredient-price', '--qty', '--volume'] }[command] ?? [];
   const unknown = [...values.keys()].find(key => !allowed.includes(key));
@@ -295,7 +295,7 @@ export async function executeReadCommand(command, args, api) {
   let data, warnings = [];
   if (command === 'what-changed') {
     if (positional.length) throw cliError('usage', 'what-changed accepts options only.');
-    data = dashboardOutput(doc, dateFor(values.get('--since')), locale);
+    data = dashboardOutput(doc, dateFor(values.get('--since'), now), locale);
   } else if (command === 'dishes') {
     if (positional.length) throw cliError('usage', 'dishes accepts options only.');
     data = doc.recipes.filter(item => item.kind === 'dish').map(item => ({ id: item.id, name: item.name, menuPriceInclVatCents: String(item.menuPriceInclVatCents), menuPriceInclVat: money(item.menuPriceInclVatCents, locale), menuPriceLabel: 'incl. VAT', vatRateBp: item.vatRateBp, vatRate: percentageValue(item.vatRateBp, locale), monthlyVolume: item.monthlyVolume ?? null }));
@@ -324,7 +324,7 @@ export async function executeReadCommand(command, args, api) {
   } else if (command === 'simulate') {
     if (positional.length) throw cliError('usage', 'simulate accepts named options only.');
     const dish = values.get('--dish'); if (!dish) throw cliError('usage', 'Usage: simulate --dish <id|exact name> [options].');
-    data = evaluateSimulation(doc, dish, values, locale);
+    data = evaluateSimulation(doc, dish, values, locale, now);
   } else if (command === 'history') data = await api('history');
   else if (command === 'journal') data = await api('journal');
   else if (command === 'backups') { const [list, status] = await Promise.all([api('backups'), api('backups/status')]); data = { entries: list, status }; }
@@ -356,3 +356,18 @@ export function serializeCliError(error) {
 }
 
 export { localDoctor, localDataPath, statusWarnings };
+
+/** Escape data before human rendering; leave generated layout and JSON untouched. */
+export function safeHumanValue(value, seen = new WeakMap()) {
+  if (typeof value === 'string') return value.replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/g,
+    char => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`);
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? 'Invalid Date' : value.toISOString();
+  if (value && typeof value === 'object') {
+    if (seen.has(value)) return seen.get(value);
+    const output = Array.isArray(value) ? [] : Object.create(null);
+    seen.set(value, output);
+    for (const [key, item] of Object.entries(value)) output[safeHumanValue(key)] = safeHumanValue(item, seen);
+    return output;
+  }
+  return value;
+}

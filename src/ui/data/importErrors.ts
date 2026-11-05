@@ -8,6 +8,7 @@ export function localizedImportError(
   _details: readonly string[],
   issues: readonly ImportValidationDetail[] = [],
 ): string {
+  if (code === 'history-limit') return t('data.error.historyLimit');
   if (code === 'corrupt-json') return t('data.importError.json');
   if (code === 'unsupported-version') return t('data.importError.version');
   if (code !== 'invalid') return t('data.importError.generic');

@@ -6,7 +6,7 @@ import { Select } from '@/components/ui/select';
 import { QuantityField } from '@/components/numeric-field';
 import type { LineCost } from '@/ui/domain/recipeCosts';
 import type { Ingredient, Prep } from '@/ui/domain/types';
-import { localizedUnit, parseQuantityField, quantityToInput, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
+import { localizedUnit, parseQuantityField, quantityToInput, unitsFor } from '@/ui/forms/numbers';
 import {
   baseUnitOfRef, lineErrorKey, type Catalog, type FieldErrors, type LineDraft,
 } from '@/ui/forms/recipeForm';
@@ -34,19 +34,14 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
   const units = base === null ? unitsFor('g') : unitsFor(base);
 
   function chooseRef(ref: string) {
+    const previousBase = base;
     const nextBase = baseUnitOfRef(ref, catalog);
-    let unit: EnteredUnit | undefined;
-    if (ref.startsWith('ingredient:')) {
-      const ingredient = ingredients.find(entry => `ingredient:${entry.id}` === ref);
-      if (ingredient) {
-        const pack = ingredient.prices.at(-1);
-        unit = pack ? quantityToInput(pack.packSizeMilli, ingredient.unit, locale).unit : ingredient.unit;
-      }
-    } else if (ref.startsWith('prep:')) {
-      const prep = preps.find(entry => `prep:${entry.id}` === ref);
-      if (prep) unit = quantityToInput(prep.outputMilli, prep.outputUnit, locale).unit;
-    }
-    onChange({ ...line, ref, unit: unit ?? (nextBase === null ? line.unit : unitsFor(nextBase)[0] ?? line.unit), stored: null });
+    const hasPreviousRef = previousBase !== null;
+    const sameDimension = !hasPreviousRef || previousBase === nextBase;
+    const parsed = hasPreviousRef && sameDimension ? parseQuantityField(line.qty, line.unit, '') : null;
+    const unit = hasPreviousRef && sameDimension ? line.unit : nextBase ?? line.unit;
+    const qty = !hasPreviousRef ? line.qty : sameDimension && parsed?.ok ? quantityToInput(parsed.value.milli, nextBase!, locale, unit).text : sameDimension ? line.qty : '';
+    onChange({ ...line, ref, qty, unit, stored: null });
   }
 
   const parsedQuantity = parseQuantityField(line.qty, line.unit, '');
@@ -83,10 +78,11 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
             label={t('recipe.netQuantity')}
             unit={localizedUnit(line.unit, locale)}
             error={errors[lineErrorKey(line, 'qty')]}
+            hint={t('recipe.quantityExampleHint', { example: line.unit === 'kg' || line.unit === 'l' ? (locale === 'nl' ? '0,15' : '0.15') : line.unit === 'pc' ? '1' : '150', unit: localizedUnit(line.unit, locale) })}
             autoComplete="off"
             value={line.qty}
             onValueChange={(qty) => onChange({ ...line, qty })}
-            placeholder="150"
+            placeholder={line.unit === 'kg' || line.unit === 'l' ? (locale === 'nl' ? '0,15' : '0.15') : line.unit === 'pc' ? '1' : '150'}
           />
           {largeQuantity && <p className="col-span-2 text-sm text-amber-800 dark:text-amber-300">{t('local.quantityLargeWarning', { amount: largeQuantity.text, unit: localizedUnit(largeQuantity.unit, locale) })}</p>}
           <FormField label={t('recipe.unit')}>

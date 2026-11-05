@@ -2,12 +2,13 @@ import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { thirdPartyLicenses } from './scripts/licenses.js';
 
 // GitHub Pages serves the project from https://gadzhaprod.github.io/menupilot/,
 // so every build/preview (mode "production") uses that sub-path; `vite dev` uses "/".
 export default defineConfig(({ mode }) => ({
   base: mode === 'development' ? '/' : '/menupilot/',
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), thirdPartyLicenses()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

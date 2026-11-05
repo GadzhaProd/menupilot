@@ -1,5 +1,5 @@
 import { formatEURFromCentsLocale, formatEURFromMicroLocale, formatPercentTenthsLocale } from '../src/calc/money.js';
-import { statusWarnings } from './cliRead.js';
+import { safeHumanValue, statusWarnings } from './cliRead.js';
 const usage = () => { throw Object.assign(new Error('Use propose add-price --ingredient <id|exact name> --pack-price <excl. VAT> --pack-size <quantity unit>, plans, or plan status <id> [--json] [--locale en|nl].'), { code: 'usage' }); };
 export async function executePlanCommand(command, args, api) {
   let locale = 'en'; const words = [];
@@ -46,6 +46,7 @@ export function formatPlan(value, locale, key = '') {
   return value;
 }
 export function printPlan(result) {
+  result = safeHumanValue(result);
   const nl = result.locale === 'nl', vat = nl ? 'excl. btw' : 'excl. VAT';
   const money = v => v === null ? '—' : v.display;
   const cost = v => v === null ? (nl ? 'kosten onbekend' : 'cost unknown') : v.display;

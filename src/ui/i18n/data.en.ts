@@ -1,4 +1,5 @@
 export const dataEn = {
+  'data.error.historyLimit': 'The version-history safety limit prevents a required copy. Replacement was cancelled. Your current data is unchanged. This is an app limit, not a browser storage quota error.',
   'history.previewTitle': 'Preview previous version',
   'history.previewDescription': 'Review this saved version before restoring it.',
   'history.restore': 'Restore this version',

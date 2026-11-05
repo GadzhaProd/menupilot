@@ -5,6 +5,7 @@ import { selectPriceAtDate } from '../../src/calc/costing.js';
 import { DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
 import { STORAGE_KEY, StoreError, createStore } from '../../src/store/store.js';
 import { emptyDocument, validateDocument } from '../../src/store/schema.js';
+import { MAX_BACKUP_CHARS } from '../../src/store/serialization.js';
 import {
   clone, daysBefore, deepFreeze, dish, line, makeScenario, memoryStorage, prep, quotaError, readDemo, smallDocument,
 } from './fixtures.js';
@@ -290,7 +291,7 @@ test('import and save reject price records from the future; tolerance is 5 minut
 test('import larger than the size limit is refused', async () => {
   const { store } = (await seeded());
   const before = store.getDocument();
-  (await assertStoreError(async () => (await store.importJSON(' '.repeat(5_000_001))), 'invalid', /too large/i));
+  (await assertStoreError(async () => (await store.importJSON(' '.repeat(MAX_BACKUP_CHARS + 1))), 'invalid', /too large/i));
   assert.equal(store.getDocument(), before);
 });
 

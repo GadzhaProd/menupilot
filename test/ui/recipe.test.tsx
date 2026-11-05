@@ -413,13 +413,23 @@ describe('Scenario 3: a new dish', () => {
     const units = () => within(row.getByLabelText('Unit')).getAllByRole('option').map((option) => option.textContent);
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_milk');
     expect(units()).toEqual(['ml', 'l']);
-    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('l');
+    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('ml');
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_egg');
     expect(units()).toEqual(['pc']);
     expect((row.getByLabelText('Unit') as HTMLSelectElement).disabled).toBe(true);
     await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_tomato');
     expect(units()).toEqual(['g', 'kg']);
-    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('kg');
+    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('g');
+  });
+
+  it('keeps a quantity entered before choosing the first component', async () => {
+    const u = user();
+    await open('#/recipe/new?kind=dish', storageWith(sauceDoc()));
+    const row = line(1);
+    await u.type(row.getByLabelText(/Net quantity/), '250');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_tomato');
+    expect((row.getByLabelText(/Net quantity/) as HTMLInputElement).value).toBe('250');
+    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('g');
   });
 });
 
@@ -484,6 +494,65 @@ describe('Form errors', () => {
     storage.failOnSet = null;
     await u.click(screen.getByRole('button', { name: 'Save dish' }));
     expect(savedDocument(storage).recipes[0]?.name).toBe('Pasta');
+  });
+});
+
+describe('changing a recipe line reference', () => {
+  it('keeps the same physical quantity across ingredients and preps with matching base units', async () => {
+    const u = user();
+    const document = demoCopy();
+    document.ingredients.push({ id: 'ing_egg', name: 'Egg', unit: 'pc', prices: [] });
+    document.recipes.push({ id: 'prep_milk', name: 'Milk base', kind: 'prep', outputMilli: 1_000_000, outputUnit: 'ml', lines: [] });
+    await open('#/recipe/new?kind=dish', storageWith(document));
+    const row = line(1);
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_beef');
+    expect(row.getByLabelText('Unit')).toHaveProperty('value', 'g');
+    await u.type(row.getByLabelText(/Net quantity/), '40');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_tomatoes');
+    expect(row.getByLabelText(/Net quantity/)).toHaveProperty('value', '40');
+    expect(row.getByLabelText('Unit')).toHaveProperty('value', 'g');
+    await u.selectOptions(row.getByLabelText('Unit'), 'kg');
+    await u.clear(row.getByLabelText(/Net quantity/));
+    await u.type(row.getByLabelText(/Net quantity/), '0.04');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'prep:prep_tomato_base');
+    expect(row.getByLabelText(/Net quantity/)).toHaveProperty('value', '0.04');
+    expect(row.getByLabelText('Unit')).toHaveProperty('value', 'kg');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'prep:prep_milk');
+    expect(row.getByLabelText(/Net quantity/)).toHaveProperty('value', '');
+    await u.type(row.getByLabelText(/Net quantity/), '150');
+    await u.selectOptions(row.getByLabelText('Unit'), 'ml');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_wine');
+    expect(row.getByLabelText(/Net quantity/)).toHaveProperty('value', '150');
+    expect(row.getByLabelText('Unit')).toHaveProperty('value', 'ml');
+    await u.selectOptions(row.getByLabelText('Unit'), 'l');
+    await u.clear(row.getByLabelText(/Net quantity/));
+    await u.type(row.getByLabelText(/Net quantity/), '0.15');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'prep:prep_milk');
+    expect(row.getByLabelText(/Net quantity/)).toHaveProperty('value', '0.15');
+    expect(row.getByLabelText('Unit')).toHaveProperty('value', 'l');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_egg');
+    expect(row.getByLabelText(/Net quantity/)).toHaveProperty('value', '');
+    await u.type(screen.getByLabelText('Name'), 'Unit switch');
+    await u.type(screen.getByLabelText(/Menu price/), '12');
+    await u.click(screen.getByRole('button', { name: 'Save dish' }));
+    expect(row.getByLabelText(/Net quantity/).getAttribute('aria-invalid')).toBe('true');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_bun');
+    await u.type(row.getByLabelText(/Net quantity/), '2');
+    expect(row.getByLabelText('Unit')).toHaveProperty('value', 'pc');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_egg');
+    expect(row.getByLabelText(/Net quantity/)).toHaveProperty('value', '2');
+    expect(row.getByLabelText('Unit')).toHaveProperty('value', 'pc');
+  });
+
+  it('uses the selected item base unit by default and shows a matching quantity example', async () => {
+    const u = user();
+    await open('#/recipe/new?kind=dish');
+    const row = line(1);
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_beef');
+    expect(row.getByLabelText('Unit')).toHaveProperty('value', 'g');
+    expect(row.getByLabelText(/Net quantity/).getAttribute('placeholder')).toBe('150');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_bun');
+    expect(row.getByLabelText(/Net quantity/).getAttribute('placeholder')).toBe('1');
   });
 });
 

@@ -1,4 +1,9 @@
 export const pricesNl = {
+  'prices.priceEmpty': 'Vul een leveranciersprijs in.',
+  'prices.priceNumber': 'Vul een getal in, bijvoorbeeld 12,50.',
+  'prices.pricePrecision': 'Gebruik maximaal twee decimalen.',
+  'prices.priceNegative': 'De prijs mag niet negatief zijn.',
+  'prices.priceTooLarge': 'Deze prijs is te hoog om op te slaan.',
   'prices.zeroWarning': 'Deze prijs is €0,00. Recepten rekenen dit product dan als gratis. Weet je de prijs nog niet? Laat de prijs dan leeg: recepten tonen dan “kosten onbekend”.',
   'prices.zeroConfirm': 'Ja, dit product is echt gratis (€0,00)',
   'prices.zeroUnconfirmed': 'Vink het vakje aan om een gratis product te bevestigen, of maak de prijs leeg als je die niet weet.',

@@ -1,7 +1,7 @@
 import { useLocalMode } from '@/ui/data/localMode';
 import type { MenuDocument } from '@/ui/domain/types';
 import { VersionHistory } from '@/ui/data/VersionHistory';
-import { useVersionHistory } from '@/ui/data/DataProvider';
+import { useNow, useVersionHistory } from '@/ui/data/DataProvider';
 import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
 import { downloadText } from '@/ui/data/downloadText';
@@ -18,9 +18,10 @@ import { HelpLink } from '@/ui/help/HelpLink';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useSimulatorSessions } from '@/ui/simulator/session';
 import { localizedImportError } from '@/ui/data/importErrors';
+import { MAX_BACKUP_CHARS } from '@/store/serialization.js';
 
-/** Same limit as the store: a backup is about the size of the whole browser storage quota. */
-const MAX_FILE_BYTES = 5_000_000;
+/** UTF-8 file preflight; the store enforces the exact UTF-16 character budget. */
+const MAX_FILE_BYTES = 3 * MAX_BACKUP_CHARS;
 
 type Pending = { kind: 'import'; fileName: string; text: string; preview: MenuDocument } | { kind: 'reset' } | { kind: 'empty' };
 
@@ -46,6 +47,7 @@ function dialogText(pending: Pending, t: ReturnType<typeof useLocale>['t']) {
 
 /** Back up, restore and reset the data. Everything lives in this browser, so a backup matters. */
 export function DataPage() {
+  const now = useNow();
   const { locale, t, plural } = useLocale();
   const document = useDocument();
   const local = useLocalMode();
@@ -63,6 +65,7 @@ export function DataPage() {
   }, [locale]);
 
   function commandError(code: string, message: string, details: readonly string[]): string {
+    if (code === 'history-limit') return t('data.error.historyLimit');
     if (locale === 'en') return [message, ...details, t('data.currentDataUnchanged')].filter(Boolean).join(' ');
     if (code === 'invalid') return t('data.error.invalid', { detail: details[0] ?? message });
     if (code === 'corrupt-json') return t('data.error.corruptJson');
@@ -79,7 +82,7 @@ export function DataPage() {
       setNotice({ tone: 'error', text: t('data.exportFail', { error: commandError(result.code, result.error, result.details) }) });
       return;
     }
-    const fileName = backupFileName(new Date());
+    const fileName = backupFileName(now);
     try {
       downloadText(result.value, fileName);
     } catch (error) {
