@@ -66,6 +66,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
           restore-keys: ${{ runner.os }}-playwright-
+      - run: npm run build # in CI the Playwright web server previews the existing dist
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm run test:e2e:local
