@@ -115,7 +115,11 @@ async function run(args) {
     }
     if (readCommands.has(command)) {
       const { api } = await connection(dir);
-      const result = await executeReadCommand(command, args.slice(1), api);
+      // Deliberately gated test seam; normal CLI invocations always use the system clock.
+      const testNow = process.env.MENUPILOT_TEST_CLOCK === '1' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(process.env.MENUPILOT_TEST_NOW ?? '')
+        ? () => new Date(process.env.MENUPILOT_TEST_NOW)
+        : () => new Date();
+      const result = await executeReadCommand(command, args.slice(1), api, { now: testNow });
       const localeIndex = args.indexOf('--locale');
       const locale = localeIndex >= 0 ? args[localeIndex + 1] : 'en';
       if (wantJson) printJson(result); else printHuman(result, locale);

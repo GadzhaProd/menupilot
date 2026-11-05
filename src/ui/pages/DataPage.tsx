@@ -1,7 +1,7 @@
 import { useLocalMode } from '@/ui/data/localMode';
 import type { MenuDocument } from '@/ui/domain/types';
 import { VersionHistory } from '@/ui/data/VersionHistory';
-import { useVersionHistory } from '@/ui/data/DataProvider';
+import { useNow, useVersionHistory } from '@/ui/data/DataProvider';
 import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
 import { downloadText } from '@/ui/data/downloadText';
@@ -46,6 +46,7 @@ function dialogText(pending: Pending, t: ReturnType<typeof useLocale>['t']) {
 
 /** Back up, restore and reset the data. Everything lives in this browser, so a backup matters. */
 export function DataPage() {
+  const now = useNow();
   const { locale, t, plural } = useLocale();
   const document = useDocument();
   const local = useLocalMode();
@@ -79,7 +80,7 @@ export function DataPage() {
       setNotice({ tone: 'error', text: t('data.exportFail', { error: commandError(result.code, result.error, result.details) }) });
       return;
     }
-    const fileName = backupFileName(new Date());
+    const fileName = backupFileName(now);
     try {
       downloadText(result.value, fileName);
     } catch (error) {

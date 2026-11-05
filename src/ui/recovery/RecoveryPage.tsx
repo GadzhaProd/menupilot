@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { InlineStatus } from '@/components/ui/inline-status';
 import { Surface } from '@/components/ui/surface';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useCommands, useDataSafety } from '@/ui/data/DataProvider';
+import { useCommands, useDataSafety, useNow } from '@/ui/data/DataProvider';
 import { demoForLocale } from '@/ui/data/demo';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useLocale } from '@/ui/i18n';
@@ -17,6 +17,7 @@ type Pending = { kind: 'import'; text: string; fileName: string } | { kind: 'dem
 
 /** Recovery never requires a valid current document. Replacement still uses the store's CAS. */
 export function RecoveryPage() {
+  const now = useNow();
   const { t, locale } = useLocale();
   const { recoveryRaw, loadCode } = useDataSafety();
   const { execute, commandStatus, previewImport } = useCommands();
@@ -32,7 +33,7 @@ export function RecoveryPage() {
   function download() {
     if (recoveryRaw === null) return;
     try {
-      downloadText(recoveryRaw, `menupilot-damaged-${new Date().toISOString().slice(0, 10)}.txt`);
+      downloadText(recoveryRaw, `menupilot-damaged-${now.toISOString().slice(0, 10)}.txt`);
       setDownloaded(true);
     } catch { setError(t('data.downloadFail', { error: t('error.generic') })); }
   }

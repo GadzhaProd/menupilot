@@ -8,7 +8,7 @@ import { MoneyValue } from '@/components/ui/money-value';
 import './simulator.css';
 import { Input } from '@/components/ui/input';
 import { isSafetyError } from '@/ui/data/safetyErrors';
-import { useCommands, useDocument } from '@/ui/data/DataProvider';
+import { useCommands, useDocument, useNow } from '@/ui/data/DataProvider';
 import {
   compareRuns, isStale, NO_CHANGES, rebaseOverrides, runScenario, takeBaseline, type Run, type ScenarioOverrides,
 } from '@/ui/domain/simulator';
@@ -29,12 +29,12 @@ import {
 import { useRememberSession, useSimulatorSessions, type DishSession } from './session';
 
 /** What the store keeps of a draft: the name, the baseline it was calculated on, and its changes. */
-function toScenarioInput(draft: ScenarioDraft, recipeId: string, baseline = draft.baseline, overrides: ScenarioOverrides = draft.applied): ScenarioInput {
+function toScenarioInput(draft: ScenarioDraft, recipeId: string, now: Date, baseline = draft.baseline, overrides: ScenarioOverrides = draft.applied): ScenarioInput {
   return {
     ...(draft.id !== null && { id: draft.id }),
     recipeId,
     name: draft.name.trim(),
-    createdAt: draft.createdAt ?? new Date().toISOString(),
+    createdAt: draft.createdAt ?? now.toISOString(),
     baseline,
     overrides,
   };
@@ -52,11 +52,12 @@ const failedRun = (error: string): Run => ({ ok: false, error });
 export function Workbench({ dish }: { dish: Dish }) {
   const { t, plural } = useLocale(); const f = useFormatters();
   const document = useDocument();
+  const now = useNow();
   const { execute, commandStatus } = useCommands();
   const dishHasVolume = dish.monthlyVolume !== undefined && dish.monthlyVolume !== null;
 
   // The page compares against current real data; scenario snapshots stay unchanged.
-  const pageBaseline = useMemo(() => takeBaseline(document, dish.id, new Date().toISOString()), [document, dish.id]);
+  const pageBaseline = useMemo(() => takeBaseline(document, dish.id, now.toISOString()), [document, dish.id, now]);
   // Coming back to the dish restores what was being edited (kept in memory only).
   const sessions = useSimulatorSessions();
   const [remembered] = useState<DishSession | undefined>(() => sessions.get(dish.id));
@@ -128,7 +129,7 @@ export function Workbench({ dish }: { dish: Dish }) {
   function addScenario() {
     if (!pageBaseline.ok || drafts.length >= MAX_SCENARIOS) return;
     counter.current += 1;
-    const key = `new-${Date.now().toString(36)}-${counter.current}`;
+    const key = `new-${now.getTime().toString(36)}-${counter.current}`;
     setSelectedKey(key);
     dispatch({ type: 'added', draft: newDraft(key, defaultName(drafts), pageBaseline.baseline, emptyFields(pageBaseline.baseline)) });
   }
@@ -140,7 +141,7 @@ export function Workbench({ dish }: { dish: Dish }) {
     }
     // The sales estimate the result was calculated with is saved too, so it can be reproduced.
     const overrides = withSharedVolume(draft.applied, sharedVolume);
-    const input = toScenarioInput(draft, dish.id, draft.baseline, overrides);
+    const input = toScenarioInput(draft, dish.id, now, draft.baseline, overrides);
     const result = (await execute((store) => store.saveScenario(input), { report: false }));
     if (result.ok) {
       setProblem(draft.key, null);
@@ -152,7 +153,7 @@ export function Workbench({ dish }: { dish: Dish }) {
 
   /** Calculate this scenario on today's data. Only the draft changes; Save writes it. */
   function updateBaseline(draft: ScenarioDraft) {
-    const fresh = takeBaseline(document, dish.id, new Date().toISOString());
+    const fresh = takeBaseline(document, dish.id, now.toISOString());
     if (!fresh.ok) {
       setProblem(draft.key, 'simulator.error.save');
       return;

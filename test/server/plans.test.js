@@ -12,10 +12,11 @@ const input = { ingredient: ' I1 ', packPrice: '18,00', packSize: '1 kg' };
 function fixture(t, document = smallDocument()) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-plans-'));
   let time = Date.parse('2026-10-22T12:00:00Z');
-  const s = createSqliteStorage(join(dir, 'data.db'), { initialDocument: document, now: () => time });
+  const now = () => time;
+  const s = createSqliteStorage(join(dir, 'data.db'), { initialDocument: document, now });
   s.backups = { list: () => [], status: () => ({ overdue: false, externalOverdue: false, backupError: null, externalError: null, corruptBackups: 0, corruptExternalBackups: 0, clockWarning: false }) };
   t.after(() => { s.close(); rmSync(dir, { recursive: true }); });
-  return { s, dir, advance: ms => { time += ms; } };
+  return { s, dir, now, advance: ms => { time += ms; } };
 }
 test('plans: fixed normalized price, nested parity, no-volume exclusion, idempotent receipt and audit', t => {
   const doc = smallDocument(); doc.recipes[1].monthlyVolume = 123;
@@ -159,10 +160,10 @@ test('plans: byte budgets refuse oversized effects and pending total; terminal r
 });
 
 test('plans: original receipt survives later write and database reopen', t => {
-  const { s, dir } = fixture(t), p = s.plans.propose(input), applied = s.plans.apply(p.id);
+  const { s, dir, now } = fixture(t), p = s.plans.propose(input), applied = s.plans.apply(p.id);
   const next = structuredClone(applied.document); next.ingredients[1].name = 'new name';
   s.write({ kind: 'save', document: next, expectedDocumentId: applied.documentId, expectedRevision: applied.revision, opId: 'later' });
-  const reopened = createSqliteStorage(join(dir, 'data.db'));
+  const reopened = createSqliteStorage(join(dir, 'data.db'), { now });
   try {
     const replay = reopened.plans.apply(p.id);
     assert.deepEqual(replay.receipt, applied.receipt); assert.equal(replay.revision, 2);
