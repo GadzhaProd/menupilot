@@ -1,5 +1,5 @@
-import { StrictMode, type ReactNode } from 'react';
-import { act, render } from '@testing-library/react';
+import { isValidElement, StrictMode, type ReactNode } from 'react';
+import { act, render, screen } from '@testing-library/react';
 import demo from '../../data/demo.json';
 import { App } from '@/ui/App';
 import { DataProvider } from '@/ui/data/DataProvider';
@@ -9,6 +9,11 @@ export { demo, STORAGE_KEY };
 
 /** The same moment the demo data is written for, so the demo needs no date shift. */
 export const NOW = '2026-10-18T12:00:00.000Z';
+
+function containsApp(node: ReactNode): boolean {
+  if (!isValidElement(node)) return false;
+  return node.type === App || containsApp((node.props as { children?: ReactNode }).children);
+}
 
 /** In-memory stand-in for localStorage; tests never touch a real one. */
 export function memoryStorage(initial: Record<string, string> = {}) {
@@ -39,6 +44,7 @@ export async function renderApp(
   );
   let result!: ReturnType<typeof render>;
   await act(async () => { result = render(strict ? <StrictMode>{tree}</StrictMode> : tree); });
+  if (children === undefined || containsApp(children)) await screen.findByRole('heading', { level: 1 }, { timeout: 5_000 });
   return result;
 }
 
@@ -53,6 +59,7 @@ export async function go(hash: string) {
     window.location.hash = hash;
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
+  await screen.findByRole('heading', { level: 1 }, { timeout: 5_000 });
 }
 
 type Doc = ReturnType<typeof demoCopy>;

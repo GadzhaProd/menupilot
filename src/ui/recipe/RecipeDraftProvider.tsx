@@ -13,6 +13,7 @@ export function RecipeDraftNotice() {
   const [drafts, setDrafts] = useState(cache.list);
   useEffect(() => {
     const refresh = () => setDrafts(cache.list());
+    refresh();
     const unsubscribe = cache.subscribe(refresh);
     window.addEventListener('storage', refresh);
     return () => { unsubscribe(); window.removeEventListener('storage', refresh); };

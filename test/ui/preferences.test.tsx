@@ -61,7 +61,7 @@ it('reset loads the current language demo, while changing locale alone keeps dat
   systemTheme(); const storage = memoryStorage(); (await renderApp(storage));
   await userEvent.click(screen.getByRole('button', { name: 'NL – Nederlands' }));
   await userEvent.click(screen.getByRole('link', { name: 'Gegevens' }));
-  await userEvent.click(screen.getByRole('button', { name: 'Terugzetten naar voorbeeldgegevens' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Terugzetten naar voorbeeldgegevens' }));
   const dialog = screen.getByRole('alertdialog');
   const confirm = [...dialog.querySelectorAll('button')].find((button) => button.textContent === 'Terugzetten naar voorbeeldgegevens')!;
   await userEvent.click(confirm);
