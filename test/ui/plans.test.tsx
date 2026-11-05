@@ -34,7 +34,7 @@ test('plans panel shows stale/expired advice and does not enable apply', async (
   expect(screen.getAllByRole('status')).toHaveLength(1);
   expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
   await userEvent.click(screen.getByText('Inactive proposals (2)'));
-  expect(screen.getByText('Data changed after this proposal was made.')).toBeTruthy();
+  expect(screen.getByText('The ingredient price history or unit changed, the ingredient was deleted, or the data was replaced.')).toBeTruthy();
   expect(screen.getByText('This proposal expired after 24 hours.')).toBeTruthy();
   expect(screen.getByText('Ask the agent to propose again.')).toBeTruthy();
 });
@@ -193,4 +193,29 @@ test('Dutch piece packaging uses st in the panel and confirmation', async () => 
   expect(article.textContent).not.toContain('pc');
   await userEvent.click(screen.getByRole('button', { name: 'Toepassen' }));
   expect(screen.getByRole('alertdialog').textContent).toContain('/st');
+});
+
+test.each(['en', 'nl'])('remaining invoice proposal refreshes consequences and dialog in %s', async locale => {
+  const user = userEvent.setup(); let applied = false;
+  const second = { ...plan, id: 'plan2', ingredient: { ...plan.ingredient, id: 'i2', name: 'Butter' } };
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.endsWith('/apply')) { applied = true; return new Response('{}'); }
+    return new Response(JSON.stringify({ plans: applied
+      ? [{ ...plan, status: 'applied' }, { ...second, effectsUpdated: true, effects: { ...plan.effects, totalMonthlyImpactCents: '-12345' } }]
+      : [plan, second] }));
+  }));
+  const mounted = mount(locale);
+  const applyName = locale === 'nl' ? 'Toepassen' : 'Apply';
+  await screen.findByText('Butter');
+  await user.click(screen.getAllByRole('button', { name: applyName })[0]!);
+  await user.click(screen.getByRole('button', { name: locale === 'nl' ? 'Toepassen bevestigen' : 'Confirm apply' }));
+  const notice = locale === 'nl' ? 'Gevolgen bijgewerkt na andere wijzigingen.' : 'Consequences updated after other changes.';
+  await screen.findByText(notice, {}, { timeout: 3500 });
+  expect(screen.getAllByRole('article')).toHaveLength(1);
+  expect(screen.getByRole('article').textContent?.replaceAll('\u00a0', ' ')).toContain(locale === 'nl' ? '-€ 123,45' : '-€123.45');
+  const apply = screen.getByRole('button', { name: applyName });
+  await user.click(apply);
+  expect(within(screen.getByRole('alertdialog')).getByText(notice)).toBeTruthy();
+  await user.keyboard('{Escape}'); expect(document.activeElement).toBe(apply);
+  mounted.unmount();
 });

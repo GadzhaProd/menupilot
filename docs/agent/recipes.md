@@ -223,11 +223,11 @@ Aged cheddar [ing_cheddar]
 Ask the agent to propose again.
 ```
 
-Statuses: `pending` (waiting for the owner), `applied`, `rejected`, `expired` (24 hours passed), `stale` (any data changed after the proposal), `superseded` (a newer proposal for the same ingredient replaced it). An unknown id gives `This plan is no longer available. Ask the agent to propose again.` (exit 4). If the owner sees an error in the window like "Data changed. Ask the agent to propose again." it means the same.
+Statuses: `pending` (waiting for the owner), `applied`, `rejected`, `expired` (24 hours passed), `stale` (the ingredient was deleted, its base unit or price history changed, or the document was replaced through import/reset/restore), `superseded` (a newer proposal for the same ingredient replaced it). An unknown id gives `This plan is no longer available. Ask the agent to propose again.` (exit 4). If the owner sees an error in the window like "Data changed. Ask the agent to propose again." it means the same.
 
 What to do: run `plans` to see what is still pending, then run `propose add-price …` again with the same values (after confirming with the owner that the invoice price is still right). The consequences are recalculated against the current data.
 
-Retell: «Это предложение устарело: после него в MenuPilot что-то изменилось (или прошло 24 часа). Цифры в нём могли поменяться, поэтому применить его нельзя. Я подготовлю новое — оно покажет актуальные последствия. Подтвердить цену по-прежнему €18,00 за кг без НДС?»
+Retell: «Это предложение устарело: изменилась история цен или единица этого ингредиента, он был удалён либо данные были заменены (или прошло 24 часа). Цифры в нём могли поменяться, поэтому применить его нельзя. Я подготовлю новое — оно покажет актуальные последствия. Подтвердить цену по-прежнему €18,00 за кг без НДС?»
 
 ## 13. "Are my backups OK?" / "Is everything working?"
 
@@ -269,3 +269,21 @@ Ask: «Это цена без НДС, как в счёте, или с НДС?» 
 - Exit 2 (`usage`, `invalid-argument`, `invalid-unit`, `price-limit`): wrong syntax, amount, unit or date. Examples: `Pack size must include g, kg, ml, l or pc.`, `This ingredient uses g; l is incompatible.`, `Enter a non-negative amount with at most two decimal places.`, `--since cannot be in the future.` Fix and retry; if the value came from the owner, ask.
 - Exit 5 (`unauthorized`): run `doctor`; relay the advice.
 - Anything else: show the owner the message in plain words and do not try other routes into the data.
+
+## 15. “The supplier sent an invoice with several lines”
+
+Confirm each exact ingredient, pack size and supplier price **excl. VAT, as on the invoice**. Use IDs returned by `ingredients`; ask about any ambiguous line. For example, after the owner confirms both lines:
+
+```sh
+npm run --silent menupilot -- propose add-price --ingredient ing_beef --pack-price 18,00 --pack-size "1 kg" --json
+npm run --silent menupilot -- propose add-price --ingredient ing_cheddar --pack-price 12,00 --pack-size "1 kg" --json
+npm run --silent menupilot -- plans --json
+```
+
+Both proposals are pending. Quote the actual command output, including zero-price/×3 and backup warnings. Do not invent a combined invoice impact by adding previews: both ingredients may affect the same dish.
+
+Retell: «Я подготовил предложения по строкам накладной. Пока цены не изменены. Откройте одно окно MenuPilot и панель «Ожидает вашего подтверждения». Проверьте каждую цену без НДС, упаковку и последствия; примените или отклоните каждое предложение отдельно. После первого применения остальные предложения останутся доступными, а их последствия обновятся.»
+
+After the owner applies the first, run `plans --json` or `plan status <second-id> --json` again. The second remains `pending` if its own ingredient basis has not changed. `effectsUpdated: true` means: «Последствия обновлены после других изменений — посмотрите новые цифры перед подтверждением». Quote the fresh `display` values. The panel says “Consequences updated after other changes.” / “Gevolgen bijgewerkt na andere wijzigingen.”
+
+If the owner manually adds a price for that same ingredient, replaces the document, or waits beyond 24 hours, propose the affected line again. A newer proposal for the same ingredient supersedes the previous one. Never apply plans for the owner or open a confirmation window yourself.

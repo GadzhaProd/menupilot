@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { StoreError } from '../src/store/errors.js';
 import { appendPrice } from '../src/store/price.js';
 import { assertValidDocument } from '../src/store/schema.js';
@@ -7,6 +7,10 @@ import { parseQuantityToMilli } from '../src/calc/units.js';
 import { encodePlan, packaging, planEffects } from './planEffects.js';
 
 export const PLAN_LIMITS = { pending: 50, count: 200, bytes: 2 * 1024 * 1024, singleBytes: 256 * 1024, ttl: 86400000, retention: 7 * 86400000 };
+// Canonical field order keeps JSON property order unrelated to price-history identity.
+const priceHistoryHash = prices => createHash('sha256').update(JSON.stringify(prices.map(
+  ({ seq, recordedAt, packPriceCents, packSizeMilli }) => [seq, recordedAt, packPriceCents, packSizeMilli],
+))).digest('hex');
 const normalize = value => value.trim().normalize('NFC').toLocaleLowerCase('en');
 const fail = (code, message, candidates) => { throw Object.assign(new StoreError(code, message), { ...(candidates && { candidates }), ...(['plan-stale', 'plan-expired'].includes(code) && { status: 409 }) }); };
 function findIngredient(entries, token) {
@@ -35,15 +39,31 @@ export function createPlans(storage, now) {
       throw new StoreError('write-failed', 'The plan could not be saved. Previous data is unchanged. Check disk space and retry.');
     }
   }
+  const replacementId = () => db.prepare("SELECT value FROM meta WHERE key='planReplacementId'").get()?.value ?? null;
+  const basis = target => ({ priceHistoryHash: priceHistoryHash(target.prices), replacementId: replacementId() });
+  function stale(plan, current) {
+    const target = current.document.ingredients.find(i => i.id === plan.ingredient.id);
+    // The first save assigns an ID to an initially unsaved document; it is not a replacement.
+    if ((plan.documentId !== null && plan.documentId !== current.documentId) || !target || target.unit !== plan.ingredient.unit) return true;
+    if (!plan.basis) return plan.revision !== current.revision; // Legacy proposal: no dependency snapshot.
+    return plan.basis.replacementId !== replacementId() || plan.basis.priceHistoryHash !== priceHistoryHash(target.prices);
+  }
+  function preview(plan, current = storage.load()) {
+    if (plan.status !== 'pending') return plan;
+    const after = structuredClone(current.document);
+    appendPrice(after, plan.ingredient.id, { packPriceCents: Number(plan.price.packPriceCents), packSizeMilli: plan.price.packSizeMilli }, plan.price.recordedAt);
+    const effects = planEffects(current.document, after, plan.ingredient.id, timestamp());
+    return { ...plan, effects, effectsUpdated: JSON.stringify(effects) !== JSON.stringify(plan.effects) };
+  }
   function refresh() {
-    const current = storage.version(), time = new Date(now()).getTime();
+    const current = storage.load(), time = new Date(now()).getTime();
     const rows = db.prepare('SELECT plan FROM plans ORDER BY rowid DESC').all();
     const kept = [];
     for (const row of rows) {
       const plan = JSON.parse(row.plan);
       if (plan.status === 'pending') {
         const status = Date.parse(plan.expiresAt) <= time ? 'expired'
-          : plan.documentId !== current.documentId || plan.revision !== current.revision ? 'stale' : 'pending';
+          : stale(plan, current) ? 'stale' : 'pending';
         if (status !== plan.status) { plan.status = status; save(plan); }
       }
       if (plan.status !== 'pending' && time - Date.parse(plan.expiresAt) > PLAN_LIMITS.retention) db.prepare('DELETE FROM plans WHERE id=?').run(plan.id);
@@ -62,9 +82,9 @@ export function createPlans(storage, now) {
     if (plan.status !== 'pending') fail('plan-' + plan.status, `This plan is ${plan.status}. Ask the agent to propose again.`);
   }
   return {
-    list: () => transaction(refresh),
-    snapshot: () => transaction(() => ({ ...storage.version(), plans: refresh() })),
-    get: id => transaction(() => get(id)),
+    list: () => transaction(() => refresh().map(p => preview(p))),
+    snapshot: () => transaction(() => ({ ...storage.version(), plans: refresh().map(p => preview(p)) })),
+    get: id => transaction(() => preview(get(id))),
     propose(input, source = 'cli') {
       return transaction(() => {
         const plans = refresh();
@@ -96,7 +116,7 @@ export function createPlans(storage, now) {
         const plan = encodePlan({ id: randomUUID(), opId: randomUUID(), protocolVersion: 1, kind: 'add-price',
           documentId: current.documentId, revision: current.revision, status: 'pending', source, createdAt,
           expiresAt: new Date(Date.parse(createdAt) + PLAN_LIMITS.ttl).toISOString(),
-          ingredient: { id: target.id, name: target.name, unit: target.unit }, price,
+          ingredient: { id: target.id, name: target.name, unit: target.unit }, price, basis: basis(target),
           previousPrice: packaging(target.prices.at(-1), target.unit), proposedPrice: packaging(price, target.unit),
           effects: planEffects(current.document, document, target.id, createdAt), warnings, supersedes: supersedes.map(p => p.id) });
         for (const old of supersedes) { old.status = 'superseded'; old.supersededBy = plan.id; save(old); }
@@ -114,25 +134,26 @@ export function createPlans(storage, now) {
         if (total > PLAN_LIMITS.bytes || count > PLAN_LIMITS.count) fail('plan-budget', 'Plan storage budget reached. Review pending plans first.');
         db.prepare('INSERT INTO plans(id,expiresAt,plan) VALUES(?,?,?)').run(plan.id, plan.expiresAt, raw);
         markDirty();
-        return plan;
+        return preview(plan, current);
       });
     },
     apply(id) {
-      // Commit lifecycle changes even when the following operation is refused.
-      const checked = transaction(() => get(id));
-      if (checked.status !== 'applied') pending(checked);
-      return transaction(() => {
+      // Check dependencies and write the price/receipt under the same writer transaction.
+      // Return lifecycle refusals so their stale/expired mark can commit before throwing.
+      const outcome = transaction(() => {
         const plan = get(id);
         if (plan.status === 'applied') return { ...storage.load(), receipt: plan.receipt };
-        pending(plan);
+        try { pending(plan); } catch (error) { return { error }; }
         const current = storage.load(), document = structuredClone(current.document);
         const price = appendPrice(document, plan.ingredient.id, { packPriceCents: Number(plan.price.packPriceCents), packSizeMilli: plan.price.packSizeMilli }, plan.price.recordedAt);
         if (JSON.stringify(encodePlan(price)) !== JSON.stringify(plan.price)) fail('plan-stale', 'Price history changed. Ask the agent to propose again.');
-        const result = storage.write({ kind: 'save', document, expectedDocumentId: plan.documentId, expectedRevision: plan.revision, opId: plan.opId }, 'agent', { withinTransaction: true, planId: plan.id, ingredientId: plan.ingredient.id });
+        const result = storage.write({ kind: 'save', document, expectedDocumentId: current.documentId, expectedRevision: current.revision, opId: plan.opId }, 'agent', { withinTransaction: true, planId: plan.id, ingredientId: plan.ingredient.id });
         if (result.conflict) fail('plan-stale', 'Data changed. Ask the agent to propose again.');
         plan.status = 'applied'; plan.receipt = result.receipt; plan.appliedAt = timestamp(); save(plan);
         return result;
       });
+      if (outcome.error) throw outcome.error;
+      return outcome;
     },
     reject(id) {
       const plan = transaction(() => get(id));

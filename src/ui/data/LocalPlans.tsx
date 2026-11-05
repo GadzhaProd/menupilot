@@ -12,6 +12,7 @@ function Consequences({ plan }: { plan: PricePlan }) {
   const cost = (v: string | null) => v === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.microMoney(BigInt(v))}</span>;
   const pct = (v: string | null) => v === null ? '—' : f.percent(BigInt(v));
   return <div className="space-y-3 text-sm">
+    {'effectsUpdated' in plan && plan.effectsUpdated === true && <p className="font-medium text-muted-foreground">{t('plans.effectsUpdated')}</p>}
     {plan.effects.dishes.map(row => <div key={row.id} className="border-t pt-2">
       <p className="font-medium">{row.name}</p>
       <p>{t('plans.cost')}: {cost(row.comparisonCostMicro)} → {cost(row.currentCostMicro)}</p>
@@ -58,6 +59,7 @@ export function LocalPlans() {
   const recent = plans.filter(p => ['stale', 'expired', 'superseded', 'rejected'].includes(p.status));
   const start = offset < pending.length ? offset : 0;
   const shown = pending.slice(start, start + pageSize);
+  const selected = choice?.plans.map(p => plans.find(latest => latest.id === p.id) ?? p) ?? [];
   if (!local || !client) return null;
   if (!pending.length && !recent.length && !failed && !done && !choice) return null;
   const per = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.money(BigInt(p.unitPrice.cents))}/{localizedUnit(p.unitPrice.per, locale)}</span>;
@@ -113,7 +115,7 @@ export function LocalPlans() {
       <DialogContent role="alertdialog" className="max-h-[90svh] overflow-y-auto" onCloseAutoFocus={event => { event.preventDefault(); (trigger.current?.isConnected ? trigger.current : heading.current)?.focus(); }}>
         <DialogHeader><DialogTitle>{t(choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject')} · {choice.plans.length === 1 ? choice.plans[0]!.ingredient.name : t('plans.selected', { count: choice.plans.length })}</DialogTitle>
           <DialogDescription>{t(choice.action === 'apply' ? 'plans.applyDescription' : 'plans.rejectDescription')}</DialogDescription></DialogHeader>
-        {choice.plans.length === 1 ? <>{prices(choice.plans[0]!)}<Warnings plan={choice.plans[0]!} />{choice.action === 'apply' && <Consequences plan={choice.plans[0]!} />}</> : <ul>{choice.plans.map(p => <li key={p.id}>{p.ingredient.name}</li>)}</ul>}
+        {choice.plans.length === 1 ? <>{prices(selected[0]!)}<Warnings plan={selected[0]!} />{choice.action === 'apply' && <Consequences plan={selected[0]!} />}</> : <ul>{choice.plans.map(p => <li key={p.id}>{p.ingredient.name}</li>)}</ul>}
         {error && <p role="alert" className="text-destructive">{error}</p>}
         <DialogFooter><Button variant="outline" disabled={busy} onClick={() => setChoice(null)}>{t('common.cancel')}</Button>
           <Button disabled={busy} onClick={() => { void confirm(); }}>{t(choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject')}</Button></DialogFooter>

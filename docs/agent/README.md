@@ -66,7 +66,8 @@ Not for you: `open-url`, `backup restore …`, `doctor --recover-from-backup …
 Other things to know:
 
 - A newer proposal for the same ingredient replaces the older one (`superseded`). Proposals for other ingredients stay.
-- Any change to the data (even unrelated) makes pending proposals `stale`. A proposal also expires after 24 hours. In both cases propose again.
+- A plan becomes `stale` if its ingredient is deleted, its base unit or price history changes, or the document is replaced (import/reset/restore). Other edits and applying a plan for another ingredient leave it pending. A proposal also expires after 24 hours. Stale/expired plans must be proposed again.
+- For an invoice with several lines, make one proposal per confirmed ingredient. The owner uses one MenuPilot window and the same confirmation panel, applying each price separately. Consequences update against the current document; an EN/NL notice marks changes since creation. Read `plans` again before quoting remaining consequences. Never add the previews yourself.
 - If a command's response is lost, a plan may exist already. Run `plans` before proposing again.
 - Prices above €100,000 per pack are refused (`price-limit`). A zero price is allowed with a warning.
 
