@@ -1,4 +1,4 @@
-/** Shape of the built-in guide. Both languages use these types, so they cannot drift apart. */
+/** Shape of the built-in guide. All guide languages use these types, so they cannot drift apart. */
 
 export type HelpLang = 'en' | 'nl' | 'ru';
 
@@ -120,6 +120,11 @@ export interface HelpDocument {
   readonly subtitle: string;
   /** Words used by the page itself (buttons, labels). */
   readonly ui: {
+    readonly licenses: string;
+    readonly licensesLoading: string;
+    readonly licensesError: string;
+    readonly retry: string;
+    readonly dataFolder: string;
     readonly languageLabel: string;
     readonly print: string;
     readonly contents: string;

@@ -96,7 +96,7 @@ try {
     ['CLI token mode disabled', 'server/cli.js', 'mode !== 0o600', 'false', 'test/server/cli.test.js'],
     ['CLI open response allows capability fields', 'server/cliSecurity.js', "Object.keys(result).length === 1", 'true', 'test/server/cli.test.js'],
     ['CLI doctor quick_check disabled', 'server/cliRead.js', "rows.length !== 1 || rows[0].quick_check !== 'ok'", 'false', 'test/server/cli.test.js'],
-    ['CLI human candidates disabled', 'server/cli.js', 'for (const candidate of error.candidates ?? [])', 'for (const candidate of [])', 'test/server/cli.test.js'],
+    ['CLI human candidates disabled', 'server/cli.js', 'for (const candidate of safeHumanValue(error.candidates ?? []))', 'for (const candidate of [])', 'test/server/cli.test.js'],
     ['CLI Dashboard 30 day window', 'server/cliRead.js', 'date.setTime(date.getTime() - days * 86400000)', 'date.setTime(date.getTime())', 'test/server/cli.test.js'],
     ['CLI not-found exit code', 'server/cli.js', "'not-found': 4, ambiguous: 4", "'not-found': 1, ambiguous: 4", 'test/server/cli.test.js'],
     ['CLI safe volume integer', 'server/cliRead.js', 'Number.isSafeInteger(value)', 'Number.isInteger(value)', 'test/server/cli.test.js'],

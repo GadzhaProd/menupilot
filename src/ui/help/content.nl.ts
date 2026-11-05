@@ -10,11 +10,16 @@ const secLink = (id: HelpSectionId, capital = false) => to(id, capital ? `Hoofds
  * De handleiding in het Nederlands. Namen van knoppen en velden staan precies zoals het Nederlandse scherm ze toont.
  * De schermafbeeldingen zijn van het Nederlandse scherm met de Nederlandse voorbeeldgegevens.
  */
-export const contentNl: HelpDocument = {
+const createContentNl = (local: boolean): HelpDocument => ({
   lang: 'nl',
   title: 'MenuPilot: handleiding stap voor stap',
   subtitle: 'Voor iedereen die nog nooit met zo’n programma heeft gewerkt. Neem de tijd: elke stap is één kleine handeling.',
   ui: {
+    licensesLoading: 'Licenties laden…',
+    licensesError: 'De licenties konden niet worden geladen. Controleer de verbinding en probeer het opnieuw.',
+    retry: 'Opnieuw proberen',
+    dataFolder: "Lokale gegevensmap",
+    licenses: "Licenties van derden",
     languageLabel: 'Taal van deze handleiding',
     print: 'Handleiding afdrukken',
     contents: 'Inhoud',
@@ -101,14 +106,14 @@ export const contentNl: HelpDocument = {
         {
           kind: 'note',
           tone: 'safe',
-          title: 'Er zit al een voorbeeldcafé in',
-          text: ['De eerste keer dat je MenuPilot opent, zie je een verzonnen burgercafé. Niets daarin is echt, dus probeer alles gerust uit. Hoe je overstapt op je eigen gegevens staat in ', secLink('data'), '.'],
+          title: local ? "Er zijn voorbeeldgegevens beschikbaar" : 'Er zit al een voorbeeldcafé in',
+          text: local ? "De lokale versie begint leeg. Wil je oefenen met het fictieve café, kies dan Gegevens → Terugzetten naar voorbeeldgegevens en bevestig. Dit vervangt de huidige gegevens: exporteer eerst een reservekopie als je al iets hebt ingevoerd. De voorbeelden en afbeeldingen hieronder gebruiken dit café." : ['De eerste keer dat je MenuPilot opent, zie je een verzonnen burgercafé. Niets daarin is echt, dus probeer alles gerust uit. Hoe je overstapt op je eigen gegevens staat in ', secLink('data'), '.'],
         },
         {
           kind: 'note',
           tone: 'important',
           title: 'Waar je gegevens staan',
-          text: ['Een browser is het programma waarmee je MenuPilot opent, zoals Chrome, Safari of Edge. Je opgeslagen gegevens blijven alleen in die browser op deze computer. Ze worden nergens naartoe gestuurd en er is geen account. ', secLink('data', true), ' legt uit hoe je een reservekopie maakt.'],
+          text: local ? "Opgeslagen ingrediënten, prijzen, recepten en scenario’s staan in een database op deze computer (menupilot.db in de gegevensmap). Bovenaan staat de exacte map. De browser toont je gegevens; browsergegevens wissen verwijdert de database niet. Er is geen account of automatische synchronisatie met een andere computer." : ['Een browser is het programma waarmee je MenuPilot opent, zoals Chrome, Safari of Edge. Je opgeslagen gegevens blijven alleen in die browser op deze computer. Ze worden nergens naartoe gestuurd en er is geen account. ', secLink('data', true), ' legt uit hoe je een reservekopie maakt.'],
         },
       ],
     },
@@ -191,8 +196,8 @@ export const contentNl: HelpDocument = {
             },
             {
               term: 'Browser',
-              meaning: 'Het programma waarmee je websites en MenuPilot opent, bijvoorbeeld Chrome, Safari of Edge. MenuPilot bewaart je gegevens daarin, alleen op deze computer.',
-              example: 'Open je MenuPilot in Safari nadat je Chrome gebruikte, dan zie je geen gegevens: elke browser bewaart zijn eigen gegevens.',
+              meaning: local ? "Het programma dat MenuPilot toont, zoals Chrome, Safari of Edge. In de lokale versie leest het opgeslagen gegevens uit de database op deze computer." : 'Het programma waarmee je websites en MenuPilot opent, bijvoorbeeld Chrome, Safari of Edge. MenuPilot bewaart je gegevens daarin, alleen op deze computer.',
+              example: local ? "Een andere browser kan met een nieuwe aanmeldlink dezelfde lokale database openen. Browserconcepten en voorkeuren blijven apart." : 'Open je MenuPilot in Safari nadat je Chrome gebruikte, dan zie je geen gegevens: elke browser bewaart zijn eigen gegevens.',
             },
             {
               term: 'Reservekopie',
@@ -208,8 +213,8 @@ export const contentNl: HelpDocument = {
       id: 'first-start',
       title: 'Eerste keer: het voorbeeldcafé',
       blocks: [
-        { kind: 'p', text: ['Als je MenuPilot voor het eerst opent, zit er al een verzonnen burgercafé in: 12 ingrediënten, 5 gerechten en 2 basisrecepten. Leer ermee werken. Heb je geoefend, dan kun je het programma leegmaken en je eigen gegevens invullen (', secLink('data'), ').'] },
-        { kind: 'note', tone: 'safe', title: 'Lokale versie', text: ['De lokale versie begint leeg; de demomelding verschijnt alleen nadat demogegevens zijn geladen. Open na een herstart het nieuwe adres in het terminalvenster waarin npm start actief is. Voer zo nodig npm run menupilot -- open-url uit. Receptconcepten worden maximaal 7 dagen in deze browser op deze computer voor deze dataset bewaard, ook tussen tabbladen. Niet-opgeslagen invoer in ingrediënten- en leveranciersprijsvensters blijft niet bewaard.'] },
+        { kind: 'p', text: local ? "De lokale versie begint leeg. Wil je oefenen met het fictieve café, kies dan Gegevens → Terugzetten naar voorbeeldgegevens en bevestig. Dit vervangt de huidige gegevens: exporteer eerst een reservekopie als je al iets hebt ingevoerd. De voorbeelden en afbeeldingen hieronder gebruiken dit café." : ['Als je MenuPilot voor het eerst opent, zit er al een verzonnen burgercafé in: 12 ingrediënten, 5 gerechten en 2 basisrecepten. Leer ermee werken. Heb je geoefend, dan kun je het programma leegmaken en je eigen gegevens invullen (', secLink('data'), ').'] },
+        ...(local ? [{ kind: 'note' as const, tone: 'safe' as const, title: "Starten, stoppen en aanmelden", text: "Voer in de projectmap npm start uit en laat dat terminalvenster open. Open het aanmeldadres dat verschijnt. Stop met Ctrl+C in dat venster, of met npm run menupilot -- stop in een ander terminalvenster. Een browsertabblad sluiten stopt MenuPilot niet. Gebruik na een herstart, verlopen aanmelding of nieuw tabblad npm run menupilot -- open-url voor een nieuwe aanmeldlink. Dit doet de eigenaar: een agent mag zijn eigen voorstel niet openen of goedkeuren." }] : []),
         {
           kind: 'note',
           tone: 'safe',
@@ -746,7 +751,15 @@ export const contentNl: HelpDocument = {
       id: 'data',
       title: 'Je gegevens en reservekopieën',
       blocks: [
-        { kind: 'p', text: 'Je gegevens worden opgeslagen nadat je met succes een opslaanknop gebruikt. MenuPilot uploadt ze niet naar een server. Ze blijven in deze browser op deze computer. Receptconcepten worden maximaal 7 dagen in deze browser op deze computer voor deze dataset bewaard. Wie toegang heeft tot deze browser kan ze zien. De keerzijde: worden de browsergegevens gewist, of open je MenuPilot in een andere browser of op een andere computer, dan zijn je gegevens daar niet. Een reservekopie beschermt opgeslagen gegevens.' },
+        { kind: 'p', text: local ? "Pas na een geslaagde opslag staan je wijzigingen in de lokale database. De browser bewaart receptconcepten voor deze dataset maximaal 7 dagen, plus taal, thema en de venstersessie. Niet-opgeslagen simulatorscenario’s blijven in de geopende app; niet-opgeslagen invoer in ingrediënt- en leveranciersprijsvensters wordt niet bewaard. Concepten zijn geen reservekopieën en zitten niet in een export. Wie toegang heeft tot de browser kan concepten zien." : 'Je gegevens worden opgeslagen nadat je met succes een opslaanknop gebruikt. MenuPilot uploadt ze niet naar een server. Ze blijven in deze browser op deze computer. Receptconcepten worden maximaal 7 dagen in deze browser op deze computer voor deze dataset bewaard. Wie toegang heeft tot deze browser kan ze zien. De keerzijde: worden de browsergegevens gewist, of open je MenuPilot in een andere browser of op een andere computer, dan zijn je gegevens daar niet. Een reservekopie beschermt opgeslagen gegevens.' },
+        ...(local ? [
+          { kind: 'h3' as const, text: "Automatische kopieën en herstel"},
+          { kind: 'p' as const, text: "MenuPilot bewaart gecontroleerde databasekopieën in backups/ in de gegevensmap: normaal binnen ongeveer vijf minuten na een opgeslagen wijziging, en dagelijks zolang het programma draait. Bij normaal afsluiten probeert het ook nog niet gekopieerde wijzigingen te kopiëren. Slaapstand, schijfproblemen en fouten kunnen kopieën vertragen. Lees de reservekopiewaarschuwing bovenaan. Bewaar ook een geëxporteerd bestand op een andere schijf; een kopie op dezelfde schijf helpt niet als die schijf verloren gaat."},
+          { kind: 'p' as const, text: "Gegevens → Reservekopie exporteren downloadt een JSON-bestand. Reservekopie importeren toont eerst een voorbeeld en vervangt na jouw bevestiging de opgeslagen gegevens. Eerdere versies kun je ook bekijken en terugzetten. Gebruik voor databasekopieën npm run menupilot -- backup list, daarna backup verify <id> en backup restore <id> (steeds met npm run menupilot -- ervoor). Herstellen vervangt de huidige gegevens en maakt eerst een gecontroleerde kopie; wijzigingen na de gekozen kopie gaan verloren. Start MenuPilot niet meer, vraag dan de installateur om README → Local backups and recovery te volgen. Verwijder de gegevensmap niet."},
+          { kind: 'h3' as const, text: "De agent stelt voor; jij beslist"},
+          { kind: 'p' as const, text: "Een agent kan MenuPilot-cijfers lezen en een nieuwe leveranciersprijs excl. btw voorstellen, zoals op de factuur. Een voorstel verandert niets. Open Wacht op jouw bevestiging en controleer de oude en nieuwe verpakkingsprijzen, verpakkingsgrootte, betrokken gerechten en waarschuwingen. Kies Toepassen of Afwijzen en bevestig in het venster. Elk voorstel is 24 uur geldig. Veranderen de gegevens, dan is het voorstel verouderd; na 24 uur is het verlopen. Vraag om een nieuw voorstel. Een nieuwer voorstel voor hetzelfde ingrediënt vervangt het oudere."},
+          { kind: 'p' as const, text: "De CLI kan voorstellen niet toepassen of afwijzen. Andere websites kunnen niet via je browser bevestigen. Dit beschermt tegen vergissingen, niet tegen kwaadaardige software met jouw computerrechten: die kan bestanden lezen of wijzigen of de aanmeldsleutel onderscheppen. Houd de actieve gegevensmap op een lokale schijf, niet in een cloud- of netwerkmap."}
+        ] : []),
         { kind: 'image', image: img('data-page', 'De pagina Gegevens met de kaarten Reservekopie exporteren, Reservekopie importeren, Terugzetten naar voorbeeldgegevens en Begin met lege gegevens.', 'Maak eerst een reservekopie voordat je gegevens vervangt of verwijdert.') },
         {
           kind: 'note',
@@ -871,7 +884,7 @@ export const contentNl: HelpDocument = {
             { message: 'Sommige velden vragen aandacht. Ze zijn hierboven gemarkeerd.', meaning: 'Scroll omhoog. Bij de velden met een probleem staat een rode tekst. Verbeter ze en druk nog eens op Opslaan.' },
             { message: 'Dit ingrediënt wordt nog in recepten gebruikt en kan niet worden verwijderd.', meaning: ['Je kunt niets verwijderen wat een recept gebruikt. Zie het eind van ', sec('ingredients'), '.'] },
             { message: 'Een basisrecept kan zichzelf niet gebruiken.', meaning: 'Een basisrecept kan zichzelf niet bevatten. Kies een ander ingrediënt of basisrecept voor die regel.' },
-            { message: 'De browseropslag is vol. Je gegevens zijn niet gewijzigd.', meaning: ['De browser heeft geen ruimte meer. Maak een reservekopie (', sec('data'), ') en vraag iemand om browserruimte vrij te maken.'] },
+            { message: 'De browseropslag is vol. Je gegevens zijn niet gewijzigd.', meaning: local ? "De browser kan ruimte nodig hebben voor concepten en voorkeuren. Opgeslagen lokale gegevens staan in de database. Lees de fout en maak ruimte vrij waar nodig; verwijder de gegevensmap niet." : ['De browser heeft geen ruimte meer. Maak een reservekopie (', sec('data'), ') en vraag iemand om browserruimte vrij te maken.'] },
             { message: 'Dit bestand bevat geen geldige JSON. Je huidige gegevens zijn niet gewijzigd.', meaning: 'Het bestand dat je koos is geen MenuPilot-reservekopie. Kies het bestand waarvan de naam met menupilot-backup begint. Er is niets gewijzigd.' },
           ],
         },
@@ -883,12 +896,12 @@ export const contentNl: HelpDocument = {
           title: 'Wat je kunt controleren',
           steps: [
             { text: 'Blijf rustig en klik niet op “Begin met lege gegevens” of “Terugzetten naar voorbeeldgegevens”: die vervangen alles.' },
-            { text: 'Controleer of je dezelfde browser gebruikt (bijvoorbeeld Chrome, niet Edge), dezelfde computer en hetzelfde webadres als eerder, en geen privévenster. De gegevens staan in één browser op één computer.', result: 'Was het een andere browser, open dan die van eerder.' },
+            ...(local ? [{ text: "Controleer of npm start draait op dezelfde computer met dezelfde gegevensmap. Vergelijk de map bovenaan; MENUPILOT_DATA_DIR kan een andere map kiezen. Gebruik npm run menupilot -- open-url voor een nieuwe aanmeldlink. Zet niets terug en importeer niets voordat je de map hebt gecontroleerd." }] : [{ text: 'Controleer of je dezelfde browser gebruikt (bijvoorbeeld Chrome, niet Edge), dezelfde computer en hetzelfde webadres als eerder, en geen privévenster. De gegevens staan in één browser op één computer.', result: 'Was het een andere browser, open dan die van eerder.' }]),
             { text: ['Heb je een reservekopiebestand: klik op ', b('Gegevens'), ' en dan op ', b('Reservekopie importeren'), ' en kies het (', sec('data'), ').'], result: 'Je gegevens komen terug zoals ze waren op de dag van de reservekopie.' },
-            { text: ['Staat op de pagina “Je gegevens konden niet worden geopend” en “Er is niets gewijzigd of verwijderd”, druk dan nergens anders op. Vraag de persoon die het programma voor je heeft ingesteld om te helpen.'], result: 'Je opgeslagen gegevens staan nog in de browser. Ze waren alleen niet leesbaar.' },
+            { text: ['Staat op de pagina “Je gegevens konden niet worden geopend” en “Er is niets gewijzigd of verwijderd”, druk dan nergens anders op. Vraag de persoon die het programma voor je heeft ingesteld om te helpen.'], result: local ? "De database is niet vervangen. Vraag de installateur om de fout en reservekopieën te bekijken voordat je iets herstelt." : 'Je opgeslagen gegevens staan nog in de browser. Ze waren alleen niet leesbaar.' },
           ],
         },
-        { kind: 'p', text: 'Is er geen reservekopie en zijn de browsergegevens gewist, dan zijn de gegevens niet terug te halen. Daarom zijn die paar seconden voor een wekelijkse reservekopie het waard.' },
+        { kind: 'p', text: local ? "Browsergegevens wissen kan concepten en voorkeuren verwijderen, maar niet de lokale database. Raak je de database of schijf kwijt, dan is een bruikbare reservekopie nodig. Bewaar een geëxporteerde kopie elders." : 'Is er geen reservekopie en zijn de browsergegevens gewist, dan zijn de gegevens niet terug te halen. Daarom zijn die paar seconden voor een wekelijkse reservekopie het waard.' },
         { kind: 'h3', text: 'Ik wil op een andere computer werken' },
         {
           kind: 'steps',
@@ -934,4 +947,7 @@ export const contentNl: HelpDocument = {
       ],
     },
   ],
-};
+});
+
+export const contentNl = createContentNl(false);
+export const localContentNl = createContentNl(true);

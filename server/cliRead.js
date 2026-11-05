@@ -356,3 +356,17 @@ export function serializeCliError(error) {
 }
 
 export { localDoctor, localDataPath, statusWarnings };
+
+/** Escape data before human rendering; leave generated layout and JSON untouched. */
+export function safeHumanValue(value, seen = new WeakMap()) {
+  if (typeof value === 'string') return value.replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/g,
+    char => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`);
+  if (value && typeof value === 'object') {
+    if (seen.has(value)) return seen.get(value);
+    const output = Array.isArray(value) ? [] : Object.create(null);
+    seen.set(value, output);
+    for (const [key, item] of Object.entries(value)) output[safeHumanValue(key)] = safeHumanValue(item, seen);
+    return output;
+  }
+  return value;
+}

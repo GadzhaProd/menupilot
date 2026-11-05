@@ -454,3 +454,19 @@ test('CLI dish human output uses formatted money and never prints raw micro-euro
   assert.match(result.stdout, /Menu price: .*incl\. VAT/);
   assert.doesNotMatch(result.stdout, /(?:Micro|Cents)\b/);
 });
+
+test('human CLI escapes terminal controls in names, plans and errors while JSON preserves names', async t => {
+  const doc = enDemo();
+  const name = 'Unsafe\u001b[31m\u0007\r\n\t\b\u007f\u009b31m\u202e\u061c\u200f\u2066 name';
+  doc.ingredients[0].name = name;
+  doc.recipes.find(r => r.kind === 'dish').name = name;
+  const f = await fixture(t, doc);
+  for (const args of [['ingredients'], ['ingredient', doc.ingredients[0].id], ['dishes'], ['what-changed'], ['simulate', '--dish', name], ['dish', 'missing\u001b[2J'], ['propose', 'add-price', '--ingredient', doc.ingredients[0].id, '--pack-price', '1', '--pack-size', '1 kg'], ['plans']]) {
+    const result = await invoke(f.dir, ...args);
+    const output = result.stdout + result.stderr;
+    assert.doesNotMatch(output, /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u061c\u200e\u200f\u2066-\u2069\u202a-\u202e]/, JSON.stringify(args));
+    assert.match(output, /\\u001b/, JSON.stringify(args));
+  }
+  const json = await invoke(f.dir, 'ingredient', doc.ingredients[0].id, '--json');
+  assert.equal(JSON.parse(json.stdout).data.name, name);
+});
