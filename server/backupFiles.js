@@ -18,6 +18,18 @@ import { randomUUID } from 'node:crypto';
 import { parseBackup } from '../src/store/serialization.js';
 import { assertValidDocument, emptyDocument } from '../src/store/schema.js';
 import { StoreError } from '../src/store/errors.js';
+
+const BACKUP_QUOTA_MESSAGE =
+  "Backup storage budget reached." +
+  " Free space or archive older backups; the replacement was not performed.";
+const BACKUP_FAILED_MESSAGE =
+  "A verified backup could not be created." +
+  " Check disk space and folder permissions." +
+  " The replacement was not performed.";
+const BACKUP_UNVERIFIED_MESSAGE =
+  "Backup verification could not run." +
+  " Check disk space and permissions; existing copies have been kept.";
+
 export const SNAPSHOT_BUDGET = { count: 512, bytes: 2 * 1024 ** 3 };
 export const DAY_MS = 86400000;
 const ID = /^\d{13}-[a-f0-9-]{36}$/;
@@ -40,7 +52,7 @@ export function syncPath(path) {
 
 export function readRecord(db) {
   const records = db.prepare('SELECT id,record FROM document').all();
-  if (records.length > 1 || records.length === 1 && records[0].id !== 1) {
+  if (records.length > 1 || (records.length === 1 && records[0].id !== 1)) {
     throw new Error('Invalid document singleton');
   }
   const raw = records[0]?.record;
@@ -207,9 +219,10 @@ export async function pruneSnapshots(dir, now, {
     }
   }
   for (const item of verified) {
+    // A clock jump during asynchronous verification is unsafe too.
     if (retentionPaused()) {
       return;
-    } // A clock jump during asynchronous verification is unsafe too.
+    }
     if (!keep.has(item.id)) {
       unlinkSync(backupPath(dir, item.id));
     }
@@ -238,8 +251,7 @@ export async function publishSnapshot(db, dir, {
   const estimatedBytes = db.prepare('PRAGMA page_count').get().page_count *
     db.prepare('PRAGMA page_size').get().page_size + 65536;
   if (entries.length >= budget.count || entries.reduce((sum, e) => sum + e.bytes, 0) + estimatedBytes > budget.bytes) {
-    throw new StoreError('backup-quota', "Backup storage budget reached. Free space or archive older backups; the " +
-      "replacement was not performed.");
+    throw new StoreError('backup-quota', BACKUP_QUOTA_MESSAGE);
   }
   const id = `${String(now).padStart(13, '0')}-${randomUUID()}`;
   const target = backupPath(dir, id);
@@ -260,20 +272,20 @@ export async function publishSnapshot(db, dir, {
         reason,
         sequence: sequence ?? nextSequence
       };
-      copy.prepare("INSERT INTO meta(key,value) VALUES('snapshot',?) ON CONFLICT(key) DO UPDATE " +
-        "SET value=excluded.value").run(JSON.stringify(manifest));
+      copy.prepare("INSERT INTO meta(key,value) VALUES('snapshot',?) " +
+                   "ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(manifest));
     } finally {
       copy.close();
     }
     const checked = inspectDatabase(partial);
     syncPath(partial);
-    renameSync(partial, target); // Only verified, complete files have the public suffix.
+    // Only verified, complete files have the public suffix.
+    renameSync(partial, target);
     syncPath(dir);
     await pruneSnapshots(dir, now, { retentionPaused });
     return checked.metadata;
   } catch (error) {
-    throw new StoreError('backup-failed', "A verified backup could not be created. Check disk space and folder " +
-      "permissions. The replacement was not performed.", [error.code ?? 'backup']);
+    throw new StoreError('backup-failed', BACKUP_FAILED_MESSAGE, [error.code ?? 'backup']);
   } finally {
     for (const path of [partial, partial + '-journal', partial + '-wal', partial + '-shm']) {
       try {
@@ -318,8 +330,7 @@ export async function verifySnapshot(dir, id) {
     }
     throw new StoreError(
       'backup-unverified',
-      "Backup verification could not run. Check disk space and permissions; existing " +
-        "copies have been kept."
+      BACKUP_UNVERIFIED_MESSAGE
     );
   } finally {
     db?.close();

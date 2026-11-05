@@ -1,9 +1,16 @@
 import { formatEURFromCentsLocale, formatEURFromMicroLocale, formatPercentTenthsLocale } from '../src/calc/money.js';
 import { safeHumanValue, statusWarnings } from './cliRead.js';
+
+const PROPOSAL_USAGE =
+  "Use propose add-price " +
+  "--ingredient <id|exact name> --pack-price <excl. VAT> " +
+  "--pack-size <quantity unit>, plans, or plan status <id> [--json] [--locale en|nl].";
+const LARGE_PRICE_WARNING_NL =
+  "De prijs per kg/l/pc verandert met meer dan ×3." +
+  " Controleer de verpakking en factuur voordat je bevestigt.";
+
 const usage = () => {
-  throw Object.assign(new Error("Use propose add-price --ingredient <id|exact name> --pack-price <excl. VAT> " +
-    "--pack-size <quantity unit>, plans, or plan status <id> [--json] [--locale " +
-    "en|nl]."), { code: 'usage' });
+  throw Object.assign(new Error(PROPOSAL_USAGE), { code: 'usage' });
 };
 
 export async function executePlanCommand(command, args, api) {
@@ -89,8 +96,7 @@ export function formatPlan(value, locale, key = '') {
         ...value,
         message: value.code === 'zero-price'
           ? 'De voorgestelde leveranciersprijs is nul. Controleer de factuur voordat je bevestigt.'
-          : ("De prijs per kg/l/pc verandert met meer dan ×3. Controleer de verpakking en " +
-            "factuur voordat je bevestigt.")
+          : LARGE_PRICE_WARNING_NL
       };
     }
     return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, formatPlan(v, locale, k)]));
@@ -136,33 +142,53 @@ export function printPlan(result) {
           : 1000)
     );
     const packUnit = big ? unit === 'g' ? 'kg' : 'l' : unit;
-    console.log(`Plan ${plan.id}: ${plan.status}\n${plan.ingredient.name} [${plan.ingredient.id}` +
-      `]\n${nl ? 'Leveranciersprijs excl. btw, zoals op de factuur' : 'Supplier price excl. VAT, as on the invoice'}` +
-      `\n${money(plan.previousPrice?.packPriceCents ?? null)}` +
-      ` → ${money(plan.price.packPriceCents)} ${vat}; ${size} ${packUnit}` +
-      `\n${plan.previousPrice ? plan.previousPrice.unitPrice.display + '/' + plan.previousPrice.unitPrice.per : '—'}` +
-      ` → ${plan.proposedPrice.unitPrice.display}/${plan.proposedPrice.unitPrice.per} ${vat}` +
-      `\n${nl ? 'Geldig tot' : 'Expires'}: ${plan.expiresAt}`);
+    const supplierLabel = nl
+      ? 'Leveranciersprijs excl. btw, zoals op de factuur'
+      : 'Supplier price excl. VAT, as on the invoice';
+    const previousPrice = money(plan.previousPrice?.packPriceCents ?? null);
+    const proposedPrice = money(plan.price.packPriceCents);
+    const previousUnitPrice = plan.previousPrice
+      ? plan.previousPrice.unitPrice.display + '/' + plan.previousPrice.unitPrice.per
+      : '—';
+    const proposedUnitPrice = `${plan.proposedPrice.unitPrice.display}/${plan.proposedPrice.unitPrice.per}`;
+    console.log([
+      `Plan ${plan.id}: ${plan.status}`,
+      `${plan.ingredient.name} [${plan.ingredient.id}]`,
+      supplierLabel,
+      `${previousPrice} → ${proposedPrice} ${vat}; ${size} ${packUnit}`,
+      `${previousUnitPrice} → ${proposedUnitPrice} ${vat}`,
+      `${nl ? 'Geldig tot' : 'Expires'}: ${plan.expiresAt}`,
+    ].join('\n'));
     if (plan.effectsUpdated) {
       console.log(nl ? 'Gevolgen bijgewerkt na andere wijzigingen.' : 'Consequences updated after other changes.');
     }
     for (const row of plan.effects.dishes) {
-      console.log(`${row.name}: ${nl ? 'Ingrediëntkosten volgens recept' : 'Recipe-based ingredient cost'}` +
-        ` ${cost(row.comparisonCostMicro)} → ${cost(row.currentCostMicro)} ${vat}` +
-        `; ${nl ? 'Foodcostpercentage' : 'food cost'} ${pct(row.comparisonFoodCostTenthsPct)}` +
-        ` → ${pct(row.currentFoodCostTenthsPct)}` +
-        `; ${nl ? 'maandelijkse verandering in bijdrage' : 'monthly contribution change'}` +
-        ` ${money(row.monthlyImpactCents)}` +
-        `${planExclusion(row.excludedReason, nl)}`);
+      const costLabel = nl ? 'Ingrediëntkosten volgens recept' : 'Recipe-based ingredient cost';
+      const foodCostLabel = nl ? 'Foodcostpercentage' : 'food cost';
+      const monthlyLabel = nl ? 'maandelijkse verandering in bijdrage' : 'monthly contribution change';
+      const costChange = `${cost(row.comparisonCostMicro)} → ${cost(row.currentCostMicro)}`;
+      const foodCostChange = `${pct(row.comparisonFoodCostTenthsPct)} → ${pct(row.currentFoodCostTenthsPct)}`;
+      const monthlyChange = money(row.monthlyImpactCents);
+      console.log(`${row.name}: ${costLabel} ${costChange} ${vat}; ` +
+        `${foodCostLabel} ${foodCostChange}; ${monthlyLabel} ${monthlyChange}` +
+        planExclusion(row.excludedReason, nl));
     }
     for (const row of plan.effects.preps) {
-      console.log(`${row.name} (${nl ? 'basisrecept' : 'prep batch'}): ${cost(row.comparisonBatchMicro)}` +
-        ` → ${cost(row.currentBatchMicro)} ${vat}`);
+      const batchLabel = nl ? 'basisrecept' : 'prep batch';
+      const batchChange = `${cost(row.comparisonBatchMicro)} → ${cost(row.currentBatchMicro)}`;
+      console.log(`${row.name} (${batchLabel}): ${batchChange} ${vat}`);
     }
-    console.log(`${nl ? 'Verandering in maandelijkse bijdrage van het menu' : 'Menu monthly contribution change'}` +
-      `: ${money(plan.effects.totalMonthlyImpactCents)}; ${nl ? 'uitgesloten' : 'excluded'}` +
-      `: ${plan.effects.excludedWithoutVolume} ${nl ? 'zonder maandvolume' : 'without volume'}` +
-      `, ${plan.effects.excludedWithVolume} ${nl ? 'met onbekende kosten' : 'with unknown cost'}.`);
+    const totalLabel = nl
+      ? 'Verandering in maandelijkse bijdrage van het menu'
+      : 'Menu monthly contribution change';
+    const excludedLabel = nl ? 'uitgesloten' : 'excluded';
+    const noVolumeLabel = nl ? 'zonder maandvolume' : 'without volume';
+    const unknownCostLabel = nl ? 'met onbekende kosten' : 'with unknown cost';
+    const total = money(plan.effects.totalMonthlyImpactCents);
+    const noVolume = plan.effects.excludedWithoutVolume;
+    const unknownCost = plan.effects.excludedWithVolume;
+    console.log(`${totalLabel}: ${total}; ${excludedLabel}: ${noVolume} ${noVolumeLabel}, ` +
+      `${unknownCost} ${unknownCostLabel}.`);
     for (const warning of plan.warnings ?? []) {
       console.log(`⚠ ${warning.message}`);
     }

@@ -81,7 +81,8 @@ export function createSession(dir, now = Date.now) {
       if (!tokenMatches(given, key) || now() - issuedAt >= LAUNCH_TTL_MS) {
         return null;
       }
-      rotate(); // Invalidate before responding; no replay, even concurrent requests.
+      // Invalidate before responding; no replay, even concurrent requests.
+      rotate();
       prune();
       if (sessions.size >= 128) {
         sessions.delete(sessions.keys().next().value);
@@ -91,8 +92,8 @@ export function createSession(dir, now = Date.now) {
       sessions.set(token, { cookie, createdAt: now(), lastUsed: now() });
       return {
         token,
-        cookie: (`${name}=${cookie}` +
-          `; HttpOnly; SameSite=Strict; Path=/menupilot/; Max-Age=${SESSION_ABSOLUTE_MS / 1000}`)
+        cookie: `${name}=${cookie}; HttpOnly; SameSite=Strict; Path=/menupilot/; ` +
+          `Max-Age=${SESSION_ABSOLUTE_MS / 1000}`
       };
     }
   };

@@ -19,11 +19,23 @@ import {
   DAY_MS,
   SNAPSHOT_BUDGET
 } from './backupFiles.js';
+
+const RECOVERY_PENDING_MESSAGE =
+  "Emergency recovery was interrupted." +
+  " Run doctor --recover-from-backup with the same backup ID.";
+const DATABASE_CORRUPT_MESSAGE =
+  "The database could not be verified." +
+  " Stop MenuPilot and use doctor --recover-from-backup <id>." +
+  " Keep the original files.";
+
 export const RPO_MS = 5 * 60 * 1000;
-const CAPTURE_AFTER_MS = 4 * 60 * 1000; // Reserve one minute for completing the copy.
+// Reserve one minute for completing the copy.
+const CAPTURE_AFTER_MS = 4 * 60 * 1000;
 const meta = (db, key) => db.prepare('SELECT value FROM meta WHERE key=?').get(key)?.value;
-const put = (db, key, value) => db.prepare("INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET " +
-  "value=excluded.value").run(key, String(value));
+const put = (db, key, value) => db.prepare(
+  "INSERT INTO meta(key,value) VALUES(?,?) " +
+  "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+).run(key, String(value));
 
 /** Caller owns the process lock before this opens the main database. */
 
@@ -31,8 +43,7 @@ export async function openLocalStorage(dir, options = {}) {
   if (existsSync(join(dir, 'recovery-pending.json'))) {
     throw new StoreError(
       'recovery-pending',
-      "Emergency recovery was interrupted. Run doctor --recover-from-backup with the " +
-        "same backup ID."
+      RECOVERY_PENDING_MESSAGE
     );
   }
   const path = join(dir, 'menupilot.db');
@@ -66,8 +77,7 @@ export async function openLocalStorage(dir, options = {}) {
       if (error instanceof StoreError) {
         throw error;
       }
-      throw new StoreError('database-corrupt', "The database could not be verified. Stop MenuPilot and use doctor " +
-        "--recover-from-backup <id>. Keep the original files.");
+      throw new StoreError('database-corrupt', DATABASE_CORRUPT_MESSAGE);
     } finally {
       db?.close();
     }
@@ -127,7 +137,8 @@ export async function manageBackups(raw, dir, {
     );
   function markClockJump() {
     clockWarning = true;
-    put(db, 'backupClockWarning', '1'); // A restart cannot quietly authorize deletion.
+    // A restart cannot quietly authorize deletion.
+    put(db, 'backupClockWarning', '1');
     dailyDue = Math.min(dailyDue, monotonic());
   }
   if (latestAt > lastWall) {
@@ -238,7 +249,8 @@ export async function manageBackups(raw, dir, {
       externalError = null;
       failures = 0;
       retryAt = 0;
-      auditAt = monotonic() + 60000; // Restore-tests are bounded to once per minute when idle.
+      // Restore-tests are bounded to once per minute when idle.
+      auditAt = monotonic() + 60000;
     } catch {
       externalError = 'external-unavailable';
       retryAt = monotonic() + Math.min(5 * 60 * 1000, 1000 * 2 ** Math.min(failures++, 9));
@@ -246,7 +258,9 @@ export async function manageBackups(raw, dir, {
       if (partial) {
         try {
           unlinkSync(partial);
-        } catch {/* A disconnected external disk can retain an unpublished temporary file. */}
+        } catch {
+          // A disconnected external disk can retain an unpublished temporary file.
+        }
       }
     }
   }
@@ -275,7 +289,8 @@ export async function manageBackups(raw, dir, {
         throw error;
       }
       dailyDue = monotonic() + DAY_MS;
-      auditAt = 0; // New snapshots export immediately.
+      // New snapshots export immediately.
+      auditAt = 0;
       dirtyMono = null;
       dirtyWall = null;
       backupError = null;
@@ -337,17 +352,22 @@ export async function manageBackups(raw, dir, {
     };
   }
   async function tick() {
-    observe(); // Detect forward AND backward jumps even when no UI polls status.
+    // Detect forward AND backward jumps even when no UI polls status.
+    observe();
     if (dirty() && (dirtyAge() >= CAPTURE_AFTER_MS || clockWarning)) {
       try {
         await capture('automatic');
-      } catch {/* Keep dirty and make failure visible; retry next tick. */}
+      } catch {
+        // Keep dirty and make failure visible; retry next tick.
+      }
     } else if (!dirty()) {
       const latest = listSnapshots(folder).find(e => !e.invalid);
       if (latest && monotonic() >= dailyDue) {
         try {
           await capture('daily');
-        } catch {/* Visible in status. */}
+        } catch {
+          // Visible in status.
+        }
       }
     }
     await exportReady();
@@ -411,7 +431,9 @@ export async function manageBackups(raw, dir, {
   if (dirty()) {
     try {
       await capture('startup');
-    } catch {/* Ordinary saves remain available, with a visible backup warning. */}
+    } catch {
+      // Ordinary saves remain available, with a visible backup warning.
+    }
   }
   await exportReady();
   function schedule() {

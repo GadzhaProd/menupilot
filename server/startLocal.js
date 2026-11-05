@@ -25,8 +25,9 @@ export async function start() {
   const abort = new AbortController();
   const shutdownFailure = error => {
     const reason = String(error?.message ?? error).replace(/\s+/g, ' ').trim() || 'unknown';
-    return 'Data is saved in the database; the backup was not created — it will be made on ' +
-      `the next start (reason: ${reason})`;
+    const explanation = 'Data is saved in the database; ' +
+      'the backup was not created — it will be made on the next start';
+    return `${explanation} (reason: ${reason})`;
   };
   function requestStop() {
     // Drain writes and finish the final snapshot before releasing the single-writer lock.

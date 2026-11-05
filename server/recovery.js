@@ -7,6 +7,14 @@ import { privateFile } from './session.js';
 import { backupPath, inspectDatabase, syncPath, verifySnapshot } from './backupFiles.js';
 import { StoreError } from '../src/store/errors.js';
 
+const DATA_LOCATION_WARNING =
+  "Warning: the live database may be in a cloud or network folder." +
+  " Use a local disk for MENUPILOT_DATA_DIR; set MENUPILOT_BACKUP_DIR for copies only.";
+const RECOVERY_FAILED_MESSAGE =
+  "Recovery could not finish." +
+  " Original files are preserved." +
+  " Check disk space and repeat the same doctor command.";
+
 export function dataLocationWarning(dir) {
   // Heuristics cannot identify every sync client or mount. Warn conservatively.
   const cloud = new RegExp(
@@ -20,8 +28,7 @@ export function dataLocationWarning(dir) {
   } catch {
     network = true;
   }
-  return cloud || network ? ("Warning: the live database may be in a cloud or network folder. Use a local " +
-      "disk for MENUPILOT_DATA_DIR; set MENUPILOT_BACKUP_DIR for copies only.") : null;
+  return cloud || network ? DATA_LOCATION_WARNING : null;
 }
 
 /** Offline only, under the same process lock as npm start. An intent file makes
@@ -83,12 +90,13 @@ export async function recoverFromBackup(dir, id) {
       if (!Number.isSafeInteger(record.revision)) {
         throw new Error('revision exhausted');
       }
-      restored.prepare("INSERT INTO document(id,record) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET " +
-        "record=excluded.record").run(JSON.stringify(record));
-      restored.exec("DELETE FROM ops; DELETE FROM plans; DELETE FROM meta WHERE key IN " +
-        "('snapshot','lastExternalBackup','lastBackup','backupDirtySince');");
-      restored.prepare("INSERT INTO meta(key,value) VALUES('backupDirty','1') ON CONFLICT(key) DO " +
-        "UPDATE SET value='1'").run();
+      restored.prepare("INSERT INTO document(id,record) VALUES(1,?) " +
+                       "ON CONFLICT(id) DO UPDATE SET record=excluded.record").run(JSON.stringify(record));
+      restored.exec("DELETE FROM ops; " +
+                    "DELETE FROM plans; " +
+                    "DELETE FROM meta WHERE key IN ('snapshot','lastExternalBackup','lastBackup','backupDirtySince');");
+      restored.prepare("INSERT INTO meta(key,value) VALUES('backupDirty','1') " +
+                       "ON CONFLICT(key) DO UPDATE SET value='1'").run();
       restored.prepare("INSERT INTO meta(key,value) VALUES('backupDirtySince',?)").run(new Date().toISOString());
       const entry = JSON.stringify({
         kind: 'emergency-recovery',
@@ -141,8 +149,7 @@ export async function recoverFromBackup(dir, id) {
     }
     throw new StoreError(
       'recovery-failed',
-      "Recovery could not finish. Original files are preserved. Check disk space and " +
-        "repeat the same doctor command."
+      RECOVERY_FAILED_MESSAGE
     );
   } finally {
     await lock.release();
