@@ -243,7 +243,9 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
       return change((draft) => { draft.settings.defaultVatRateBp = defaultVatRateBp; });
     },
 
-    async exportJSON() { return serializeBackup({ document: loaded(), documentId, revision }, true); },
+    // The same compact representation as persistence: formatting must never make
+    // a successfully saved document exceed the import/export budget.
+    async exportJSON() { return serializeBackup({ document: loaded(), documentId, revision }); },
 
     async importJSON(text) {
       const imported = parseBackup(text, 'The imported file', { now: isoNow() });
