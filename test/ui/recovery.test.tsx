@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { MAX_BACKUP_CHARS } from '@/store/serialization.js';
 import { demo, go, memoryStorage, renderApp, STORAGE_KEY } from './helpers';
 const raw = '{bad\n  original bytes';
 const file = (text: string) => new File([text], 'backup.json', { type: 'application/json' });
@@ -39,6 +40,15 @@ it('refuses an invalid backup without replacing damaged storage', async () => {
   await waitFor(() => expect(screen.getByText(/This backup is not valid/)).toBeTruthy());
   expect(screen.queryByRole('alertdialog')).toBeNull();
   expect(storage.getItem(STORAGE_KEY)).toBe(raw);
+});
+
+it('allows a UTF-8 backup larger than five megabytes when it is within the shared character limit', async () => {
+  const storage = memoryStorage({ [STORAGE_KEY]: raw });
+  (await renderApp(storage));
+  const text = JSON.stringify(demo) + ' '.repeat(MAX_BACKUP_CHARS - JSON.stringify(demo).length);
+  await userEvent.upload(screen.getByLabelText('Backup file'), file(text));
+  expect(await screen.findByRole('alertdialog')).toBeTruthy();
+  expect(screen.queryByText(/too large/i)).toBeNull();
 });
 
 it('offers download and confirms empty reset in Dutch, including cancel', async () => {
