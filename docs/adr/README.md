@@ -1,6 +1,6 @@
 # Architecture decision records
 
-These short English records were written retrospectively on 5 November 2026 from the implemented baseline `586e56d` and the linked planning documents. They explain current decisions and consequences; they do not imply that ADRs were maintained during the original implementation. The planning documents retain the detailed contracts and their evolution.
+These short English records were written retrospectively on 5 November 2026 from the original baseline `586e56d`, then checked against portfolio integration `6970019` and the linked planning documents. They explain current decisions and consequences; they do not imply that ADRs were maintained during the original implementation. The planning documents retain the detailed contracts and their evolution.
 
 | Record | Decision |
 |---|---|
@@ -12,4 +12,4 @@ These short English records were written retrospectively on 5 November 2026 from
 | [006](006-scenario-isolation.md) | Scenarios keep their own baseline and never edit real recipes |
 | [007](007-explicit-time-and-evidence.md) | Explicit time and verified test baselines |
 
-[Case study](../CASE_STUDY.md) · [Implementation plan](../planning/04_IMPLEMENTATION_PLAN.md) · [Full architecture](../planning/03_ARCHITECTURE.md)
+[Server module map](../../server/README.md#module-map) · [Case study](../CASE_STUDY.md) · [Implementation plan](../planning/04_IMPLEMENTATION_PLAN.md) · [Full architecture](../planning/03_ARCHITECTURE.md)

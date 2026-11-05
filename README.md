@@ -18,7 +18,7 @@ Fictional demo data; the demo runs entirely in your browser. [Capture details](d
 - **Exact arithmetic:** safe-integer cents in storage; `BigInt` cents and micro-euros in calculations, with explicit rounding.
 - **Two versions, one core:** a static browser app and a local Node.js server with SQLite and automatic backups.
 - **Owner stays in control:** an agent reads and proposes supplier prices; the owner reviews consequences and confirms in the app.
-- **Verification:** 853 core/UI/server tests, 121 caught targeted mutations, 31 Chromium e2e cases, and a separate future-date check. [Results and limits](docs/CASE_STUDY.md#verification).
+- **Verification:** 853 core/UI/server tests, 101 browser cases across three engines, targeted mutations and a future-date check; axe: 0 serious/critical findings. [Results and limits](docs/CASE_STUDY.md#verification).
 - **Languages:** EN/NL interface, built-in help in EN/NL/RU; light and dark themes.
 
 ```mermaid
@@ -279,8 +279,9 @@ Tools such as Apicbase, meez, MarketMan and Restaurant365 are broad restaurant o
 
 - The store is the single source of truth. A command runs outside React's reducers; on success the new document replaces the one on screen, on failure the screen keeps the old document and shows the error.
 - Only the document is saved. Calculation results are derived with `useMemo` and never stored.
+- Screens load in separate chunks on demand. The verified minified entry JavaScript chunk is 297.96 kB (93.40 kB gzip reported by Vite); this is the entry chunk, not the whole application. [Build and test results](docs/CASE_STUDY.md#verification).
 - Hash routes (`#/`, `#/ingredients`, `#/recipes`, `#/recipe/:id`, `#/simulator/:id`, `#/data`) work on GitHub Pages.
-- The local server (`server/`) is the **only writer** of the SQLite database. The UI (through `HttpStorageAdapter`) and the CLI both go through its HTTP API. See [server/README.md](server/README.md).
+- The local server (`server/`) is the **only writer** of the SQLite database. The UI (through `HttpStorageAdapter`) and the CLI both go through its HTTP API. See the [server module map](server/README.md#module-map).
 - Planning documents (product spec, architecture, implementation plan, local version plan) are in [docs/planning](docs/planning/).
 
 ### Money and rounding
@@ -307,8 +308,8 @@ Money input accepts a decimal comma or point and rejects thousands separators.
 
 ### Requirements
 
-- **Node.js** `^24.15.0` or `^25.8.1` (the local version needs built-in SQLite with the WAL fix; tested patches are 24.15.0 LTS with SQLite 3.51.3, and 25.8.1; CI uses Node 24.15.0). This raises the project tooling minimum above Vite's minimum. No new dependencies.
-- **Browsers** (set by Tailwind CSS v4): Safari 16.4+, Chrome 111+, Firefox 128+.
+- **Node.js** `^24.15.0` or `^25.8.1` (the local version needs built-in SQLite with the WAL fix; tested patches are 24.15.0 LTS with SQLite 3.51.3, and 25.8.1; CI uses Node 24.15.0). This raises the project tooling minimum above Vite's minimum.
+- **Browser targets** (set by Tailwind CSS v4): Safari 16.4+, Chrome 111+, Firefox 128+. Automated checks use Playwright Chromium, WebKit and Firefox; the minimum versions and the installed Safari application were not tested.
 
 ### Testing
 
@@ -319,10 +320,16 @@ npm run check:future # core/UI/server with the test clock at 2027-12-31T12:00:00
 npm run test:mutations # intentional defects must be caught (also in npm test)
 npm run test:server # SQLite/HTTP contract, process lock, transaction and security tests
 npm run test:e2e:local # Local server, desktop + 375 px, restart and migration
-npm run test:e2e  # Playwright on Chromium against production preview under /menupilot/
+npm run test:e2e  # Chromium functional tests + axe, production preview under /menupilot/
+npx playwright install webkit firefox # install the additional compatibility engines
+npm run test:e2e:compat # WebKit + Firefox functional tests and axe; desktop + 375 px
 ```
 
-`npm run check` intentionally skips Playwright to keep the fast local check quick. `npm run test:e2e:install` installs Chromium for local runs. Playwright runs Chromium at 1280×800 and 375×812 against the production build and blocks external network requests. CI runs these browser tests on pull requests and branches, and on `main` before uploading the GitHub Pages deployment artifact. Failed CI runs retain the HTML report, screenshots, and traces as an artifact.
+`npm run check` skips Playwright. Run suites sequentially within one checkout: server-startup tests can rebuild `dist` while a browser preview is serving it. `npm run test:e2e:install` installs Chromium. Static-app tests use the production build at `/menupilot/`, desktop 1280×800 and mobile 375×812, with external requests blocked. `npm run test:e2e:compat` repeats the functional and axe checks in Playwright WebKit and Firefox.
+
+Branch/PR CI runs all three engines and local-server e2e. The `main` Pages workflow runs Chromium and local-server e2e before uploading the deployment artifact. Failed CI runs retain reports and configured diagnostic artifacts.
+
+The axe checks cover six screens and two dialogs in EN/NL, light/dark themes and both viewport sizes. They require zero violations classified as serious or critical; this is not a full WCAG or screen-reader audit. The compatibility engines do not establish support for minimum browser releases or a real iPhone.
 
 Playwright uses `retries: 0`; a failure is reported immediately with its trace and screenshot so flaky behavior stays visible. Keep the manual browser check for changes to screens: inspect desktop and 375 px layouts, keyboard and focus behavior in dialogs, and field validation messages.
 
