@@ -5,6 +5,11 @@ import { assertValidDocument } from '../src/store/schema.js';
 import { parseMoneyToCents } from '../src/calc/money.js';
 import { parseQuantityToMilli } from '../src/calc/units.js';
 import { encodePlan, packaging, planEffects } from './planEffects.js';
+
+const LARGE_PRICE_WARNING =
+  "The price per kg/l/pc changes by more than ×3." +
+  " Check the pack size and invoice before confirming.";
+
 export const PLAN_LIMITS = {
   pending: 50,
   count: 200,
@@ -61,8 +66,8 @@ export function createPlans(storage, now) {
   const timestamp = () => new Date(now()).toISOString();
   const markDirty = () => {
     db.prepare("INSERT OR IGNORE INTO meta(key,value) VALUES('backupDirtySince',?)").run(timestamp());
-    db.prepare("INSERT INTO meta(key,value) VALUES('backupDirty','1') ON CONFLICT(key) DO " +
-      "UPDATE SET value='1'").run();
+    db.prepare("INSERT INTO meta(key,value) VALUES('backupDirty','1') " +
+               "ON CONFLICT(key) DO UPDATE SET value='1'").run();
   };
   const save = plan => {
     db.prepare('UPDATE plans SET plan=? WHERE id=?').run(JSON.stringify(plan), plan.id);
@@ -77,7 +82,9 @@ export function createPlans(storage, now) {
     } catch (error) {
       try {
         db.exec('ROLLBACK');
-      } catch {/* BEGIN may fail. */}
+      } catch {
+        // BEGIN may fail.
+      }
       if (error instanceof StoreError) {
         throw error;
       }
@@ -95,13 +102,14 @@ export function createPlans(storage, now) {
   function stale(plan, current) {
     const target = current.document.ingredients.find(i => i.id === plan.ingredient.id);
     // The first save assigns an ID to an initially unsaved document; it is not a replacement.
-    if (plan.documentId !== null && plan.documentId !== current.documentId || !target
+    if ((plan.documentId !== null && plan.documentId !== current.documentId) || !target
       || target.unit !== plan.ingredient.unit) {
       return true;
     }
     if (!plan.basis) {
+      // Legacy proposal: no dependency snapshot.
       return plan.revision !== current.revision;
-    } // Legacy proposal: no dependency snapshot.
+    }
     return plan.basis.replacementId !== replacementId()
       || plan.basis.priceHistoryHash !== priceHistoryHash(
           target.prices
@@ -239,8 +247,7 @@ export function createPlans(storage, now) {
           if (next > previous * 3n || previous > next * 3n) {
             warnings.push({
               code: 'large-price-change',
-              message: ("The price per kg/l/pc changes by more than ×3. Check the pack size and invoice " +
-                "before confirming.")
+              message: LARGE_PRICE_WARNING
             });
           }
         }

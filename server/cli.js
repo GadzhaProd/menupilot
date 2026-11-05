@@ -6,6 +6,20 @@ import { assertRuntime } from './runtime.js';
 import { safeHumanValue, executeReadCommand, localDataPath, localDoctor, serializeCliError } from './cliRead.js';
 import { executePlanCommand, printPlan } from './cliPlans.js';
 import { hasValidOpenResult } from './cliSecurity.js';
+
+const PRIVATE_TOKEN_MESSAGE =
+  "The MenuPilot CLI token must have file permissions 0600." +
+  " Restart MenuPilot to replace it safely.";
+const SERVER_NOT_RUNNING_MESSAGE =
+  "MenuPilot is not running." +
+  " Start it with npm start to check live document and backup status.";
+const BROWSER_OPEN_FAILED_MESSAGE =
+  "Could not open the browser." +
+  " Open the address from the terminal window running npm start, or restart npm start.";
+const NO_BACKUPS_MESSAGE =
+  "No backups yet." +
+  " A backup is created within five minutes of a change, and on normal shutdown.";
+
 const readCommands = new Set(
   [
     'status',
@@ -21,10 +35,11 @@ const readCommands = new Set(
     'backups'
   ]
 );
-const help = ("Usage: npm run menupilot -- " +
-  "<status|doctor|what-changed|dishes|dish|ingredients|ingredient|preps|simulate|" +
-  "history|journal|backups|stop|propose|plans|plan> " +
-  "[options]");
+const helpCommands = [
+  'status', 'doctor', 'what-changed', 'dishes', 'dish', 'ingredients', 'ingredient', 'preps',
+  'simulate', 'history', 'journal', 'backups', 'stop', 'propose', 'plans', 'plan',
+];
+const help = `Usage: npm run menupilot -- <${helpCommands.join('|')}> [options]`;
 
 function jsonRequested(args) {
   return args.includes('--json');
@@ -84,8 +99,7 @@ export async function connection(dir) {
     const path = join(dir, 'token');
     const mode = statSync(path).mode & 0o777;
     if (process.platform !== 'win32' && mode !== 0o600) {
-      throw cliError('unauthorized', "The MenuPilot CLI token must have file permissions 0600. Restart MenuPilot to " +
-        "replace it safely.");
+      throw cliError('unauthorized', PRIVATE_TOKEN_MESSAGE);
     }
     token = readFileSync(path, 'utf8');
   } catch (error) {
@@ -183,36 +197,45 @@ function printHuman(result, locale = 'en') {
   const { command, data, warnings = [] } = result;
   if (command === 'dishes' || command === 'preps' || command === 'ingredients') {
     for (const item of data) {
-      console.log(`${item.name}  [${item.id}` +
-        `]${item.currentPrice ? `  ${displayValue(item.currentPrice.packPrice)} excl. VAT` : ''}`);
+      const price = item.currentPrice ? `  ${displayValue(item.currentPrice.packPrice)} excl. VAT` : '';
+      console.log(`${item.name}  [${item.id}]${price}`);
     }
   } else if (command === 'what-changed') {
     const nl = locale === 'nl';
     console.log(`${nl ? 'Wat is er veranderd sinds' : 'What changed since'} ${data.since}`);
     for (const row of data.dishes) {
-      console.log(`${row.name}: ${displayValue(row.comparisonCost) || 'n/a'}` +
-        ` → ${displayValue(row.currentCost) || 'n/a'} (${displayValue(row.change) || 'n/a'}` +
-        `); ${nl ? 'maandelijkse verandering' : 'monthly impact'}` +
-        ` ${displayValue(row.monthlyImpact)}` +
-        `${exclusionText(row.excludedReason, nl)}`);
+      const previousCost = displayValue(row.comparisonCost) || 'n/a';
+      const currentCost = displayValue(row.currentCost) || 'n/a';
+      const change = displayValue(row.change) || 'n/a';
+      const impactLabel = nl ? 'maandelijkse verandering' : 'monthly impact';
+      const impact = displayValue(row.monthlyImpact);
+      const exclusion = exclusionText(row.excludedReason, nl);
+      console.log(`${row.name}: ${previousCost} → ${currentCost} (${change}); ${impactLabel} ${impact}${exclusion}`);
     }
-    console.log(`${nl ? 'Verandering in maandelijkse bijdrage van het menu' : 'Menu monthly impact'}` +
-      `: ${displayValue(data.totalMonthlyImpact)}`);
-    console.log(`${nl ? 'Uitgesloten' : 'Excluded'}: ${data.excludedWithoutVolume}` +
-      ` ${nl ? 'zonder maandvolume' : 'without volume'}; ${data.excludedWithVolume}` +
-      ` ${nl ? 'met onbekende/onvolledige kosten' : 'with unknown/incomplete cost'}.`);
+    const totalLabel = nl ? 'Verandering in maandelijkse bijdrage van het menu' : 'Menu monthly impact';
+    console.log(`${totalLabel}: ${displayValue(data.totalMonthlyImpact)}`);
+    const excludedLabel = nl ? 'Uitgesloten' : 'Excluded';
+    const noVolumeLabel = nl ? 'zonder maandvolume' : 'without volume';
+    const unknownCostLabel = nl ? 'met onbekende/onvolledige kosten' : 'with unknown/incomplete cost';
+    console.log(`${excludedLabel}: ${data.excludedWithoutVolume} ${noVolumeLabel}; ` +
+      `${data.excludedWithVolume} ${unknownCostLabel}.`);
   } else if (command === 'simulate') {
-    console.log(`${data.name}` +
-      `: recipe-based ingredient cost ${displayValue(data.recipeBasedIngredientCost) ?? 'cost unknown'}` +
-      `; contribution ${displayValue(data.contribution)}` +
-      ` (${displayValue(data.contributionDelta) ?? 'no change'}` +
-      `); monthly contribution ${displayValue(data.monthlyContribution)}` +
-      ` (${displayValue(data.monthlyContributionDelta)})`);
+    const cost = displayValue(data.recipeBasedIngredientCost) ?? 'cost unknown';
+    const contribution = displayValue(data.contribution);
+    const delta = displayValue(data.contributionDelta) ?? 'no change';
+    const monthly = displayValue(data.monthlyContribution);
+    const monthlyDelta = displayValue(data.monthlyContributionDelta);
+    console.log(`${data.name}: recipe-based ingredient cost ${cost}; ` +
+      `contribution ${contribution} (${delta}); monthly contribution ${monthly} (${monthlyDelta})`);
   } else if (command === 'status') {
-    console.log(`Mode: ${data.mode}\nData folder: ${data.dataDir}` +
-      `\nDocument: ${result.documentId ?? 'empty'}\nRevision: ${result.revision}` +
-      `\nLast backup: ${data.lastBackup ?? 'none'}` +
-      `\nLast external backup: ${data.lastExternalBackup ?? 'none'}`);
+    console.log([
+      `Mode: ${data.mode}`,
+      `Data folder: ${data.dataDir}`,
+      `Document: ${result.documentId ?? 'empty'}`,
+      `Revision: ${result.revision}`,
+      `Last backup: ${data.lastBackup ?? 'none'}`,
+      `Last external backup: ${data.lastExternalBackup ?? 'none'}`,
+    ].join('\n'));
   } else if (command === 'doctor') {
     for (const check of data.checks) {
       console.log(`${check.ok ? 'OK' : 'CHECK'} ${check.name}: ${check.detail}` +
@@ -235,8 +258,7 @@ function printHuman(result, locale = 'en') {
     console.log(`Menu price: ${displayValue(data.menuPriceInclVat)} ${data.menuPriceLabel}`);
     const ingredientCost = data.recipeBasedIngredientCost
       ? displayValue(data.recipeBasedIngredientCost) : 'cost unknown';
-    console.log(`Recipe-based ingredient cost: ${ingredientCost}` +
-      ` excl. VAT`);
+    console.log(`Recipe-based ingredient cost: ${ingredientCost} excl. VAT`);
     console.log(`Contribution: ${displayValue(data.contribution)} excl. VAT`);
     console.log(`Portions: ${data.portions}\nMonthly volume: ${data.monthlyVolume ?? '—'}`);
   } else if (command === 'ingredient') {
@@ -264,16 +286,17 @@ async function run(args) {
     }
     if (command === 'doctor' && args[1] === '--recover-from-backup' && args[2]
       && (args.length === 3
-      || args.length === 4
-      && args[3] === '--yes')) {
-      await confirm(`Emergency recovery from ${args[2]}` +
-        (". Stop the server first. Original database files will be preserved beside the " +
-        "recovered database."), args[3] === '--yes');
+      || (args.length === 4
+      && args[3] === '--yes'))) {
+      const recoveryAdvice = 'Stop the server first. ' +
+        'Original database files will be preserved beside the recovered database.';
+      await confirm(`Emergency recovery from ${args[2]}. ${recoveryAdvice}`, args[3] === '--yes');
       const { recoverFromBackup } = await import('./recovery.js');
       const result = await recoverFromBackup(dir, args[2]);
-      console.log(`Recovered. Original files and report: ${safeHumanValue(result.reportPath)}` +
-        ("\nRun npm start. Emergency recovery uses a new dataset identity; changes after " +
-        "the backup are not recovered."));
+      const recoveryLimit = 'Emergency recovery uses a new dataset identity; ' +
+        'changes after the backup are not recovered.';
+      console.log(`Recovered. Original files and report: ${safeHumanValue(result.reportPath)}\n` +
+        `Run npm start. ${recoveryLimit}`);
       return;
     }
     if (['propose', 'plans', 'plan'].includes(command)) {
@@ -308,7 +331,7 @@ async function run(args) {
       return;
     }
     if (command === 'doctor') {
-      if (args.length > 2 || args[1] && args[1] !== '--json') {
+      if (args.length > 2 || (args[1] && args[1] !== '--json')) {
         throw cliError('usage', help);
       }
       let backupsStatus = null;
@@ -330,8 +353,7 @@ async function run(args) {
       if (!connected && !tokenIssue) {
         data.warnings.push({
           code: 'server-unavailable',
-          message: ("MenuPilot is not running. Start it with npm start to check live document and " +
-            "backup status.")
+          message: SERVER_NOT_RUNNING_MESSAGE
         });
       }
       const result = {
@@ -373,16 +395,16 @@ async function run(args) {
 }
 
 async function runExistingServerCommand(args, dir, wantJson = false) {
-  const open = args[0] === 'open-url' && (args.length === 1 || args.length === 2 && args[1] === '--revoke-sessions');
+  const open = args[0] === 'open-url' && (args.length === 1 || (args.length === 2 && args[1] === '--revoke-sessions'));
   const list = args[0] === 'backup' && args[1] === 'list'
     && (args.length === 2
-    || args.length === 3
-    && args[2] === '--json');
+    || (args.length === 3
+    && args[2] === '--json'));
   const verify = args[0] === 'backup' && args[1] === 'verify' && args.length === 3;
   const restore = args[0] === 'backup' && args[1] === 'restore'
     && (args.length === 3
-    || args.length === 4
-    && args[3] === '--yes');
+    || (args.length === 4
+    && args[3] === '--yes'));
   const stop = args[0] === 'stop' && args.length === 1;
   if (!open && !list && !verify && !restore && !stop) {
     throw cliError('usage', help);
@@ -428,8 +450,7 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
     console.log(
       result.opened
         ? 'MenuPilot opened in your browser.'
-        : ("Could not open the browser. Open the address from the terminal window running " +
-          "npm start, or restart npm start.")
+        : BROWSER_OPEN_FAILED_MESSAGE
     );
   } else if (list) {
     const entries = await api('backups');
@@ -454,8 +475,7 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
       }
     }
     if (!entries.length && !wantJson) {
-      console.log("No backups yet. A backup is created within five minutes of a change, and on " +
-        "normal shutdown.");
+      console.log(NO_BACKUPS_MESSAGE);
     }
   } else if (verify) {
     let checked;
@@ -478,15 +498,16 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
         warnings: []
       });
     } else {
-      console.log(`Verified by restoring to a temporary database: ${safeHumanValue(checked.id)}` +
-        `, revision ${checked.revision}.`);
+      const backupIdentity = `${safeHumanValue(checked.id)}, revision ${checked.revision}`;
+      console.log(`Verified by restoring to a temporary database: ${backupIdentity}.`);
     }
   } else {
     const checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } });
     const current = await api('version');
-    await confirm(`Replace current revision ${current.revision} with the document from backup ${checked.id}` +
-      ` (revision ${checked.revision}` +
-      `)? A verified copy of the current data will be created first.`, args[3] === '--yes');
+    const replacement = `Replace current revision ${current.revision} with the document from backup ${checked.id}`;
+    const confirmation = `${replacement} (revision ${checked.revision})? ` +
+      'A verified copy of the current data will be created first.';
+    await confirm(confirmation, args[3] === '--yes');
     const result = await api('backups/restore', {
       method: 'POST',
       body: {

@@ -8,6 +8,11 @@ import { assertValidDocument, emptyDocument } from '../src/store/schema.js';
 import { assertValidTransition } from '../src/store/transitions.js';
 import { parseBackup, serializeBackup } from '../src/store/serialization.js';
 import { createRemoteAdapter } from '../src/store/remoteAdapter.js';
+
+const RESET_MESSAGE =
+  "Reset requires the canonical empty document or the selected English/Dutch demo." +
+  " Use Import for other data.";
+
 export const DB_VERSION = 2;
 // Retention budgets bound recovery/audit growth without evicting the current document.
 export const BUDGETS = {
@@ -55,8 +60,7 @@ function assertReset(document, kind) {
       }
     }
   }
-  invalid("Reset requires the canonical empty document or the selected English/Dutch " +
-    "demo. Use Import for other data.");
+  invalid(RESET_MESSAGE);
 }
 
 /** Owned by one server process. Each adapter has its own last accepted CAS identity. */
@@ -175,9 +179,9 @@ export function createSqliteStorage(path, {
       if (!source || ![1, 2].includes(source.schemaVersion) || !Number.isSafeInteger(source.revision)
         || source.revision < 0
         || !(source.documentId === null
-          || typeof source.documentId === 'string'
+          || (typeof source.documentId === 'string'
           && source.documentId.length > 0
-          && source.documentId.length <= 200)
+          && source.documentId.length <= 200))
         || Object.keys(source).some(
           key => !['document', 'schemaVersion', 'documentId', 'revision'].includes(key)
         )) {
@@ -217,7 +221,7 @@ export function createSqliteStorage(path, {
         }
         return { ...current, receipt: JSON.parse(old.receipt) };
       }
-      if (!matches || input.kind === 'memory' && current.documentId !== null) {
+      if (!matches || (input.kind === 'memory' && current.documentId !== null)) {
         if (!withinTransaction) {
           db.exec('ROLLBACK');
         }
@@ -239,9 +243,9 @@ export function createSqliteStorage(path, {
         assertValidTransition(current.document, document);
       }
       const newIdentity = ['reset', 'memory'].includes(input.kind)
-        || input.kind === 'import'
+        || (input.kind === 'import'
         && (!input.source.documentId
-        || input.source.documentId !== current.documentId);
+        || input.source.documentId !== current.documentId));
       const unchanged = input.kind === 'save' && current.documentId !== null
         && digest(document) === digest(
             current.document
@@ -255,7 +259,8 @@ export function createSqliteStorage(path, {
       if (!Number.isSafeInteger(next.revision)) {
         invalid('The revision counter is exhausted. Export a backup.');
       }
-      serializeBackup(next); // Shared maximum document size, before any SQL mutation.
+      // Shared maximum document size, before any SQL mutation.
+      serializeBackup(next);
       const timestamp = new Date(now()).toISOString();
       const receipt = {
         opId: input.opId,
@@ -267,8 +272,8 @@ export function createSqliteStorage(path, {
         // Imports/restores can retain documentId and price history. A separate durable
         // generation invalidates proposals even after journal/history retention pruning.
         if (['import', 'reset', 'restore', 'backup-restore', 'memory'].includes(input.kind)) {
-          db.prepare("INSERT INTO meta(key,value) VALUES('planReplacementId',?) ON CONFLICT(key) DO " +
-            "UPDATE SET value=excluded.value").run(randomUUID());
+          db.prepare("INSERT INTO meta(key,value) VALUES('planReplacementId',?) " +
+                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(randomUUID());
         }
         const raw = JSON.stringify(current);
         const bytes = Buffer.byteLength(raw);
@@ -281,14 +286,17 @@ export function createSqliteStorage(path, {
           raw,
           bytes
         );
-        db.prepare("INSERT INTO document (id,record) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET " +
-          "record=excluded.record").run(JSON.stringify(next));
+        db.prepare("INSERT INTO document (id,record) VALUES (1,?) " +
+                   "ON CONFLICT(id) DO UPDATE SET record=excluded.record").run(JSON.stringify(next));
         const remaining = new Set(document.ingredients.map(i => i.id));
         const removedIngredients = current.document.ingredients.filter(i => !remaining.has(i.id)).map(i => ({
           id: i.id,
           name: i.name,
           priceEntries: i.prices.length
         }));
+        const deletionDescription =
+          `Deleted ${removedIngredients.length} ingredient(s), including their price history; ` +
+          'the pre-change snapshot is retained in version history within its retention limits.';
         const entry = JSON.stringify({
           ...receipt,
           kind: input.kind,
@@ -297,15 +305,13 @@ export function createSqliteStorage(path, {
           ...(actor === 'agent' && { confirmedBy: 'ui', planId, ingredientId }),
           ...(removedIngredients.length && {
               removedIngredients,
-              description: (`Deleted ${removedIngredients.length}` +
-                (" ingredient(s), including their price history; the pre-change snapshot is " +
-                "retained in version history within its retention limits."))
+              description: deletionDescription
             })
         });
         db.prepare('INSERT INTO journal (entry,bytes) VALUES (?,?)').run(entry, Buffer.byteLength(entry));
         db.prepare("INSERT OR IGNORE INTO meta(key,value) VALUES('backupDirtySince',?)").run(timestamp);
-        db.prepare("INSERT INTO meta (key,value) VALUES ('backupDirty','1') ON CONFLICT(key) DO " +
-          "UPDATE SET value='1'").run();
+        db.prepare("INSERT INTO meta (key,value) VALUES ('backupDirty','1') " +
+                   "ON CONFLICT(key) DO UPDATE SET value='1'").run();
       }
       const encoded = JSON.stringify(receipt);
       db.prepare('INSERT INTO ops (id,hash,receipt,bytes) VALUES (?,?,?,?)').run(
@@ -326,7 +332,9 @@ export function createSqliteStorage(path, {
         if (!withinTransaction) {
           db.exec('ROLLBACK');
         }
-      } catch {/* BEGIN may itself have failed. */}
+      } catch {
+        // BEGIN may itself have failed.
+      }
       if (error instanceof StoreError) {
         throw error;
       }

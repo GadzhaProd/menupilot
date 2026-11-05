@@ -14,6 +14,20 @@ import {
 } from '../src/calc/money.js';
 import { parseQuantityToMilli } from '../src/calc/units.js';
 import { dataLocationWarning } from './recovery.js';
+
+const LOCAL_FOLDER_ADVICE =
+  "Move the live database to a local disk folder." +
+  " Use the external backup folder for cloud copies.";
+const LOCK_RECOVERY_ADVICE =
+  "If a lock remains after a crash, stop MenuPilot and run npm start so lock recovery can verify it.";
+const DATABASE_RECOVERY_ADVICE =
+  "Database or document is unreadable." +
+  " Restore a verified backup with npm run menupilot -- backup verify, then restore it.";
+const BACKUP_FRESHNESS_ADVICE =
+  "Keep MenuPilot running until a backup completes; inspect backup errors and available space.";
+const EXTERNAL_BACKUP_ADVICE =
+  "Check the destination and its sync client; a copied file does not prove cloud synchronization.";
+
 export const API_VERSION = 1;
 
 export function assertQuickCheck(rows) {
@@ -47,7 +61,7 @@ function asRecord(value, locale = 'en') {
   if (value && typeof value === 'object') {
     const output = {};
     for (const [key, item] of Object.entries(value)) {
-      const numericAmount = typeof item === 'bigint' || typeof item === 'number' && isMoney(key);
+      const numericAmount = typeof item === 'bigint' || (typeof item === 'number' && isMoney(key));
       output[key] = numericAmount ? String(item) : asRecord(item, locale);
       if (numericAmount && /Cents$/.test(key)) {
         output[`${key.slice(0, -5)}Display`] = formatEURFromCentsLocale(item, locale);
@@ -466,7 +480,7 @@ export function portState(port) {
 
 export function isSupportedNode(version) {
   const [major, minor, patch] = version.split('.').map(Number);
-  return major === 24 && minor >= 15 || major === 25 && (minor > 8 || minor === 8 && patch >= 1);
+  return (major === 24 && minor >= 15) || (major === 25 && (minor > 8 || (minor === 8 && patch >= 1)));
 }
 
 async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) {
@@ -520,8 +534,7 @@ async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) 
     'local-folder',
     !remoteWarning,
     dir,
-    "Move the live database to a local disk folder. Use the external backup folder " +
-      "for cloud copies."
+    LOCAL_FOLDER_ADVICE
   );
   const tokenPath = join(dir, 'token');
   let tokenOk = false;
@@ -558,8 +571,7 @@ async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) 
     'lock',
     !owner || apiAvailable,
     lockStatus,
-    "If a lock remains after a crash, stop MenuPilot and run npm start so lock " +
-      "recovery can verify it."
+    LOCK_RECOVERY_ADVICE
   );
   const addressPort = owner?.address && /^http:\/\/127\.0\.0\.1:(\d+)$/.exec(owner.address)?.[1];
   const configuredPort = Number(process.env.MENUPILOT_PORT || 4710);
@@ -618,8 +630,7 @@ async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) 
         ? 'database is unreadable'
         : 'no database yet'
       : `SQLite format ${dbVersion}; document ${documentFormat}`,
-    "Database or document is unreadable. Restore a verified backup with npm run " +
-      "menupilot -- backup verify, then restore it."
+    DATABASE_RECOVERY_ADVICE
   );
   if (backupsStatus) {
     add(
@@ -628,8 +639,7 @@ async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) 
       backupsStatus.lastBackupAt
         ? `${backupsStatus.lastBackupAt}${backupsStatus.dirty ? '; pending changes' : ''}`
         : 'no completed backup',
-      "Keep MenuPilot running until a backup completes; inspect backup errors and " +
-        "available space."
+      BACKUP_FRESHNESS_ADVICE
     );
     add(
       'external-backup',
@@ -638,8 +648,7 @@ async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) 
         ? backupsStatus.lastExternalBackupAt
           ?? 'no external backup'
         : 'not configured',
-      "Check the destination and its sync client; a copied file does not prove cloud " +
-        "synchronization."
+      EXTERNAL_BACKUP_ADVICE
     );
     const damaged = backupsStatus.corruptBackups || backupsStatus.corruptExternalBackups;
     add(
@@ -667,15 +676,14 @@ async function localDoctor(dir, apiAvailable, backupsStatus, tokenIssue = null) 
       localBackupAt = listSnapshots(join(dir, 'backups')).find(entry => !entry.invalid)?.createdAt ?? null;
     } catch {}
     const age = localBackupAt ? Date.now() - Date.parse(localBackupAt) : Infinity;
-    const stale = !localBackupAt || age < 0 || age > 24 * 60 * 60_000 || dirty && age > 5 * 60_000;
+    const stale = !localBackupAt || age < 0 || age > 24 * 60 * 60_000 || (dirty && age > 5 * 60_000);
     add(
       'backup-freshness',
       !stale,
       localBackupAt
         ? `${localBackupAt}${dirty ? '; pending changes' : ''}`
         : 'no completed backup',
-      "Keep MenuPilot running until a backup completes; inspect backup errors and " +
-        "available space."
+      BACKUP_FRESHNESS_ADVICE
     );
     if (process.env.MENUPILOT_BACKUP_DIR) {
       add(
@@ -763,9 +771,9 @@ export async function executeReadCommand(command, args, api, {
       dish = resolveOne(doc.recipes.filter(r => r.kind === 'dish'), positional[0], 'dish', locale);
     } catch (error) {
       const prep = doc.recipes.find(
-        r => r.kind === 'prep' && normalized(r.id) === normalized(positional[0])
-          || r.kind === 'prep'
-          && normalized(r.name) === normalized(positional[0])
+        r => (r.kind === 'prep' && normalized(r.id) === normalized(positional[0]))
+          || (r.kind === 'prep'
+          && normalized(r.name) === normalized(positional[0]))
       );
       if (prep) {
         throw cliError('not-found', `“${prep.name}” is a prep, not a dish.`, exactCandidates([prep], locale));

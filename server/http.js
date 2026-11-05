@@ -8,6 +8,11 @@ import { createLogger } from './log.js';
 import { StoreError } from '../src/store/errors.js';
 import { MAX_DOCUMENT_CHARS } from '../src/store/serialization.js';
 
+const SESSION_EXPIRED_MESSAGE =
+  "MenuPilot restarted." +
+  " Open the new address from the terminal window running npm start." +
+  " If needed, run npm run menupilot -- open-url.";
+
 // 5m UTF-16 code units can require 15m UTF-8 bytes; leave room for envelope/CAS.
 export const MAX_BODY_BYTES = 3 * MAX_DOCUMENT_CHARS + 100_000;
 const MIME = {
@@ -114,7 +119,9 @@ export function handleRequestError(req, res, error) {
   } catch {
     try {
       res.destroy();
-    } catch {/* Broken response cannot be reported again. */}
+    } catch {
+      // Broken response cannot be reported again.
+    }
   }
 }
 
@@ -145,7 +152,8 @@ export async function serveLocal({
   const headerTimers = new Map();
   let stopping = false;
   const root = realpathSync(distDir);
-  const files = staticFiles(root); // Preserve the existing synchronous appearance bootstrap without allowing inline JS.
+  const files = staticFiles(root);
+  // Preserve the existing synchronous appearance bootstrap without allowing inline JS.
   // Sources come only from our trusted build, never a request or stored document.
   const bootstraps = new Map();
   const template = readFileSync(
@@ -163,7 +171,8 @@ export async function serveLocal({
     }
   );
   let address;
-  let localPort; // EventEmitter does not observe async listener rejections. Contain even errors
+  let localPort;
+  // EventEmitter does not observe async listener rejections. Contain even errors
   // thrown while producing an error response, rather than terminating the writer.
   const server = createServer((req, res) => {
     dispatchRequest(handle, req, res);
@@ -188,8 +197,7 @@ export async function serveLocal({
     if (!session.authorize(req.headers.authorization?.replace(/^Bearer /, ''))) {
       send(res, 401, {
         code: 'session-expired',
-        message: ("MenuPilot restarted. Open the new address from the terminal window running npm " +
-          "start. If needed, run npm run menupilot -- open-url.")
+        message: SESSION_EXPIRED_MESSAGE
       });
       return;
     }
@@ -204,15 +212,10 @@ export async function serveLocal({
   }
 
   function indexPage({ req, res, cookieName }) {
-    const html = session.hasCookie(
-      req,
-      cookieName
-    )
-      ? template.replace(
-        '<head>',
-        () => ("<head><meta name=\"menupilot-mode\" content=\"local\"><script " +
-          "src=\"/menupilot/login.js\" defer></script>")
-      )
+    const localHead = '<head><meta name="menupilot-mode" content="local">' +
+      '<script src="/menupilot/login.js" defer></script>';
+    const html = session.hasCookie(req, cookieName)
+      ? template.replace('<head>', () => localHead)
       : loginPage;
     res.writeHead(200, {
       'Content-Type': MIME['.html'],
@@ -228,20 +231,22 @@ export async function serveLocal({
     res.end(script);
   }
 
+  // Page handlers check these credentials while selecting a response (for example login vs app HTML).
+  // API roles are enforced centrally by authorizeRoute before invoking an API handler.
   const pageRoutes = [
-    { method: 'POST', path: '/menupilot/session', role: 'launch-key', handler: exchangeSession },
-    { method: 'GET', path: '/menupilot/local-config.json', role: 'ui', handler: localConfig },
+    { method: 'POST', path: '/menupilot/session', access: 'launch-key', handler: exchangeSession },
+    { method: 'GET', path: '/menupilot/local-config.json', access: 'ui', handler: localConfig },
     ...[...bootstraps].map(([path, script]) => ({
-      method: 'GET', path, role: 'public', handler: ({ res }) => scriptResponse(res, script),
+      method: 'GET', path, access: 'public', handler: ({ res }) => scriptResponse(res, script),
     })),
-    { method: 'GET', path: '/menupilot/login.js', role: 'public',
+    { method: 'GET', path: '/menupilot/login.js', access: 'public',
       handler: ({ res }) => scriptResponse(res, loginScript) },
-    { method: 'GET', path: '/menupilot-instance', role: 'public',
+    { method: 'GET', path: '/menupilot-instance', access: 'public',
       handler: ({ res }) => send(res, 200, { service: 'MenuPilot', instanceId }) },
     ...['GET', 'HEAD'].flatMap(method => [
-      ...['/', '/menupilot'].map(path => ({ method, path, role: 'public', handler: redirectHome })),
+      ...['/', '/menupilot'].map(path => ({ method, path, access: 'public', handler: redirectHome })),
       ...['/menupilot/', '/menupilot/index.html'].map(path => ({
-        method, path, role: 'cookie-or-sign-in', handler: indexPage,
+        method, path, access: 'cookie-or-sign-in', handler: indexPage,
       })),
     ]),
   ];
@@ -313,7 +318,8 @@ export async function serveLocal({
 
   async function backupBody({ apiBody, deadline }) {
     const body = await apiBody(2048);
-    clearTimeout(deadline); // Body arrived; SQLite work has its own durable outcome.
+    // Body arrived; SQLite work has its own durable outcome.
+    clearTimeout(deadline);
     return body;
   }
 
@@ -422,14 +428,11 @@ export async function serveLocal({
         )) {
         res.denialCode = 'host';
         res.writeHead(403, { 'Content-Type': MIME['.html'] });
-        res.end(
-          req.method === 'HEAD'
-            ? undefined
-            : ((`<!doctype html><html lang="en"><title>MenuPilot</title><h1>Use ` +
-              `127.0.0.1</h1><p>Open ${address}`) +
-              ("/menupilot/ and use the sign-in address from your terminal.</p><p " +
-              "lang=\"nl\">Gebruik 127.0.0.1 en het aanmeldadres uit je terminal.</p></html>"))
-        );
+        const helpPage = '<!doctype html><html lang="en"><title>MenuPilot</title>' +
+          '<h1>Use 127.0.0.1</h1>' +
+          `<p>Open ${address}/menupilot/ and use the sign-in address from your terminal.</p>` +
+          '<p lang="nl">Gebruik 127.0.0.1 en het aanmeldadres uit je terminal.</p></html>';
+        res.end(req.method === 'HEAD' ? undefined : helpPage);
         return;
       }
       if (req.headers.host !== host) {
@@ -458,8 +461,7 @@ export async function serveLocal({
         if (!source) {
           send(res, 401, {
             code: 'session-expired',
-            message: ("MenuPilot restarted. Open the new address from the terminal window running npm " +
-              "start. If needed, run npm run menupilot -- open-url.")
+            message: SESSION_EXPIRED_MESSAGE
           });
           return;
         }
@@ -535,7 +537,8 @@ export async function serveLocal({
     server.once('error', reject);
     server.listen(port, '127.0.0.1', resolve);
   });
-  localPort = server.address().port; // address() is null once the listener closes.
+  // address() is null once the listener closes.
+  localPort = server.address().port;
   address = `http://127.0.0.1:${localPort}`;
   log('started');
   let closing;

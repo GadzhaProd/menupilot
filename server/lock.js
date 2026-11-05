@@ -70,8 +70,9 @@ function isStale(owner) {
     return error.code === 'ESRCH';
   }
   if (!owner.bootId || !owner.processStart) {
+    // Legacy live PID: fail closed.
     return false;
-  } // legacy live PID: fail closed
+  }
   try {
     const actual = processIdentity(owner.pid);
     return actual.bootId !== owner.bootId || actual.processStart !== owner.processStart;
@@ -121,7 +122,7 @@ function guarded(dir, owner, work) {
         throw error;
       }
       const previous = readOwner(marker);
-      if (age(guard) < GUARD_GRACE_MS || previous && !isStale(previous)) {
+      if (age(guard) < GUARD_GRACE_MS || (previous && !isStale(previous))) {
         throw problem(
           dir,
           'lock.guard',
@@ -245,14 +246,10 @@ export async function acquireLock(dir, address, { waitMs = 10000 } = {}) {
       );
     }
     if (Date.now() >= deadline) {
-      throw problem(
-        dir,
-        'lock',
-        'lock-uncertain',
-        `The lock looks stale or MenuPilot is still starting at ${previous.address}` +
-          ("; no matching MenuPilot instance responded. Its process may still be alive, so " +
-          "the lock was kept.")
-      );
+      const start = `The lock looks stale or MenuPilot is still starting at ${previous.address}; `;
+      const diagnosis = 'no matching MenuPilot instance responded. ';
+      const precaution = 'Its process may still be alive, so the lock was kept.';
+      throw problem(dir, 'lock', 'lock-uncertain', start + diagnosis + precaution);
     }
     await delay(100);
   }
@@ -278,7 +275,8 @@ export async function acquireLock(dir, address, { waitMs = 10000 } = {}) {
       console.error(
         problem(dir, 'lock', 'lock-uncertain', 'MenuPilot stopped but could not release its lock.').message
       );
-      return false; // Shutdown must never reject because cleanup failed.
+      // Shutdown must never reject because cleanup failed.
+      return false;
     }
   };
 }

@@ -61,6 +61,8 @@ export function createLogger(dir, {
       }
       appendFileSync(path, line, { mode: 0o600 });
       chmodSync(path, 0o600);
-    } catch {/* Diagnostics must never turn a committed write into an apparent failure. */}
+    } catch {
+      // Diagnostics must never turn a committed write into an apparent failure.
+    }
   };
 }
