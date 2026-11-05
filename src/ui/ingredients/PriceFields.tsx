@@ -9,8 +9,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TriangleAlert } from 'lucide-react';
 import { isZeroPrice, validatePrice, type DateRange, type FieldErrors, type IngredientValidationCopy, type PriceDraft, type PriceField } from '@/ui/forms/ingredientForm';
-import { ALL_UNITS, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
-import { localizedUnit } from '@/ui/forms/numbers';
+import { ALL_UNITS, localizedUnit, parseMoneyField, unitsFor, type EnteredUnit } from '@/ui/forms/numbers';
+
+function priceError(text: string, t: (key: 'prices.priceEmpty' | 'prices.priceNumber' | 'prices.pricePrecision' | 'prices.priceNegative' | 'prices.priceTooLarge') => string): string {
+  const value = text.trim().replace(/^€\s*/, '');
+  if (value === '') return t('prices.priceEmpty');
+  if (/^-/.test(value)) return t('prices.priceNegative');
+  if (/^\d+[.,]\d{3,}$/.test(value)) return t('prices.pricePrecision');
+  if (!parseMoneyField(text, '').ok && /^\d+(?:[.,]\d{1,2})?$/.test(value)) return t('prices.priceTooLarge');
+  return t('prices.priceNumber');
+}
 
 interface PriceFieldsProps {
   draft: PriceDraft;
@@ -47,6 +55,7 @@ export function PriceFields({ draft, onChange, errors, base, range }: PriceField
   const zero = isZeroPrice(draft);
   const zeroId = useId();
   const perUnit = parsed.ok ? f.packPrice(parsed.value.packPriceCents, parsed.value.packSizeMilli, parsed.value.unit) : null;
+  const displayedPriceError = errors.packPrice ? priceError(draft.packPrice, t) : undefined;
 
   return (
     <>
@@ -77,7 +86,7 @@ export function PriceFields({ draft, onChange, errors, base, range }: PriceField
         vat="excl"
         supplier
         label={t('ingredients.packPriceInput')}
-        error={errors.packPrice}
+        error={displayedPriceError}
         autoComplete="off"
         value={draft.packPrice}
         onValueChange={(packPrice) => onChange({ ...draft, packPrice, confirmZero: false })}

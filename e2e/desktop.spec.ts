@@ -56,7 +56,7 @@ test('a dish uses an ingredient and prep at exact costs, and used prep deletion 
   await page.getByLabel('Batch unit', { exact: true }).selectOption('kg');
   const prepLine = page.getByRole('group', { name: 'Line 1', exact: true });
   await prepLine.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'Beef mince 80/20 · g' });
-  await prepLine.getByLabel(/Net quantity/).fill('0.1');
+  await prepLine.getByLabel(/Net quantity/).fill('100');
   await prepLine.getByLabel('Yield %', { exact: true }).fill('100');
   const prepCost = page.getByRole('region', { name: 'Cost', exact: true });
   const prepValues = prepCost.getByRole('definition');
@@ -74,12 +74,12 @@ test('a dish uses an ingredient and prep at exact costs, and used prep deletion 
   await page.getByLabel('Menu price (incl. VAT)', { exact: true }).fill('12.00');
   const dishLine1 = page.getByRole('group', { name: 'Line 1', exact: true });
   await dishLine1.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'Beef mince 80/20 · g' });
-  await dishLine1.getByLabel(/Net quantity/).fill('0.05');
+  await dishLine1.getByLabel(/Net quantity/).fill('50');
   await dishLine1.getByLabel('Yield %', { exact: true }).fill('100');
   await page.getByRole('button', { name: 'Add line', exact: true }).click();
   const dishLine2 = page.getByRole('group', { name: 'Line 2', exact: true });
   await dishLine2.getByLabel('Ingredient or prep', { exact: true }).selectOption({ label: 'e2e basisrecept · g' });
-  await dishLine2.getByLabel(/Net quantity/).fill('0.05');
+  await dishLine2.getByLabel(/Net quantity/).fill('50');
   await dishLine2.getByLabel('Yield %', { exact: true }).fill('100');
   const dishCost = page.getByRole('region', { name: 'Cost', exact: true });
   await expect(dishCost.getByRole('definition').nth(1)).toHaveText('€0.94');

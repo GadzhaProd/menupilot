@@ -1,4 +1,5 @@
 export const localNl = {
+  'recipe.quantityExampleHint': 'Vul {example} {unit} in; bij een andere soort eenheid wordt de hoeveelheid gewist.',
   'local.restartNotice': 'Je sessie is afgelopen (bijvoorbeeld doordat MenuPilot opnieuw is gestart of je aanmelding is verlopen). Open het nieuwe adres in het terminalvenster waarin npm start actief is, of voer npm run menupilot -- open-url uit. Receptconcepten blijven bewaard; niet-opgeslagen invoer in ingrediënten- en leveranciersprijsvensters kan niet worden hersteld.',
   'local.sessionSaveError': 'Je sessie is afgelopen (bijvoorbeeld doordat MenuPilot opnieuw is gestart of je aanmelding is verlopen). Open het nieuwe adres in het terminalvenster waarin npm start actief is, of voer npm run menupilot -- open-url uit. Receptconcepten blijven bewaard; niet-opgeslagen invoer in ingrediënten- en leveranciersprijsvensters kan niet worden hersteld.',
   'local.folderLabel': 'Lokale modus · gegevens: ',

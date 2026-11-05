@@ -1,4 +1,5 @@
 export const localEn = {
+  'recipe.quantityExampleHint': 'Enter {example} {unit}; changing to a different kind of unit clears the quantity.',
   'local.restartNotice': 'Your session ended (for example, MenuPilot restarted or sign-in expired). Open the new address in the terminal window running npm start, or run npm run menupilot -- open-url. Recipe drafts are kept; unsaved ingredient and supplier-price form entries cannot be restored.',
   'local.sessionSaveError': 'Your session ended (for example, MenuPilot restarted or sign-in expired). Open the new address in the terminal window running npm start, or run npm run menupilot -- open-url. Recipe drafts are kept; unsaved ingredient and supplier-price form entries cannot be restored.',
   'local.folderLabel': 'Local mode · data: ',
