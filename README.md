@@ -1,10 +1,48 @@
 # MenuPilot
 
-**Live demo: <https://gadzhaprod.github.io/menupilot/>** (fictional demo data, runs entirely in your browser)
+Recipe costing and what-if comparisons for independent restaurant owners: see how supplier prices change contribution before other costs.
 
-MenuPilot is a small web app for independent restaurant owners. It turns recipes and supplier prices into a clear answer to one question: *"My supplier raised a price. What does that do to my dishes and to my month, and what should I change?"*
+**[Try the live demo](https://gadzhaprod.github.io/menupilot/)** · [Run locally](#run-locally) · [Use with an AI agent](#use-with-an-ai-agent) · [How it is built](#how-this-was-built) · [Case study](docs/CASE_STUDY.md)
 
-![Dashboard: dishes that got more expensive over the last 30 days, with monthly impact at the owner's own sales estimate](docs/screenshots/dashboard.jpg)
+<table>
+<tr><th>Spot a cost increase · desktop, light</th><th>Compare decisions · desktop, dark</th><th>Check on a phone · 375 px</th></tr>
+<tr>
+<td width="42%"><a href="docs/screenshots/showcase-dashboard-light.jpg"><img src="docs/screenshots/showcase-dashboard-light.jpg" alt="English Dashboard showing monthly contribution impact and the Classic Burger cost increase, light theme"></a></td>
+<td width="42%"><a href="docs/screenshots/showcase-simulator-dark.jpg"><img src="docs/screenshots/showcase-simulator-dark.jpg" alt="English Simulator comparing Baseline with three price and sales-volume scenarios, dark theme"></a></td>
+<td width="16%"><a href="docs/screenshots/showcase-mobile-light.jpg"><img src="docs/screenshots/showcase-mobile-light.jpg" alt="English Dashboard on a 375-pixel phone screen, light theme"></a></td>
+</tr>
+</table>
+
+Fictional demo data; the demo runs entirely in your browser. [Capture details](docs/screenshots/README.md).
+
+- **Exact arithmetic:** safe-integer cents in storage; `BigInt` cents and micro-euros in calculations, with explicit rounding.
+- **Two versions, one core:** a static browser app and a local Node.js server with SQLite and automatic backups.
+- **Owner stays in control:** an agent reads and proposes supplier prices; the owner reviews consequences and confirms in the app.
+- **Verification:** 853 core/UI/server tests, 121 caught targeted mutations, 31 Chromium e2e cases, and a separate future-date check. [Results and limits](docs/CASE_STUDY.md#verification).
+- **Languages:** EN/NL interface, built-in help in EN/NL/RU; light and dark themes.
+
+```mermaid
+flowchart LR
+  UI[React UI] --> Store[Store + validation]
+  Store --> Calc[Pure BigInt calculations]
+  Store --> Browser[(Browser storage)]
+  Store -->|HTTP adapter| Local[Local server]
+  Agent[Agent / CLI] -->|read + propose| Local
+  Local --> Calc
+  Local -->|validate + commit| DB[(SQLite + backups)]
+```
+
+The UI confirms local proposals; the CLI cannot approve them. [Architecture details](#architecture) · [Decision records](docs/adr/) · [Product and terminology](#about-the-product)
+
+## How this was built
+
+MenuPilot was built by AI coding agents under the direction of a non-technical product owner. The owner chose the problem, set scope and approved stages; agents wrote the implementation and tests. The working process was **plan → implementation → independent agent review → audit → fixes**. Independent here means a separate reviewer, not a human security certification.
+
+The [implementation plan](docs/planning/04_IMPLEMENTATION_PLAN.md) and [local-version plan](docs/planning/06_LOCAL_VERSION_PLAN.md) define staged acceptance and review; [review verification](server/D2_VERIFICATION.md) records reproduced findings and fixes. Later audits exposed date-dependent tests and an unreliable mutation result, among other defects. Those findings prompted regression checks and corrections; a large test count alone was not enough.
+
+This portfolio demonstrates product direction and engineering decisions made with AI assistance. It does not present the code as hand-written by the owner or claim that automated checks replace real café use. Read the [case study and lessons learned](docs/CASE_STUDY.md), [retrospective ADRs](docs/adr/), and [authorship and acknowledgements](#authorship).
+
+## Choose a version
 
 MenuPilot comes in two versions:
 
@@ -17,10 +55,7 @@ MenuPilot comes in two versions:
 
 Both versions have the same screens and the same calculations.
 
-- [Run locally](#run-locally) — install, start, stop, update, move your data
-- [Use with an AI agent](#use-with-an-ai-agent) — ask questions in plain words, confirm changes yourself
-- [About the product](#about-the-product) — features, what the numbers mean
-- [For developers](#for-developers) — architecture, rounding, tests, local server security, backups
+[Installation](#run-locally) · [Agent guide](#use-with-an-ai-agent) · [Product details](#about-the-product) · [Developer reference](#for-developers)
 
 ## Run locally
 
@@ -177,6 +212,8 @@ Commands, JSON format and error codes: [docs/cli.md](docs/cli.md). Agent rules a
 
 ### Problem
 
+*"My supplier raised a price. What does that do to my dishes and to my month, and what should I change?"*
+
 Supplier prices keep changing. An owner sees a new invoice but cannot quickly tell:
 
 - which dishes now cost more to make, and by how much;
@@ -189,6 +226,8 @@ Supplier prices keep changing. An owner sees a new invoice but cannot quickly te
 MenuPilot keeps ingredients with their price history, builds dish and prep (sub-recipe) costs from them, shows what changed since a chosen date, and lets the owner play out decisions in a **Profit Simulator** without touching real data.
 
 ### Key features
+
+![Dashboard: dishes that got more expensive over the last 30 days, with monthly impact at the owner's own sales estimate](docs/screenshots/dashboard.jpg)
 
 - **Dashboard.** Compare costs now against 7 / 30 / 90 days ago, or any date. Per dish: ingredient cost then and now, change in euros and in food-cost points, contribution now, and the monthly impact at the owner's own volume estimate. Preps are listed separately with their cost per kg, l or pc.
 - **Profit Simulator.** For one dish, try a new menu price, new ingredient pack prices, other quantities and your own sales estimate. Up to three scenarios (A, B, C) are compared side by side with **Baseline** (today's real data), with differences per portion and per month. Scenarios are saved separately with their own baseline snapshot and never change real prices or recipes.
@@ -276,6 +315,7 @@ Money input accepts a decimal comma or point and rejects thousands separators.
 ```sh
 npm test          # test:core (node:test) + test:ui (Vitest, Testing Library, jsdom) + test:server + test:mutations
 npm run check     # typecheck + all tests + production build
+npm run check:future # core/UI/server with the test clock at 2027-12-31T12:00:00.000Z
 npm run test:mutations # intentional defects must be caught (also in npm test)
 npm run test:server # SQLite/HTTP contract, process lock, transaction and security tests
 npm run test:e2e:local # Local server, desktop + 375 px, restart and migration
