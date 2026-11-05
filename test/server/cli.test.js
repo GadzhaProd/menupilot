@@ -10,7 +10,7 @@ import { StoreError } from '../../src/store/errors.js';
 import { serveLocal } from '../../server/http.js';
 import { shiftDemoDates, DEMO_REFERENCE_NOW } from '../../src/store/demo.js';
 import { readFileSync as readDemoFile } from 'node:fs';
-import { assertQuickCheck, dateFor, isSupportedNode, localDoctor } from '../../server/cliRead.js';
+import { assertQuickCheck, dateFor, isSupportedNode, localDoctor, safeHumanValue } from '../../server/cliRead.js';
 import { hasValidOpenResult } from '../../server/cliSecurity.js';
 import { createServer } from 'node:net';
 
@@ -297,6 +297,11 @@ test('date ranges use Dashboard UTC date and end-of-day semantics; future dates 
     assert.equal(dateFor('90d', clock), `${expected(90)}T23:59:59.999Z`);
     assert.throws(() => dateFor('2099-01-01', clock), error => error.code === 'invalid-argument');
   }
+});
+
+test('human CLI values render Date instances as ISO timestamps', () => {
+  const timestamp = new Date('2027-12-31T12:34:56.000Z');
+  assert.equal(safeHumanValue({ recordedAt: timestamp }).recordedAt, '2027-12-31T12:34:56.000Z');
 });
 
 test('doctor checks the supported Node boundaries, lock ownership, and occupied port', async t => {

@@ -482,8 +482,14 @@ export function useDataState(): DataState {
 
 export function useDataIdentity(): string | null { return useData().documentId; }
 
-/** The injected wall clock shared by UI date-dependent behavior. */
-export function useNow(): Date { return useData().now(); }
+/** The injected wall clock, stable across renders and refreshed when its UTC day changes. */
+export function useNow(): Date {
+  const current = useData().now();
+  const day = current.toISOString().slice(0, 10);
+  const cached = useRef<{ day: string; value: Date } | null>(null);
+  if (!cached.current || cached.current.day !== day) cached.current = { day, value: current };
+  return cached.current.value;
+}
 
 /** The document on screen; throws if the saved data could not be opened (check `loadError` first). */
 export function useDocument(): MenuDocument {

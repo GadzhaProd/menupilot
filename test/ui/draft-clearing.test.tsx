@@ -1,8 +1,8 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it } from 'vitest';
 import { createStore } from '@/ui/domain/store';
-import { demo, demoCopy, go, NOW, renderApp, storageWith, STORAGE_KEY } from './helpers';
+import { demo, demoCopy, go, NOW, renderApp, savedDocument, storageWith, STORAGE_KEY } from './helpers';
 
 beforeEach(() => { window.location.hash = ''; });
 async function dirty() {
@@ -47,6 +47,7 @@ it('restoring history clears recipe and simulator caches without unmounting the 
   await go('#/data');
   await userEvent.click(screen.getByRole('button', { name: 'Preview version' }));
   await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore this version' }));
+  await waitFor(() => expect(savedDocument(storage).ingredients[0]!.name).toBe('Beef mince 80/20'));
   await go('#/recipe/dish_classic_burger');
   expect(screen.getByLabelText('Name')).toHaveProperty('value', 'Classic Burger');
   await go('#/simulator/dish_classic_burger');

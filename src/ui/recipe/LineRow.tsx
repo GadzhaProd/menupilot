@@ -36,10 +36,11 @@ export function LineRow({ line, position, ingredients, preps, catalog, errors, c
   function chooseRef(ref: string) {
     const previousBase = base;
     const nextBase = baseUnitOfRef(ref, catalog);
-    const sameDimension = previousBase !== null && previousBase === nextBase;
-    const parsed = sameDimension ? parseQuantityField(line.qty, line.unit, '') : null;
-    const unit = sameDimension ? line.unit : nextBase ?? line.unit;
-    const qty = sameDimension && parsed?.ok ? quantityToInput(parsed.value.milli, nextBase!, locale, unit).text : sameDimension ? line.qty : '';
+    const hasPreviousRef = previousBase !== null;
+    const sameDimension = !hasPreviousRef || previousBase === nextBase;
+    const parsed = hasPreviousRef && sameDimension ? parseQuantityField(line.qty, line.unit, '') : null;
+    const unit = hasPreviousRef && sameDimension ? line.unit : nextBase ?? line.unit;
+    const qty = !hasPreviousRef ? line.qty : sameDimension && parsed?.ok ? quantityToInput(parsed.value.milli, nextBase!, locale, unit).text : sameDimension ? line.qty : '';
     onChange({ ...line, ref, qty, unit, stored: null });
   }
 

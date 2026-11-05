@@ -12,8 +12,10 @@ import { demoForLocale } from '@/ui/data/demo';
 import { useDialogState } from '@/ui/hooks/useDialogState';
 import { useLocale } from '@/ui/i18n';
 import { downloadText } from '@/ui/data/downloadText';
+import { MAX_BACKUP_CHARS } from '@/store/serialization.js';
 
 type Pending = { kind: 'import'; text: string; fileName: string } | { kind: 'demo' | 'empty' };
+const MAX_FILE_BYTES = 3 * MAX_BACKUP_CHARS;
 
 /** Recovery never requires a valid current document. Replacement still uses the store's CAS. */
 export function RecoveryPage() {
@@ -43,7 +45,7 @@ export function RecoveryPage() {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    if (file.size > 5_000_000) { setError(t('data.fileTooLarge', { file: file.name })); return; }
+    if (file.size > MAX_FILE_BYTES) { setError(t('data.fileTooLarge', { file: file.name })); return; }
     let text: string;
     try { text = await file.text(); }
     catch { setError(t('data.fileUnreadable', { file: file.name })); return; }
