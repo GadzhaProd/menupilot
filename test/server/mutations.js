@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 const dir = mkdtempSync(join(tmpdir(), 'menupilot-mutants-'));
 try {
-  for (const path of ['server', 'src', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'vite.config.js', 'tsconfig.json', 'package.json', 'package-lock.json', 'index.html', 'public', 'data', 'README.md', 'docs/planning']) {
+  for (const path of ['server', 'src', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'vite.config.js', 'scripts', 'third_party', 'tsconfig.json', 'package.json', 'package-lock.json', 'index.html', 'public', 'data', 'README.md', 'docs/planning']) {
     mkdirSync(join(dir, path, '..'), { recursive: true }); cpSync(path, join(dir,path), { recursive: true });
   }
   symlinkSync(join(process.cwd(), 'node_modules'), join(dir, 'node_modules'), 'dir');
