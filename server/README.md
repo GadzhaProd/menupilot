@@ -44,3 +44,8 @@ Server tests and mutation checks run inside `npm test` / `npm run check`.
 Separate commands: `npm run test:server`, `npm run test:mutations`,
 `npm run test:e2e:local`. Tests use isolated temporary databases and browser
 storage, including real child processes; they do not simulate physical power loss.
+
+The CLI accepts a test clock only when both `MENUPILOT_TEST_CLOCK=1` and
+`MENUPILOT_TEST_NOW` are set. `MENUPILOT_TEST_NOW` must be an ISO UTC instant
+with milliseconds, such as `2027-12-31T12:00:00.000Z`. These variables are for
+tests only; ordinary CLI use follows the system clock.
