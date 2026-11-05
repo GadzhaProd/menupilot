@@ -112,6 +112,8 @@ test('simulator saves Scenario A and leaves real ingredient prices and recipe co
   const realRecipeCost = (await recipeCost.innerText()).replace(/\s+/g, ' ').trim();
   await page.getByRole('link', { name: 'Ingredients', exact: true }).click();
   await screen(page, 'Ingredients');
+  // Pages load lazily: wait for the table before reading all rows (allInnerTexts does not wait).
+  await expect(page.getByRole('row', { name: /Beef mince 80\/20/ })).toBeVisible();
   const ingredientRows = page.getByRole('row');
   const realIngredientPrices = (await ingredientRows.allInnerTexts()).map(text => text.replace(/\s+/g, ' ').trim());
 
@@ -141,6 +143,7 @@ test('simulator saves Scenario A and leaves real ingredient prices and recipe co
   expect((await page.getByRole('region', { name: 'Cost', exact: true }).innerText()).replace(/\s+/g, ' ').trim()).toBe(realRecipeCost);
   await page.getByRole('link', { name: 'Ingredients', exact: true }).click();
   await screen(page, 'Ingredients');
+  await expect(page.getByRole('row', { name: /Beef mince 80\/20/ })).toBeVisible();
   expect((await page.getByRole('row').allInnerTexts()).map(text => text.replace(/\s+/g, ' ').trim())).toEqual(realIngredientPrices);
 });
 
