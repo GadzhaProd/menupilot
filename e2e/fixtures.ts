@@ -23,6 +23,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('./');
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
 });
 
 test.afterEach(async ({ blockedExternalUrls }) => {

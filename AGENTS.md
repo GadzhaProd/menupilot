@@ -69,6 +69,7 @@ Read docs/planning/*.md before larger changes.
 
 ## UI stack
 - UI stack: Vite + React 19 + strict TypeScript + Tailwind v4 + shadcn/ui. Core `src/calc/` and `src/store/` remains JS+JSDoc; screens in `src/ui/`, shadcn components in `src/components/ui/`, alias `@` → `src`.
+- Время — только через внедряемые часы (`now`); никогда `new Date()` в UI/CLI без внедрения.
 - Keep a thin TS adapter in `src/ui/domain/*.ts` for explicit readonly document, calc-result (including BigInt fields), and store-method types. `npm run typecheck` is `tsc --noEmit` and required in CI.
 - Commands return Promises; publish only after success. Persist through StorageAdapter; keep domain logic and backup validation shared. Version the storage envelope separately from the domain document.
 - Store is the sole source of truth. Call store methods outside reducers; on success dispatch `documentReplaced`, on failure show the error and keep the displayed document unchanged. Reducers are pure. Form drafts are component-local; calc results are derived with `useMemo`, never stored or serialized. JSON/localStorage contain only document, baseline, and safe-integer overrides. Format money with existing formatters; never convert BigInt to Number.
@@ -94,6 +95,7 @@ Read docs/planning/*.md before larger changes.
 - Never suggest recipe changes that affect food safety or allergens.
 
 ## Tests
+- axe: 0 нарушений уровня serious/critical.
 - Calculation changes: write or update a failing test in test/calc first (TDD).
 - Bug fix: reproduce, add a regression test, fix the cause, run npm test.
 - `test:core` runs node:test only for `test/calc` and `test/store` via explicit globs/paths; `test:ui` runs `vitest run` only for UI tests (jsdom + Testing Library). `npm test` runs both and fails if either fails. Avoid `node --test test/` (Node 25 directory behavior).

@@ -11,6 +11,7 @@ afterEach(()=>{vi.restoreAllMocks();vi.useRealTimers();});
 const initial=()=>structuredClone(demo) as MenuDocument;
 async function mount(adapter: ReturnType<typeof createBrowserStorageAdapter>, storage: ReturnType<typeof memoryStorage>, children=<App />) {
   await act(async()=>{render(<DataProvider storage={storage} adapter={adapter} demo={demo} now={()=>NOW}>{children}</DataProvider>);});
+  if (children.type === App) await screen.findByRole('heading', { level: 1 });
 }
 async function dirtyRecipe() {
   await go('#/recipe/dish_classic_burger');
@@ -30,7 +31,7 @@ it('failed version restoration keeps recipe and simulator caches',async()=>{
   await renderApp(storage);await dirtyRecipe();await go('#/simulator/dish_classic_burger');
   await userEvent.click(screen.getByRole('button',{name:'Add scenario'}));
   const name=screen.getByLabelText('Scenario name');await userEvent.clear(name);await userEvent.type(name,'Persistent scenario draft');
-  await go('#/data');await userEvent.click(screen.getByRole('button',{name:'Preview version'}));
+  await go('#/data');await userEvent.click(await screen.findByRole('button',{name:'Preview version'}));
   storage.failOnSet=new Error('full');
   await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Restore this version'}));
   expect(screen.getByRole('alert').textContent).toMatch(/could not be restored/);

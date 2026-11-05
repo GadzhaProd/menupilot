@@ -5,18 +5,18 @@ import { useLocale, type TranslationKey } from '@/ui/i18n';
 import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useEffect } from 'react';
 import { useDataIdentity, useDataState } from '@/ui/data/DataProvider';
 import { Shell } from '@/ui/layout/Shell';
-import { DashboardPage } from '@/ui/pages/DashboardPage';
-import { DataPage } from '@/ui/pages/DataPage';
-import { IngredientsPage } from '@/ui/pages/IngredientsPage';
-import { NotFoundPage } from '@/ui/pages/NotFoundPage';
-import { RecipePage } from '@/ui/pages/RecipePage';
-import { RecipesPage } from '@/ui/pages/RecipesPage';
-import { SimulatorPage } from '@/ui/pages/SimulatorPage';
 import type { Route } from '@/ui/router/routes';
 import { SimulatorSessionProvider } from '@/ui/simulator/session';
 import { useRoute } from '@/ui/router/useRoute';
 
-// The guide is large (text and its Russian twin), so it is downloaded only when somebody opens it.
+// Each screen is its own chunk and is loaded only when its route is opened.
+const DashboardPage = lazy(() => import('@/ui/pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
+const DataPage = lazy(() => import('@/ui/pages/DataPage').then((module) => ({ default: module.DataPage })));
+const IngredientsPage = lazy(() => import('@/ui/pages/IngredientsPage').then((module) => ({ default: module.IngredientsPage })));
+const NotFoundPage = lazy(() => import('@/ui/pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
+const RecipePage = lazy(() => import('@/ui/pages/RecipePage').then((module) => ({ default: module.RecipePage })));
+const RecipesPage = lazy(() => import('@/ui/pages/RecipesPage').then((module) => ({ default: module.RecipesPage })));
+const SimulatorPage = lazy(() => import('@/ui/pages/SimulatorPage').then((module) => ({ default: module.SimulatorPage })));
 const HelpPage = lazy(() => import('@/ui/pages/HelpPage').then((module) => ({ default: module.HelpPage })));
 
 const TITLES = {
@@ -79,6 +79,11 @@ function ErrorFallback({ reload }: { reload(): void }) {
   </main>;
 }
 
+function PageLoading() {
+  const { t } = useLocale();
+  return <p role="status" aria-live="polite" aria-busy="true" className="text-lg">{t('common.loading')}</p>;
+}
+
 function Page({ route }: { route: Route }) {
   switch (route.name) {
     case 'dashboard': return <DashboardPage />;
@@ -111,11 +116,13 @@ export function App() {
           <DataSafetyNotice />
           {route.name === 'help' ? (
             // The guide needs no saved data, so it stays readable when the data cannot be opened.
-            <Suspense fallback={<p role="status" className="text-lg">{t('help.loading')}</p>}>
+            <Suspense fallback={<PageLoading />}>
               <HelpPage section={route.section} />
             </Suspense>
           ) : loadError === null ? (
-            <Page route={route} />
+            <Suspense fallback={<PageLoading />}>
+              <Page route={route} />
+            </Suspense>
           ) : (
             <RecoveryPage />
           )}

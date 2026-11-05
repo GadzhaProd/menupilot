@@ -9,19 +9,42 @@ import { assertValidTransition } from '../src/store/transitions.js';
 import { parseBackup, serializeBackup } from '../src/store/serialization.js';
 import { createRemoteAdapter } from '../src/store/remoteAdapter.js';
 
+const RESET_MESSAGE =
+  "Reset requires the canonical empty document or the selected English/Dutch demo." +
+  " Use Import for other data.";
+
 export const DB_VERSION = 2;
-export const BUDGETS = { history: { count: 32, bytes: 64 * 1024 * 1024 },
-  ops: { count: 4096, bytes: 4 * 1024 * 1024 }, journal: { count: 10000, bytes: 4 * 1024 * 1024 } };
+// Retention budgets bound recovery/audit growth without evicting the current document.
+export const BUDGETS = {
+  history: { count: 32, bytes: 64 * 1024 * 1024 },
+  ops: { count: 4096, bytes: 4 * 1024 * 1024 },
+  journal: { count: 10000, bytes: 4 * 1024 * 1024 }
+};
+
 function canonical(value) {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  if (Array.isArray(value)) {
+    return value.map(canonical);
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  }
   return value;
 }
-function digest(value) { return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex'); }
-const invalid = message => { throw new StoreError('invalid', message); };
-const demos = ['demo.json', 'demo.nl.json'].map(name => JSON.parse(readFileSync(new URL('../data/' + name, import.meta.url), 'utf8')));
+
+function digest(value) {
+  return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
+}
+const invalid = message => {
+  throw new StoreError('invalid', message);
+};
+const demos = ['demo.json', 'demo.nl.json'].map(
+  name => JSON.parse(readFileSync(new URL('../data/' + name, import.meta.url), 'utf8'))
+);
+
 function assertReset(document, kind) {
-  if (kind === 'empty' && digest(document) === digest(emptyDocument())) return;
+  if (kind === 'empty' && digest(document) === digest(emptyDocument())) {
+    return;
+  }
   if (kind === 'demo') {
     // UI rebases every demo price by the same time offset. Match the entire
     // bundled EN/NL document after that offset, including every non-date field.
@@ -29,37 +52,73 @@ function assertReset(document, kind) {
       const stamp = document.ingredients[0]?.prices[0]?.recordedAt;
       const offset = Date.parse(stamp) - Date.parse(demo.ingredients[0].prices[0].recordedAt);
       const anchor = Date.parse(DEMO_REFERENCE_NOW) + offset;
-      if (Number.isFinite(anchor) && Math.abs(anchor) <= 8.64e15 &&
-        digest(document) === digest(shiftDemoDates(demo, new Date(anchor).toISOString()))) return;
+      if (Number.isFinite(anchor) && Math.abs(anchor) <= 8.64e15
+        && digest(document) === digest(
+            shiftDemoDates(demo, new Date(anchor).toISOString())
+          )) {
+        return;
+      }
     }
   }
-  invalid('Reset requires the canonical empty document or the selected English/Dutch demo. Use Import for other data.');
+  invalid(RESET_MESSAGE);
 }
 
-
 /** Owned by one server process. Each adapter has its own last accepted CAS identity. */
-export function createSqliteStorage(path, { initialDocument = emptyDocument(), now = () => new Date(), migrationApproved = false } = {}) {
+
+export function createSqliteStorage(path, {
+  initialDocument = emptyDocument(),
+  now = () => new Date(),
+  migrationApproved = false
+} = {}) {
   assertValidDocument(initialDocument);
   const db = new DatabaseSync(path);
   try {
     const version = db.prepare('PRAGMA user_version').get().user_version;
-    if (version === 1 && !migrationApproved) throw new StoreError('migration-backup-required', 'A verified pre-migration backup is required. Start MenuPilot normally.');
-    if (version !== 0 && version !== 1 && version !== DB_VERSION) throw new StoreError('unsupported-version', 'This database needs a newer MenuPilot.');
-    db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000; PRAGMA wal_autocheckpoint=1000;');
-    db.exec(`BEGIN IMMEDIATE;
-      CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS document (id INTEGER PRIMARY KEY CHECK(id=1), record TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS history (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL, savedAt TEXT NOT NULL, raw TEXT NOT NULL, bytes INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS ops (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL, hash TEXT NOT NULL, receipt TEXT NOT NULL, bytes INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS journal (seq INTEGER PRIMARY KEY AUTOINCREMENT, entry TEXT NOT NULL, bytes INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS plans (id TEXT PRIMARY KEY, expiresAt TEXT NOT NULL, plan TEXT NOT NULL);
-      PRAGMA user_version=2; COMMIT;`);
-  } catch (error) { db.close(); throw error; }
+    if (version === 1 && !migrationApproved) {
+      throw new StoreError(
+        'migration-backup-required',
+        'A verified pre-migration backup is required. Start MenuPilot normally.'
+      );
+    }
+    if (version !== 0 && version !== 1 && version !== DB_VERSION) {
+      throw new StoreError('unsupported-version', 'This database needs a newer MenuPilot.');
+    }
+    db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000; " +
+      "PRAGMA wal_autocheckpoint=1000;");
+    db.exec(
+      'BEGIN IMMEDIATE;\n' +
+      '      CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);\n' +
+      '      CREATE TABLE IF NOT EXISTS document ' +
+      '(id INTEGER PRIMARY KEY CHECK(id=1), record TEXT NOT NULL);\n' +
+      '      CREATE TABLE IF NOT EXISTS history ' +
+      '(seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL, ' +
+      'savedAt TEXT NOT NULL, raw TEXT NOT NULL, bytes INTEGER NOT NULL);\n' +
+      '      CREATE TABLE IF NOT EXISTS ops ' +
+      '(seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL, ' +
+      'hash TEXT NOT NULL, receipt TEXT NOT NULL, bytes INTEGER NOT NULL);\n' +
+      '      CREATE TABLE IF NOT EXISTS journal ' +
+      '(seq INTEGER PRIMARY KEY AUTOINCREMENT, entry TEXT NOT NULL, bytes INTEGER NOT NULL);\n' +
+      '      CREATE TABLE IF NOT EXISTS plans (id TEXT PRIMARY KEY, expiresAt TEXT NOT NULL, plan TEXT NOT NULL);\n' +
+      '      PRAGMA user_version=2; COMMIT;'
+    );
+  } catch (error) {
+    db.close();
+    throw error;
+  }
   // The initial empty document is deterministic across restarts, and is not a write.
-  const initial = { document: structuredClone(initialDocument), schemaVersion: 2, documentId: null, revision: 0 };
+  const initial = {
+    document: structuredClone(initialDocument),
+    schemaVersion: 2,
+    documentId: null,
+    revision: 0
+  };
   function decodeRecord(raw) {
     let record;
-    try { record = JSON.parse(raw); } catch { throw new StoreError('corrupt-json', 'The saved database record is invalid JSON.'); }
+    try {
+      record = JSON.parse(raw);
+    } catch {
+      throw new StoreError('corrupt-json', 'The saved database record is invalid JSON.');
+    }
     if (record?.documentId === null && record.schemaVersion === 2 && record.revision === 0) {
       assertValidDocument(record.document);
       return record;
@@ -67,7 +126,8 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
     return parseBackup(JSON.stringify({ version: 2, ...record }));
   }
   const version = () => {
-    const row = db.prepare("SELECT json_extract(record, '$.documentId') AS documentId, json_extract(record, '$.revision') AS revision FROM document WHERE id=1").get();
+    const row = db.prepare("SELECT json_extract(record, '$.documentId') AS documentId, " +
+      "json_extract(record, '$.revision') AS revision FROM document WHERE id=1").get();
     return row ? { ...row } : { documentId: null, revision: 0 };
   };
   const load = () => {
@@ -76,7 +136,9 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
   };
   function readHistory(id) {
     const row = db.prepare('SELECT raw FROM history WHERE id=?').get(id);
-    if (!row) throw new StoreError('not-found', 'This version is no longer available.');
+    if (!row) {
+      throw new StoreError('not-found', 'This version is no longer available.');
+    }
     return decodeRecord(row.raw);
   }
   function prune(table) {
@@ -86,98 +148,242 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
     let bytes = 0;
     for (let i = 0; i < rows.length; i++) {
       bytes += rows[i].bytes;
-      if (i >= budget.count || bytes > budget.bytes) db.prepare(`DELETE FROM ${table} WHERE seq=?`).run(rows[i].seq);
+      if (i >= budget.count || bytes > budget.bytes) {
+        db.prepare(`DELETE FROM ${table} WHERE seq=?`).run(rows[i].seq);
+      }
     }
   }
-  function write(input, actor = 'ui', { restoreDocument, withinTransaction = false, planId, ingredientId } = {}) {
-    if (!input || !['save', 'import', 'reset', 'restore', 'memory', 'backup-restore'].includes(input.kind)) invalid('Unknown write operation.');
-    const fields = { save: ['document'], import: ['source'], reset: ['document', 'resetKind'], restore: ['id'], 'backup-restore': ['id'], memory: ['document'] };
+  function write(input, actor = 'ui', {
+    restoreDocument,
+    withinTransaction = false,
+    planId,
+    ingredientId
+  } = {}) {
+    if (!input || !['save', 'import', 'reset', 'restore', 'memory', 'backup-restore'].includes(input.kind)) {
+      invalid('Unknown write operation.');
+    }
+    const fields = {
+      save: ['document'],
+      import: ['source'],
+      reset: ['document', 'resetKind'],
+      restore: ['id'],
+      'backup-restore': ['id'],
+      memory: ['document']
+    };
     const allowed = ['kind', 'expectedDocumentId', 'expectedRevision', 'opId', ...fields[input.kind]];
-    if (Object.keys(input).some(key => input[key] !== undefined && !allowed.includes(key))) invalid('Unknown command field.');
+    if (Object.keys(input).some(key => input[key] !== undefined && !allowed.includes(key))) {
+      invalid('Unknown command field.');
+    }
     if (input.kind === 'import') {
       const source = input.source;
-      if (!source || ![1, 2].includes(source.schemaVersion) || !Number.isSafeInteger(source.revision) || source.revision < 0 ||
-        !(source.documentId === null || (typeof source.documentId === 'string' && source.documentId.length > 0 && source.documentId.length <= 200)) ||
-        Object.keys(source).some(key => !['document', 'schemaVersion', 'documentId', 'revision'].includes(key))) invalid('Invalid import metadata.');
+      if (!source || ![1, 2].includes(source.schemaVersion) || !Number.isSafeInteger(source.revision)
+        || source.revision < 0
+        || !(source.documentId === null
+          || (typeof source.documentId === 'string'
+          && source.documentId.length > 0
+          && source.documentId.length <= 200))
+        || Object.keys(source).some(
+          key => !['document', 'schemaVersion', 'documentId', 'revision'].includes(key)
+        )) {
+        invalid('Invalid import metadata.');
+      }
     }
-    if (!['ui', 'cli', 'agent'].includes(actor)) invalid('Unknown operation source.');
-    if (typeof input.opId !== 'string' || !input.opId || input.opId.length > 200) invalid('A valid operation ID is required.');
-    if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0 ||
-      !(input.expectedDocumentId === null || typeof input.expectedDocumentId === 'string')) invalid('Invalid CAS metadata.');
+    if (!['ui', 'cli', 'agent'].includes(actor)) {
+      invalid('Unknown operation source.');
+    }
+    if (typeof input.opId !== 'string' || !input.opId || input.opId.length > 200) {
+      invalid('A valid operation ID is required.');
+    }
+    if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0
+      || !(input.expectedDocumentId === null
+        || typeof input.expectedDocumentId === 'string')) {
+      invalid('Invalid CAS metadata.');
+    }
     // Identity is the adapter's observed precondition, not command content: a newly
     // opened adapter may already see the identity produced by this very operation.
     const { expectedDocumentId, ...command } = input;
     const hash = digest({ command, actor });
     try {
-      if (!withinTransaction) db.exec('BEGIN IMMEDIATE');
+      if (!withinTransaction) {
+        db.exec('BEGIN IMMEDIATE');
+      }
       const current = load();
+      // Both identity and revision matter: replacing a dataset must invalidate an old writer.
       const matches = current.documentId === expectedDocumentId && current.revision === input.expectedRevision;
       const old = db.prepare('SELECT hash, receipt FROM ops WHERE id=?').get(input.opId);
+      // Lost responses are retried by opId; return the committed receipt without writing twice.
       if (old) {
-        if (old.hash !== hash) throw new StoreError('op-id-reused', 'This operation ID was already used for different content.');
-        if (!withinTransaction) db.exec('COMMIT');
+        if (old.hash !== hash) {
+          throw new StoreError('op-id-reused', 'This operation ID was already used for different content.');
+        }
+        if (!withinTransaction) {
+          db.exec('COMMIT');
+        }
         return { ...current, receipt: JSON.parse(old.receipt) };
       }
       if (!matches || (input.kind === 'memory' && current.documentId !== null)) {
-        if (!withinTransaction) db.exec('ROLLBACK'); return { ...current, conflict: true };
+        if (!withinTransaction) {
+          db.exec('ROLLBACK');
+        }
+        return { ...current, conflict: true };
       }
-      if (input.kind === 'reset' && !['empty', 'demo'].includes(input.resetKind)) invalid('Invalid reset kind.');
-      const document = input.kind === 'backup-restore' ? restoreDocument : input.kind === 'restore' ? readHistory(input.id).document
-        : input.kind === 'import' ? input.source?.document : input.document;
-      assertValidDocument(document, ['restore', 'backup-restore'].includes(input.kind) ? undefined : { now: now() });
-      if (input.kind === 'reset') assertReset(document, input.resetKind);
-      if (input.kind === 'save') assertValidTransition(current.document, document);
-      const newIdentity = ['reset', 'memory'].includes(input.kind) ||
-        (input.kind === 'import' && (!input.source.documentId || input.source.documentId !== current.documentId));
-      const unchanged = input.kind === 'save' && current.documentId !== null && digest(document) === digest(current.document);
-      const next = unchanged ? current : { document: structuredClone(document), schemaVersion: 2,
-        documentId: newIdentity ? randomUUID() : current.documentId ?? randomUUID(), revision: current.revision + 1 };
-      if (!Number.isSafeInteger(next.revision)) invalid('The revision counter is exhausted. Export a backup.');
-      serializeBackup(next); // Shared maximum document size, before any SQL mutation.
+      if (input.kind === 'reset' && !['empty', 'demo'].includes(input.resetKind)) {
+        invalid('Invalid reset kind.');
+      }
+      const document = input.kind === 'backup-restore' ? restoreDocument : input.kind === 'restore' ? readHistory(
+            input.id
+          ).document : input.kind === 'import' ? input.source?.document : input.document;
+      assertValidDocument(document, ['restore', 'backup-restore'].includes(input.kind) ? undefined : {
+          now: now()
+        });
+      if (input.kind === 'reset') {
+        assertReset(document, input.resetKind);
+      }
+      if (input.kind === 'save') {
+        assertValidTransition(current.document, document);
+      }
+      const newIdentity = ['reset', 'memory'].includes(input.kind)
+        || (input.kind === 'import'
+        && (!input.source.documentId
+        || input.source.documentId !== current.documentId));
+      const unchanged = input.kind === 'save' && current.documentId !== null
+        && digest(document) === digest(
+            current.document
+          );
+      const next = unchanged ? current : {
+          document: structuredClone(document),
+          schemaVersion: 2,
+          documentId: newIdentity ? randomUUID() : current.documentId ?? randomUUID(),
+          revision: current.revision + 1
+        };
+      if (!Number.isSafeInteger(next.revision)) {
+        invalid('The revision counter is exhausted. Export a backup.');
+      }
+      // Shared maximum document size, before any SQL mutation.
+      serializeBackup(next);
       const timestamp = new Date(now()).toISOString();
-      const receipt = { opId: input.opId, documentId: next.documentId, revision: next.revision, changed: !unchanged };
+      const receipt = {
+        opId: input.opId,
+        documentId: next.documentId,
+        revision: next.revision,
+        changed: !unchanged
+      };
       if (!unchanged) {
         // Imports/restores can retain documentId and price history. A separate durable
         // generation invalidates proposals even after journal/history retention pruning.
         if (['import', 'reset', 'restore', 'backup-restore', 'memory'].includes(input.kind)) {
-          db.prepare("INSERT INTO meta(key,value) VALUES('planReplacementId',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(randomUUID());
+          db.prepare("INSERT INTO meta(key,value) VALUES('planReplacementId',?) " +
+                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(randomUUID());
         }
-        const raw = JSON.stringify(current), bytes = Buffer.byteLength(raw);
-        if (bytes > BUDGETS.history.bytes) throw new StoreError('quota', 'The pre-change snapshot exceeds the history budget.');
-        db.prepare('INSERT INTO history (id,savedAt,raw,bytes) VALUES (?,?,?,?)').run(randomUUID(), timestamp, raw, bytes);
-        db.prepare('INSERT INTO document (id,record) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET record=excluded.record').run(JSON.stringify(next));
+        const raw = JSON.stringify(current);
+        const bytes = Buffer.byteLength(raw);
+        if (bytes > BUDGETS.history.bytes) {
+          throw new StoreError('quota', 'The pre-change snapshot exceeds the history budget.');
+        }
+        db.prepare('INSERT INTO history (id,savedAt,raw,bytes) VALUES (?,?,?,?)').run(
+          randomUUID(),
+          timestamp,
+          raw,
+          bytes
+        );
+        db.prepare("INSERT INTO document (id,record) VALUES (1,?) " +
+                   "ON CONFLICT(id) DO UPDATE SET record=excluded.record").run(JSON.stringify(next));
         const remaining = new Set(document.ingredients.map(i => i.id));
-        const removedIngredients = current.document.ingredients.filter(i => !remaining.has(i.id))
-          .map(i => ({ id: i.id, name: i.name, priceEntries: i.prices.length }));
-        const entry = JSON.stringify({ ...receipt, kind: input.kind, source: actor, at: timestamp, ...(actor === 'agent' && { confirmedBy: 'ui', planId, ingredientId }),
-          ...(removedIngredients.length && { removedIngredients,
-            description: `Deleted ${removedIngredients.length} ingredient(s), including their price history; the pre-change snapshot is retained in version history within its retention limits.` }) });
+        const removedIngredients = current.document.ingredients.filter(i => !remaining.has(i.id)).map(i => ({
+          id: i.id,
+          name: i.name,
+          priceEntries: i.prices.length
+        }));
+        const deletionDescription =
+          `Deleted ${removedIngredients.length} ingredient(s), including their price history; ` +
+          'the pre-change snapshot is retained in version history within its retention limits.';
+        const entry = JSON.stringify({
+          ...receipt,
+          kind: input.kind,
+          source: actor,
+          at: timestamp,
+          ...(actor === 'agent' && { confirmedBy: 'ui', planId, ingredientId }),
+          ...(removedIngredients.length && {
+              removedIngredients,
+              description: deletionDescription
+            })
+        });
         db.prepare('INSERT INTO journal (entry,bytes) VALUES (?,?)').run(entry, Buffer.byteLength(entry));
         db.prepare("INSERT OR IGNORE INTO meta(key,value) VALUES('backupDirtySince',?)").run(timestamp);
-        db.prepare("INSERT INTO meta (key,value) VALUES ('backupDirty','1') ON CONFLICT(key) DO UPDATE SET value='1'").run();
+        db.prepare("INSERT INTO meta (key,value) VALUES ('backupDirty','1') " +
+                   "ON CONFLICT(key) DO UPDATE SET value='1'").run();
       }
       const encoded = JSON.stringify(receipt);
-      db.prepare('INSERT INTO ops (id,hash,receipt,bytes) VALUES (?,?,?,?)').run(input.opId, hash, encoded, Buffer.byteLength(encoded) + Buffer.byteLength(input.opId) + 64);
-      for (const table of Object.keys(BUDGETS)) prune(table);
-      if (!withinTransaction) db.exec('COMMIT');
+      db.prepare('INSERT INTO ops (id,hash,receipt,bytes) VALUES (?,?,?,?)').run(
+        input.opId,
+        hash,
+        encoded,
+        Buffer.byteLength(encoded) + Buffer.byteLength(input.opId) + 64
+      );
+      for (const table of Object.keys(BUDGETS)) {
+        prune(table);
+      }
+      if (!withinTransaction) {
+        db.exec('COMMIT');
+      }
       return { ...next, receipt };
     } catch (error) {
-      try { if (!withinTransaction) db.exec('ROLLBACK'); } catch { /* BEGIN may itself have failed. */ }
-      if (error instanceof StoreError) throw error;
-      throw new StoreError('write-failed', 'The change could not be saved. Previous data is unchanged. Check disk space and retry.');
+      try {
+        if (!withinTransaction) {
+          db.exec('ROLLBACK');
+        }
+      } catch {
+        // BEGIN may itself have failed.
+      }
+      if (error instanceof StoreError) {
+        throw error;
+      }
+      throw new StoreError(
+        'write-failed',
+        'The change could not be saved. Previous data is unchanged. Check disk space and retry.'
+      );
     }
   }
-  const storage = { db, load, version, write, history: {
-    list: () => db.prepare('SELECT id,seq AS "order",savedAt FROM history ORDER BY seq DESC').all(), read: readHistory,
-  }, journal: { list: () => db.prepare('SELECT seq AS "order",entry FROM journal ORDER BY seq DESC').all().map(row => ({ order: row.order, ...JSON.parse(row.entry) })) },
-  close() { try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } finally { db.close(); } },
-  openAdapter() { return createRemoteAdapter(async (route, input) => {
-    if (route === 'document') return load();
-    if (route === 'version') return version();
-    if (route === 'history') return storage.history.list();
-    if (route === 'history/read') return readHistory(input.id);
-    return write(input);
-  }); } };
+  const storage = {
+    db,
+    load,
+    version,
+    write,
+    history: {
+      list: () => db.prepare('SELECT id,seq AS "order",savedAt FROM history ORDER BY seq DESC').all(),
+      read: readHistory
+    },
+    journal: {
+      list: () => db.prepare('SELECT seq AS "order",entry FROM journal ORDER BY seq DESC').all().map(row => ({
+        order: row.order,
+        ...JSON.parse(row.entry)
+      }))
+    },
+    close() {
+      try {
+        db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+      } finally {
+        db.close();
+      }
+    },
+    openAdapter() {
+      return createRemoteAdapter(async (route, input) => {
+        if (route === 'document') {
+          return load();
+        }
+        if (route === 'version') {
+          return version();
+        }
+        if (route === 'history') {
+          return storage.history.list();
+        }
+        if (route === 'history/read') {
+          return readHistory(input.id);
+        }
+        return write(input);
+      });
+    }
+  };
   storage.plans = createPlans(storage, now);
   return storage;
 }

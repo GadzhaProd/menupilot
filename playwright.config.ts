@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   workers: process.env.CI ? 2 : undefined,
@@ -20,8 +20,8 @@ export default defineConfig({
     serviceWorkers: 'block',
   },
   projects: [
-    { name: 'desktop', testMatch: '**/desktop.spec.ts', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
-    { name: 'mobile', testMatch: '**/mobile.spec.ts', use: { ...devices['Pixel 7'], viewport: { width: 375, height: 812 }, deviceScaleFactor: 1 } },
+    { name: 'desktop', testMatch: ['**/desktop.spec.ts', '**/zz-accessibility.spec.ts'], use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'mobile', testMatch: ['**/mobile.spec.ts', '**/zz-accessibility.spec.ts'], use: { ...devices['Pixel 7'], viewport: { width: 375, height: 812 }, deviceScaleFactor: 1 } },
   ],
   webServer: {
     command: process.env.CI

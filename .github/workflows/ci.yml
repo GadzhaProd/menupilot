@@ -9,8 +9,9 @@ on:
 permissions:
   contents: read
 
+# The same gates run as parallel jobs so each stays well inside its time limit.
 jobs:
-  check:
+  unit:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -21,15 +22,53 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:core
+      - run: npm run test:ui
+      - run: npm run test:server
       - run: npm run build
+
+  mutations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:mutations
+
+  future:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci
       - run: npm run check:future
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
           restore-keys: ${{ runner.os }}-playwright-
+      - run: npm run build # in CI the Playwright web server previews the existing dist
       - run: npx playwright install --with-deps chromium
+        timeout-minutes: 10 # a stuck browser download should fail fast, not consume the job limit
       - run: npm run test:e2e
       - run: npm run test:e2e:local
       - uses: actions/upload-artifact@v6
@@ -41,3 +80,23 @@ jobs:
             test-results/
             test-results-local/
           if-no-files-found: warn
+
+  compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-playwright-
+      - run: npx playwright install --with-deps webkit firefox
+        timeout-minutes: 10 # a stuck browser download should fail fast, not consume the job limit
+      - run: npm run test:e2e:compat
