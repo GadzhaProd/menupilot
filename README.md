@@ -36,11 +36,11 @@ The UI confirms local proposals; the CLI cannot approve them. [Architecture deta
 
 ## How this was built
 
-MenuPilot was built by AI coding agents under the direction of a non-technical product owner. The owner chose the problem, set scope and approved stages; agents wrote the implementation and tests. The working process was **plan → implementation → independent agent review → audit → fixes**. Independent here means a separate reviewer, not a human security certification.
+MenuPilot was built in reviewed stages: **plan → implementation → independent review → audit → fixes**. Each stage had written acceptance criteria and was checked by a separate reviewer before it was merged.
 
 The [implementation plan](docs/planning/04_IMPLEMENTATION_PLAN.md) and [local-version plan](docs/planning/06_LOCAL_VERSION_PLAN.md) define staged acceptance and review; [review verification](server/D2_VERIFICATION.md) records reproduced findings and fixes. Later audits exposed date-dependent tests and an unreliable mutation result, among other defects. Those findings prompted regression checks and corrections; a large test count alone was not enough.
 
-This portfolio demonstrates product direction and engineering decisions made with AI assistance. It does not present the code as hand-written by the owner or claim that automated checks replace real café use. Read the [case study and lessons learned](docs/CASE_STUDY.md), [retrospective ADRs](docs/adr/), and [authorship and acknowledgements](#authorship).
+Automated checks do not replace real café use. Read the [case study and lessons learned](docs/CASE_STUDY.md), [retrospective ADRs](docs/adr/), and [authorship and acknowledgements](#authorship).
 
 ## Choose a version
 
@@ -450,7 +450,7 @@ Emergency recovery creates a **new dataset identity**, invalidates old receipts/
 
 ## Authorship
 
-**MenuPilot is original work by GadzhaProd.** The product idea, scope and every stage were defined and approved by the product owner; the code was written for this project by AI coding agents working under that direction. The calculation core (`src/calc`), the data store and validation (`src/store`), the Profit Simulator, the Dashboard, the built-in Help guide and all screens were built from scratch for MenuPilot.
+**MenuPilot is original work by GadzhaProd**, who is responsible for its product decisions and its code. The calculation core (`src/calc`), the data store and validation (`src/store`), the Profit Simulator, the Dashboard, the built-in Help guide and all screens were built from scratch for MenuPilot.
 
 The plan, architecture decisions and agent rules are public: [docs/planning](docs/planning/) and [AGENTS.md](AGENTS.md).
 

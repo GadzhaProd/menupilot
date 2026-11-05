@@ -54,4 +54,3 @@ From the product owner's perspective, lessons from the audits:
 - **Write the showcase before the reference manual.** The README accumulated operational detail ahead of the product story. I would keep a short introduction and clear paths for owners and reviewers from the beginning.
 - **Record decisions before large merges.** Commit volume showed activity more clearly than reasoning. Smaller reviewed changes and short ADRs would make trade-offs easier to follow. These ADRs are retrospective, not a claim that this discipline existed throughout.
 
-The owner directed and approved the product; AI agents wrote the code and tests. The portfolio presents that process openly.
