@@ -421,6 +421,16 @@ describe('Scenario 3: a new dish', () => {
     expect(units()).toEqual(['g', 'kg']);
     expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('g');
   });
+
+  it('keeps a quantity entered before choosing the first component', async () => {
+    const u = user();
+    await open('#/recipe/new?kind=dish', storageWith(sauceDoc()));
+    const row = line(1);
+    await u.type(row.getByLabelText(/Net quantity/), '250');
+    await u.selectOptions(row.getByLabelText('Ingredient or prep'), 'ingredient:ing_tomato');
+    expect((row.getByLabelText(/Net quantity/) as HTMLInputElement).value).toBe('250');
+    expect((row.getByLabelText('Unit') as HTMLSelectElement).value).toBe('g');
+  });
 });
 
 describe('Form errors', () => {
