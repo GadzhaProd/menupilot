@@ -30,10 +30,10 @@ export function memoryStorage(initial: Record<string, string> = {}) {
 
 export async function renderApp(
   storage: StorageLike | null = memoryStorage(),
-  { strict = false, children }: { strict?: boolean; children?: ReactNode } = {},
+  { strict = false, children, now }: { strict?: boolean; children?: ReactNode; now?: () => Date | string | number } = {},
 ) {
   const tree = (
-    <DataProvider storage={storage} demo={demo} now={() => NOW}>
+    <DataProvider storage={storage} demo={demo} now={now ?? (() => NOW)}>
       {children ?? <App />}
     </DataProvider>
   );
