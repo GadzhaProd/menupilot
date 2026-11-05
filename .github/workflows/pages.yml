@@ -14,6 +14,7 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+# The same gates run as parallel jobs so each stays well inside its time limit.
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,9 +27,48 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:core
+      - run: npm run test:ui
+      - run: npm run test:server
       - run: npm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  mutations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:mutations
+
+  future:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci
       - run: npm run check:future
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
@@ -46,9 +86,6 @@ jobs:
             test-results/
             test-results-local/
           if-no-files-found: warn
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: dist
 
   compat:
     runs-on: ubuntu-latest
@@ -70,7 +107,7 @@ jobs:
       - run: npm run test:e2e:compat
 
   deploy:
-    needs: [build, compat]
+    needs: [build, mutations, future, e2e, compat]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
