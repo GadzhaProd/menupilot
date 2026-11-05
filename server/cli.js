@@ -3,7 +3,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { assertRuntime } from './runtime.js';
-import { executeReadCommand, localDataPath, localDoctor, serializeCliError } from './cliRead.js';
+import { safeHumanValue, executeReadCommand, localDataPath, localDoctor, serializeCliError } from './cliRead.js';
 import { executePlanCommand, printPlan } from './cliPlans.js';
 import { hasValidOpenResult } from './cliSecurity.js';
 
@@ -51,7 +51,7 @@ async function confirm(message, yes) {
   if (yes) return;
   if (!process.stdin.isTTY) throw cliError('confirmation-required', 'Confirmation required. Review the backup ID, then repeat with --yes.');
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try { if ((await rl.question(message + '\nType RESTORE to continue: ')) !== 'RESTORE') throw cliError('cancelled', 'Cancelled. Data is unchanged.'); }
+  try { if ((await rl.question(safeHumanValue(message) + '\nType RESTORE to continue: ')) !== 'RESTORE') throw cliError('cancelled', 'Cancelled. Data is unchanged.'); }
   finally { rl.close(); }
 }
 
@@ -63,6 +63,7 @@ function displayValue(value) {
   return Object.entries(value).map(([key, item]) => `${key}: ${displayValue(item)}`).join('\n');
 }
 function printHuman(result, locale = 'en') {
+  result = safeHumanValue(result);
   const { command, data, warnings = [] } = result;
   if (command === 'dishes' || command === 'preps' || command === 'ingredients') {
     for (const item of data) console.log(`${item.name}  [${item.id}]${item.currentPrice ? `  ${displayValue(item.currentPrice.packPrice)} excl. VAT` : ''}`);
@@ -104,7 +105,7 @@ async function run(args) {
       await confirm(`Emergency recovery from ${args[2]}. Stop the server first. Original database files will be preserved beside the recovered database.`, args[3] === '--yes');
       const { recoverFromBackup } = await import('./recovery.js');
       const result = await recoverFromBackup(dir, args[2]);
-      console.log(`Recovered. Original files and report: ${result.reportPath}\nRun npm start. Emergency recovery uses a new dataset identity; changes after the backup are not recovered.`);
+      console.log(`Recovered. Original files and report: ${safeHumanValue(result.reportPath)}\nRun npm start. Emergency recovery uses a new dataset identity; changes after the backup are not recovered.`);
       return;
     }
     if (['propose', 'plans', 'plan'].includes(command)) {
@@ -142,8 +143,8 @@ async function run(args) {
   } catch (error) {
     if (wantJson) printJson(serializeCliError(error), true);
     else {
-      console.error(error.message || 'MenuPilot could not complete the command.');
-      for (const candidate of error.candidates ?? []) console.error(`- ${candidate.id}: ${candidate.name}${candidate.unit ? ` (${candidate.unit})` : ''}${candidate.packaging ? `; pack ${displayValue(candidate.packaging.packPrice)} ${candidate.packaging.packPriceLabel}` : ''}`);
+      console.error(safeHumanValue(error.message) || 'MenuPilot could not complete the command.');
+      for (const candidate of safeHumanValue(error.candidates ?? [])) console.error(`- ${candidate.id}: ${candidate.name}${candidate.unit ? ` (${candidate.unit})` : ''}${candidate.packaging ? `; pack ${displayValue(candidate.packaging.packPrice)} ${candidate.packaging.packPriceLabel}` : ''}`);
     }
     process.exitCode = exitCode(error.code);
   }
@@ -163,7 +164,7 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
     if (result.stopped !== true || typeof result.backupCreated !== 'boolean') throw cliError('server-error', 'MenuPilot returned an invalid stop response.');
     const warnings = result.backupCreated ? [] : [{ code: result.code ?? 'shutdown-backup-failed', message: result.message ?? 'Shutdown backup failed.' }];
     if (wantJson) printJson({ apiVersion: 1, command: 'stop', documentId: version.documentId, revision: version.revision, data: { stopped: result.backupCreated, dataDir: dir }, warnings });
-    else console.log(result.backupCreated ? `MenuPilot stopped. Your data is in ${dir}` : warnings[0].message);
+    else console.log(result.backupCreated ? `MenuPilot stopped. Your data is in ${safeHumanValue(dir)}` : safeHumanValue(warnings[0].message));
     if (!result.backupCreated) process.exitCode = 1;
   } else if (open) {
     const result = await api('open-url', { method: 'POST', body: { revokeSessions: args[1] === '--revoke-sessions' } });
@@ -172,7 +173,7 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
   } else if (list) {
     const entries = await api('backups');
     if (wantJson) { const version = await api('version'); printJson({ apiVersion: 1, command: 'backup list', documentId: version.documentId, revision: version.revision, data: entries, warnings: [] }); }
-    else for (const entry of entries) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
+    else for (const entry of safeHumanValue(entries)) console.log(entry.invalid ? `${entry.id} INVALID${entry.quarantined ? ' — quarantined' : ''} — not a restore point` : `${entry.id}  ${entry.createdAt}  revision ${entry.revision}  ${entry.documentId ?? '(empty)'}  DB v${entry.dbVersion}  ${entry.reason}`);
     if (!entries.length && !wantJson) console.log('No backups yet. A backup is created within five minutes of a change, and on normal shutdown.');
   } else if (verify) {
     let checked;
@@ -182,7 +183,7 @@ async function runExistingServerCommand(args, dir, wantJson = false) {
       const version = await api('version');
       printJson({ apiVersion: 1, command: 'backup verify', documentId: version.documentId, revision: version.revision,
         data: { id: checked.id, backupRevision: checked.revision, verified: true }, warnings: [] });
-    } else console.log(`Verified by restoring to a temporary database: ${checked.id}, revision ${checked.revision}.`);
+    } else console.log(`Verified by restoring to a temporary database: ${safeHumanValue(checked.id)}, revision ${checked.revision}.`);
   } else {
     const checked = await api('backups/verify', { method: 'POST', body: { id: args[2] } });
     const current = await api('version'); await confirm(`Replace current revision ${current.revision} with the document from backup ${checked.id} (revision ${checked.revision})? A verified copy of the current data will be created first.`, args[3] === '--yes');
