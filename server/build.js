@@ -12,7 +12,7 @@ export async function ensureBuild(root, signal) {
       else if (entry.isFile()) { hash.update(file.slice(root.length)); hash.update(readFileSync(file)); }
     }
   }
-  for (const name of ['src', 'data', 'public']) if (existsSync(join(root, name))) scan(join(root, name));
+  for (const name of ['src', 'data', 'public', 'scripts', 'third_party']) if (existsSync(join(root, name))) scan(join(root, name));
   for (const name of ['package.json', 'package-lock.json', 'vite.config.js', 'index.html']) hash.update(readFileSync(join(root, name)));
   hash.update(process.versions.node);
   const fingerprint = hash.digest('hex'), marker = join(root, 'dist/.menupilot-build');
