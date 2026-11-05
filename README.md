@@ -18,7 +18,7 @@ Fictional demo data; the demo runs entirely in your browser. [Capture details](d
 - **Exact arithmetic:** safe-integer cents in storage; `BigInt` cents and micro-euros in calculations, with explicit rounding.
 - **Two versions, one core:** a static browser app and a local Node.js server with SQLite and automatic backups.
 - **Owner stays in control:** an agent reads and proposes supplier prices; the owner reviews consequences and confirms in the app.
-- **Verification:** 853 core/UI/server tests, 101 browser cases across three engines, targeted mutations and a future-date check; axe: 0 serious/critical findings. [Results and limits](docs/CASE_STUDY.md#verification).
+- **Verification:** 853 core/UI/server tests, 31 Chromium e2e (23 functional + 8 accessibility), 8 local-server e2e, and the same 62 checks in WebKit and Firefox; targeted mutations and a future-date check; axe: 0 serious/critical findings. [Results and limits](docs/CASE_STUDY.md#verification).
 - **Languages:** EN/NL interface, built-in help in EN/NL/RU; light and dark themes.
 
 ```mermaid
