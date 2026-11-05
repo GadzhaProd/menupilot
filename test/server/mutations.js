@@ -5,6 +5,9 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 const dir = mkdtempSync(join(tmpdir(), 'menupilot-mutants-'));
 try {
+  // Route all server-test temporary data under this disposable root. The final
+  // recursive removal then cleans leftovers even if a test or child exits early.
+  const testTempDir = join(dir, 'test-tmp'); mkdirSync(testTempDir);
   for (const path of ['server', 'src', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'vite.config.js', 'scripts', 'third_party', 'tsconfig.json', 'package.json', 'package-lock.json', 'index.html', 'public', 'data', 'README.md', 'docs/planning']) {
     mkdirSync(join(dir, path, '..'), { recursive: true }); cpSync(path, join(dir,path), { recursive: true });
   }
@@ -130,7 +133,7 @@ try {
   const filter = process.env.MENUPILOT_MUTATION_FILTER;
   const commandFor = test => test.endsWith('.tsx')
     ? [join(dir, 'node_modules/vitest/vitest.mjs'), 'run', test, '-t', 'plan card labels'] : ['--test', test];
-  const options = { cwd: dir, encoding: 'utf8', timeout: 30000, env: { ...process.env, VITEST_MAX_WORKERS: '2' } };
+  const options = { cwd: dir, encoding: 'utf8', timeout: 30000, env: { ...process.env, TMPDIR: testTempDir, TMP: testTempDir, TEMP: testTempDir, VITEST_MAX_WORKERS: '2' } };
   const run = args => spawnSync(process.execPath, args, options);
   const output = result => `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
   const assertGreen = (name, result) => {
