@@ -68,7 +68,7 @@ export function VersionHistory() {
   async function restore() {
     if (!dialog.state) return;
     const result = (await execute(store => store.restoreHistory(dialog.state!.entry.id), { report: false, clearRecipeDrafts: true }));
-    if (!result.ok) { setError(isSafetyError(result.code) ? null : t(result.details.some(detail => detail.includes('must not be in the future')) ? 'history.futurePrices' : 'history.failed')); return; }
+    if (!result.ok) { setError(isSafetyError(result.code) ? null : t(result.code === 'history-limit' ? 'data.error.historyLimit' : result.details.some(detail => detail.includes('must not be in the future')) ? 'history.futurePrices' : 'history.failed')); return; }
     recipes.clearAll(); sessions.clear(); dialog.close(); setRestored(true);
   }
   return <Surface className="space-y-4" aria-labelledby="history-title">

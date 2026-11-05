@@ -1,4 +1,5 @@
 export const dataNl = {
+  'data.error.historyLimit': 'De veiligheidslimiet van de versiegeschiedenis verhindert een verplichte kopie. De vervanging is geannuleerd. Je huidige gegevens zijn ongewijzigd. Dit is een app-limiet, geen fout door een volle browseropslag.',
   'history.previewTitle': 'Vorige versie bekijken',
   'history.previewDescription': 'Bekijk deze opgeslagen versie voordat je die herstelt.',
   'history.restore': 'Deze versie herstellen',

@@ -75,16 +75,20 @@ export function createBrowserStorageAdapter(storage, { initialDocument, now = ()
     const documentId = policy.newIdentity ? newId() : current?.documentId ?? newId();
     if (!policy.requireHistory && !policy.newIdentity && current?.documentId && JSON.stringify(document) === JSON.stringify(current.document)) return publicRecord(current);
     const migration = current?.schemaVersion === 1;
-    if (migration) protectMigration(raw);
-    const snapshot = history.archive(raw, policy.preservedHistoryId);
-    if (policy.requireHistory && !migration && !snapshot.available) {
-      throw new StoreError(snapshot.error ? writeError(snapshot.error).code : 'quota', 'A copy of the current data could not be stored. Replacement was cancelled. Export a backup and free browser storage before trying again.');
-    }
     const revision = Math.max(current?.revision ?? 0, markerNumber(marker)) + 1;
     if (!Number.isSafeInteger(revision)) throw new StoreError('invalid', 'The revision counter is exhausted. Export a backup.');
     const next = { document: structuredClone(document), schemaVersion: 2, documentId, revision,
       operationIds: [...(current?.operationIds ?? []), opId].slice(-128) };
     const text = serializeBackup(next);
+    if (migration) protectMigration(raw);
+    const snapshot = history.archive(raw, policy.preservedHistoryId, policy.requireHistory);
+    if (policy.requireHistory && !migration && !snapshot.available) {
+      // A retention-policy failure is not evidence that browser storage is full.
+      const code = snapshot.error ? writeError(snapshot.error).code : 'history-limit';
+      throw new StoreError(code, code === 'history-limit'
+        ? 'The version-history safety limit prevents a required copy. Replacement was cancelled; current data is unchanged.'
+        : 'A copy of the current data could not be stored. Replacement was cancelled; current data is unchanged.');
+    }
     for (;;) {
       try {
         storage.setItem(REVISION_KEY, String(revision)); expectedMarker = String(revision);

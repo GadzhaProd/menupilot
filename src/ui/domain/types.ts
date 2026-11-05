@@ -189,7 +189,7 @@ export type StoreErrorCode =
   | 'connection-failed'
   | 'conflict' | 'write-busy' | 'write-unavailable'
   | 'corrupt-json' | 'unsupported-version' | 'invalid' | 'read-failed' | 'write-failed'
-  | 'quota' | 'in-use' | 'not-found' | 'not-loaded' | 'bad-options';
+  | 'quota' | 'history-limit' | 'in-use' | 'not-found' | 'not-loaded' | 'bad-options';
 
 /** Derived unit-price display value, never stored in the menu document. */
 export interface UnitPrice {

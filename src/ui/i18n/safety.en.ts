@@ -24,7 +24,7 @@ export const safetyEn = {
   "safety.memoryConfirm": "Save the last saved document from this tab into the empty browser storage? Unsaved form fields stay in their drafts. This is allowed only while no other tab has saved new data.",
   "safety.memorySave": "Confirm and save",
   "history.title": "Previous versions",
-  "history.limit": "Up to 10 previous versions, within 1 MiB. Clearing browser data deletes this history too. Keep a backup file outside this browser.",
+  "history.limit": "Up to 10 previous versions, normally within 1 MiB. Required copies before replacement may use more space, subject to browser storage limits. Clearing browser data deletes this history too. Keep a backup file outside this browser.",
   "history.unavailable": "Version history is unavailable. Your change was saved, but a previous-version copy may be missing. Export a backup file.",
   "history.readFailed": "Version history could not be read. Try again after allowing browser storage.",
   "history.empty": "No previous versions yet. They appear after saved data is changed.",

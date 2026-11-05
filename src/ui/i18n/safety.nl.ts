@@ -25,7 +25,7 @@ export const safetyNl = {
   "safety.memoryConfirm": "Het laatst opgeslagen document uit dit tabblad in de lege browseropslag bewaren? Niet-opgeslagen velden blijven in hun concepten. Dit kan alleen zolang geen ander tabblad nieuwe gegevens heeft opgeslagen.",
   "safety.memorySave": "Bevestigen en opslaan",
   "history.title": "Vorige versies",
-  "history.limit": "Maximaal 10 vorige versies, binnen 1 MiB. Het wissen van browsergegevens verwijdert ook deze geschiedenis. Bewaar een reservekopiebestand buiten deze browser.",
+  "history.limit": "Maximaal 10 vorige versies, normaal binnen 1 MiB. Verplichte kopieën vóór vervanging mogen meer ruimte gebruiken, zolang de browseropslag dat toelaat. Het wissen van browsergegevens verwijdert ook deze geschiedenis. Bewaar een reservekopiebestand buiten deze browser.",
   "history.unavailable": "Versiegeschiedenis is niet beschikbaar. Je wijziging is opgeslagen, maar een kopie van de vorige versie kan ontbreken. Exporteer een reservekopiebestand.",
   "history.readFailed": "De versiegeschiedenis kon niet worden gelezen. Probeer opnieuw nadat je browseropslag hebt toegestaan.",
   "history.empty": "Er zijn nog geen vorige versies. Ze verschijnen wanneer opgeslagen gegevens worden gewijzigd.",

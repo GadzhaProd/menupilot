@@ -6,9 +6,10 @@ import { createSession, tokenMatches } from './session.js';
 import { openBrowser as launchBrowser } from './openBrowser.js';
 import { createLogger } from './log.js';
 import { StoreError } from '../src/store/errors.js';
+import { MAX_DOCUMENT_CHARS } from '../src/store/serialization.js';
 
 // 5m UTF-16 code units can require 15m UTF-8 bytes; leave room for envelope/CAS.
-export const MAX_BODY_BYTES = 15_100_000;
+export const MAX_BODY_BYTES = 3 * MAX_DOCUMENT_CHARS + 100_000;
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.woff': 'font/woff' };
