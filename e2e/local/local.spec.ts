@@ -288,3 +288,72 @@ test('owner acceptance: import, edit, compare CLI with Dashboard, approve price,
     await page.screenshot({ path: info.outputPath('owner-acceptance.png'), fullPage: true });
   } finally { await stop(child); await rm(dir, { recursive: true }); }
 });
+
+test('multi-line invoice: two proposals, sequential owner confirmations and current Dashboard parity', async ({ page, context }, info) => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const exec = promisify(execFile);
+  const dir = await mkdtemp(join(tmpdir(), 'menupilot-plan-e2e-')), port = await freePort();
+  const origin = `http://127.0.0.1:${port}`;
+  const env = { ...process.env, MENUPILOT_DATA_DIR: dir };
+  const cli = async (args: string[]) => JSON.parse((await exec(process.execPath, ['server/cli.js', ...args, '--json'], { env })).stdout);
+  await exec(process.execPath, ['--input-type=module', '-e', `
+    import { readFileSync } from 'node:fs';
+    import { createSqliteStorage } from './server/sqlite.js';
+    const s = createSqliteStorage(process.env.MENUPILOT_DATA_DIR + '/menupilot.db', { initialDocument: JSON.parse(readFileSync('data/demo.json', 'utf8')) });
+    s.write({ kind: 'save', document: s.load().document, expectedDocumentId: null, expectedRevision: 0, opId: 'fixture' }); s.close();
+  `], { env });
+  const external: string[] = [];
+  await context.route('**/*', async route => {
+    if (new URL(route.request().url()).origin === origin) await route.continue();
+    else { external.push(route.request().url()); await route.abort(); }
+  });
+  const child = await launch(dir, port);
+  try {
+    await page.goto(launchUrls.get(child)!);
+    await expect(page.getByTestId('local-mode')).toBeVisible();
+    const beef = await cli(['propose', 'add-price', '--ingredient', 'ing_beef', '--pack-price', '18', '--pack-size', '1 kg']);
+    const cheddar = await cli(['propose', 'add-price', '--ingredient', 'ing_cheddar', '--pack-price', '12', '--pack-size', '1 kg']);
+    const panel = page.getByTestId('plans-panel');
+    // Newest proposal is first, including on the one-card mobile layout.
+    await expect(panel.getByRole('heading', { name: 'Aged cheddar', exact: true })).toBeVisible();
+    await panel.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Aged cheddar', exact: true }) }).getByRole('button', { name: 'Apply', exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: 'Confirm apply', exact: true })).toBeEnabled();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect(dialog).toHaveCount(0);
+    // Open the second proposal immediately, without waiting for polling or CLI requests.
+    await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Confirm apply', exact: true })).toBeEnabled();
+    await expect(dialog).toContainText('Consequences updated after other changes.');
+    await page.screenshot({ path: info.outputPath('invoice-immediate-dialog-en.png'), fullPage: true });
+    expect((await cli(['plan', 'status', cheddar.data.id])).data.status).toBe('applied');
+    const remaining = (await cli(['plan', 'status', beef.data.id])).data;
+    expect(remaining.status).toBe('pending'); expect(remaining.effectsUpdated).toBe(true);
+    for (const effect of remaining.effects.dishes) await expect(dialog).toContainText(effect.currentCostMicro.display);
+    await page.keyboard.press('Escape');
+    await expect(panel.getByRole('article')).toHaveCount(1);
+    await expect(panel).toContainText('Consequences updated after other changes.');
+    await page.screenshot({ path: info.outputPath('invoice-updated-en.png'), fullPage: true });
+    await page.getByRole('button', { name: 'NL – Nederlands' }).click();
+    await expect(panel).toContainText('Gevolgen bijgewerkt na andere wijzigingen.');
+    await page.screenshot({ path: info.outputPath('invoice-updated-nl.png'), fullPage: true });
+    await panel.getByRole('button', { name: 'Toepassen', exact: true }).click();
+    await expect(dialog).toContainText('Gevolgen bijgewerkt na andere wijzigingen.');
+    await page.keyboard.press('Escape');
+    await expect(panel.getByRole('button', { name: 'Toepassen', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await dialog.getByRole('button', { name: 'Toepassen bevestigen', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    expect((await cli(['plan', 'status', beef.data.id])).data.status).toBe('applied');
+    await page.getByRole('button', { name: 'EN – English' }).click();
+    const current = (await cli(['dish', 'dish_classic_burger'])).data;
+    const effect = remaining.effects.dishes.find((d: { id: string }) => d.id === 'dish_classic_burger');
+    expect(current.recipeBasedIngredientCost.micro).toBe(effect.currentCostMicro.micro);
+    await expect(page.locator('main').getByText(current.recipeBasedIngredientCost.display, { exact: true }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(external).toEqual([]);
+  } finally { await stop(child); await rm(dir, { recursive: true }); }
+});

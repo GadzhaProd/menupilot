@@ -5,13 +5,14 @@ import { useLocale, useFormatters } from '@/ui/i18n';
 import type { PricePlan, PlanPackaging } from '@/ui/domain/plans';
 import { localizedUnit } from '@/ui/forms/numbers';
 import { useLocalMode } from './localMode';
-import { createHttpPlanAdapter } from './httpPlanAdapter';
+import { createHttpPlanAdapter, type ReviewedPlan } from './httpPlanAdapter';
 
 function Consequences({ plan }: { plan: PricePlan }) {
   const { t } = useLocale(), f = useFormatters();
   const cost = (v: string | null) => v === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.microMoney(BigInt(v))}</span>;
   const pct = (v: string | null) => v === null ? '—' : f.percent(BigInt(v));
   return <div className="space-y-3 text-sm">
+    {'effectsUpdated' in plan && plan.effectsUpdated === true && <p className="font-medium text-muted-foreground">{t('plans.effectsUpdated')}</p>}
     {plan.effects.dishes.map(row => <div key={row.id} className="border-t pt-2">
       <p className="font-medium">{row.name}</p>
       <p>{t('plans.cost')}: {cost(row.comparisonCostMicro)} → {cost(row.currentCostMicro)}</p>
@@ -47,6 +48,9 @@ export function LocalPlans() {
   const [plans, setPlans] = useState<readonly PricePlan[]>([]);
   const [failed, setFailed] = useState(false);
   const [choice, setChoice] = useState<{ plans: readonly PricePlan[]; action: 'apply' | 'reject' } | null>(null);
+  const [review, setReview] = useState<ReviewedPlan | null>(null);
+  const [loading, setLoading] = useState(false);
+  const reviewRequest = useRef(0);
   const [busy, setBusy] = useState(false), saving = useRef(false);
   const [error, setError] = useState<string | null>(null), [done, setDone] = useState<'applied' | 'rejected' | null>(null);
   const [offset, setOffset] = useState(0);
@@ -58,6 +62,7 @@ export function LocalPlans() {
   const recent = plans.filter(p => ['stale', 'expired', 'superseded', 'rejected'].includes(p.status));
   const start = offset < pending.length ? offset : 0;
   const shown = pending.slice(start, start + pageSize);
+  const selected = choice?.action === 'apply' ? (review ? [review] : []) : choice?.plans ?? [];
   if (!local || !client) return null;
   if (!pending.length && !recent.length && !failed && !done && !choice) return null;
   const per = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.money(BigInt(p.unitPrice.cents))}/{localizedUnit(p.unitPrice.per, locale)}</span>;
@@ -65,24 +70,41 @@ export function LocalPlans() {
     const pack = (p: PlanPackaging | null) => p === null ? t('common.costUnknown') : <><span className="whitespace-nowrap">{f.money(BigInt(p.packPriceCents))}</span> {t('plans.pack', { size: new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(p.packSizeMilli / 1000), unit: localizedUnit(plan.ingredient.unit, locale) })}</>;
     return <div className="space-y-1 text-sm"><p>{pack(plan.previousPrice)} → {pack(plan.proposedPrice)} · {t('common.exclVat')}</p><p>{per(plan.previousPrice)} → {per(plan.proposedPrice)} · {t('common.exclVat')}</p></div>;
   }
+  async function loadReview(id: string) {
+    const request = ++reviewRequest.current;
+    setReview(null); setLoading(true);
+    try {
+      const fresh = await client!.get(id);
+      if (request !== reviewRequest.current) return;
+      if (fresh.status !== 'pending') { setError(t(fresh.status === 'expired' ? 'plans.expired' : 'plans.stale')); return; }
+      if (!fresh.consequencesFingerprint) throw new Error('Missing review token');
+      setReview(fresh);
+    } catch { if (request === reviewRequest.current) setError(t('plans.reviewError')); }
+    finally { if (request === reviewRequest.current) setLoading(false); }
+  }
+  function closeChoice() { ++reviewRequest.current; setChoice(null); setReview(null); setLoading(false); }
   function choose(button: HTMLButtonElement, selected: readonly PricePlan[], action: 'apply' | 'reject') {
-    trigger.current = button; setDone(null); setError(null); setChoice({ plans: selected, action });
+    trigger.current = button; setReview(null); setDone(null); setError(null); setChoice({ plans: selected, action });
+    if (action === 'apply') void loadReview(selected[0]!.id);
   }
   async function confirm() {
-    if (!choice || !client || saving.current) return;
+    if (!choice || !client || saving.current || (choice.action === 'apply' && (!review?.consequencesFingerprint || loading))) return;
     saving.current = true; setBusy(true); setError(null); setDone(null);
     try {
       // Each rejection is idempotent; a failed bulk action can safely be retried.
-      const results = await Promise.allSettled(choice.plans.map(p => client[choice.action](p.id)));
+      const results = await Promise.allSettled(choice.plans.map(p => choice.action === 'apply' ? client.apply(p.id, review!.consequencesFingerprint!) : client.reject(p.id)));
       const success = choice.plans.filter((_, i) => results[i]?.status === 'fulfilled').map(p => p.id);
       // The existing document subscription preserves drafts and dispatches documentReplaced.
       setPlans(current => current.map(p => success.includes(p.id) ? { ...p, status: choice.action === 'apply' ? 'applied' : 'rejected' } : p));
       const failure = results.find(r => r.status === 'rejected');
       if (failure?.status === 'rejected') throw failure.reason;
-      setDone(choice.action === 'apply' ? 'applied' : 'rejected'); setChoice(null);
+      setDone(choice.action === 'apply' ? 'applied' : 'rejected'); closeChoice();
     } catch (e) {
       const code = (e as { code?: string }).code;
-      setError(code === 'plan-stale' ? t('plans.stale') : code === 'plan-expired' ? t('plans.expired') : t('plans.error'));
+      if (code === 'plan-consequences-changed') {
+        setError(t('plans.reconfirm'));
+        await loadReview(choice.plans[0]!.id);
+      } else setError(code === 'plan-stale' ? t('plans.stale') : code === 'plan-expired' ? t('plans.expired') : t('plans.error'));
     } finally { saving.current = false; setBusy(false); }
   }
   return <section data-testid="plans-panel" className="space-y-4 rounded-lg border-2 border-primary/50 bg-card p-4 sm:p-6" aria-labelledby="plans-title">
@@ -109,14 +131,15 @@ export function LocalPlans() {
       {start > 0 && <Button variant="outline" onClick={() => { setDone(null); setOffset(0); }}>{t('plans.first')}</Button>}
       {pending.length > start + pageSize && <Button variant="outline" onClick={() => { setDone(null); setOffset(start + pageSize); }}>{t('plans.more', { count: pending.length - start - pageSize })}</Button>}
     </div>
-    {choice && <Dialog open onOpenChange={open => { if (!open && !busy) setChoice(null); }}>
+    {choice && <Dialog open onOpenChange={open => { if (!open && !busy) closeChoice(); }}>
       <DialogContent role="alertdialog" className="max-h-[90svh] overflow-y-auto" onCloseAutoFocus={event => { event.preventDefault(); (trigger.current?.isConnected ? trigger.current : heading.current)?.focus(); }}>
-        <DialogHeader><DialogTitle>{t(choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject')} · {choice.plans.length === 1 ? choice.plans[0]!.ingredient.name : t('plans.selected', { count: choice.plans.length })}</DialogTitle>
+        <DialogHeader><DialogTitle>{t(choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject')} · {choice.plans.length === 1 ? (review?.ingredient.name ?? choice.plans[0]!.ingredient.name) : t('plans.selected', { count: choice.plans.length })}</DialogTitle>
           <DialogDescription>{t(choice.action === 'apply' ? 'plans.applyDescription' : 'plans.rejectDescription')}</DialogDescription></DialogHeader>
-        {choice.plans.length === 1 ? <>{prices(choice.plans[0]!)}<Warnings plan={choice.plans[0]!} />{choice.action === 'apply' && <Consequences plan={choice.plans[0]!} />}</> : <ul>{choice.plans.map(p => <li key={p.id}>{p.ingredient.name}</li>)}</ul>}
+        {loading && <p role="status">{t('plans.updating')}</p>}
+        {choice.plans.length === 1 ? selected[0] && <>{prices(selected[0]!)}<Warnings plan={selected[0]!} />{choice.action === 'apply' && <Consequences plan={selected[0]!} />}</> : <ul>{choice.plans.map(p => <li key={p.id}>{p.ingredient.name}</li>)}</ul>}
         {error && <p role="alert" className="text-destructive">{error}</p>}
-        <DialogFooter><Button variant="outline" disabled={busy} onClick={() => setChoice(null)}>{t('common.cancel')}</Button>
-          <Button disabled={busy} onClick={() => { void confirm(); }}>{t(choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject')}</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" disabled={busy} onClick={closeChoice}>{t('common.cancel')}</Button>
+          <Button disabled={busy || (choice.action === 'apply' && (loading || !review))} onClick={() => { void confirm(); }}>{t(choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject')}</Button></DialogFooter>
       </DialogContent>
     </Dialog>}
   </section>;

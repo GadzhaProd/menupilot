@@ -137,6 +137,11 @@ export function createSqliteStorage(path, { initialDocument = emptyDocument(), n
       const timestamp = new Date(now()).toISOString();
       const receipt = { opId: input.opId, documentId: next.documentId, revision: next.revision, changed: !unchanged };
       if (!unchanged) {
+        // Imports/restores can retain documentId and price history. A separate durable
+        // generation invalidates proposals even after journal/history retention pruning.
+        if (['import', 'reset', 'restore', 'backup-restore', 'memory'].includes(input.kind)) {
+          db.prepare("INSERT INTO meta(key,value) VALUES('planReplacementId',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(randomUUID());
+        }
         const raw = JSON.stringify(current), bytes = Buffer.byteLength(raw);
         if (bytes > BUDGETS.history.bytes) throw new StoreError('quota', 'The pre-change snapshot exceeds the history budget.');
         db.prepare('INSERT INTO history (id,savedAt,raw,bytes) VALUES (?,?,?,?)').run(randomUUID(), timestamp, raw, bytes);

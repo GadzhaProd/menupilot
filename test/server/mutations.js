@@ -16,7 +16,14 @@ try {
     ['obsolete launch file cleanup', 'server/session.js', "unlinkSync(join(dir, 'launch-secret'));", '', 'test/server/review.test.js'],
     ['plan card VAT label', 'src/ui/data/LocalPlans.tsx', " · {t('common.exclVat')}", '', 'test/ui/plans.test.tsx'],
     ['plan approval UI gate', 'server/http.js', "['apply', 'reject'].includes(action) && source !== 'ui'", 'false', 'test/server/plans.test.js'],
-    ['plan revision gate', 'server/plans.js', 'plan.revision !== current.revision', 'false', 'test/server/plans.test.js'],
+    ['plan price history gate', 'server/plans.js', 'plan.basis.priceHistoryHash !== priceHistoryHash(target.prices)', 'false', 'test/server/plans.test.js'],
+    ['plan unit gate', 'server/plans.js', 'target.unit !== plan.ingredient.unit', 'false', 'test/server/plans.test.js'],
+    ['plan replacement gate', 'server/plans.js', 'plan.basis.replacementId !== replacementId()', 'false', 'test/server/plans.test.js'],
+    ['plan live effects', 'server/plans.js', 'const effects = planEffects(current.document, after, plan.ingredient.id, timestamp());', 'const effects = plan.effects;', 'test/server/plans.test.js'],
+    ['plan current CAS', 'server/plans.js', 'expectedRevision: current.revision', 'expectedRevision: plan.revision', 'test/server/plans.test.js'],
+    ['plan updated notice', 'server/plans.js', 'effectsUpdated: JSON.stringify(effects) !== JSON.stringify(plan.effects)', 'effectsUpdated: false', 'test/server/plans.test.js'],
+    ['build license fingerprint', 'server/build.js', "'scripts', 'third_party'", "'scripts'", 'test/server/build.test.js'],
+    ['build scripts fingerprint', 'server/build.js', "'scripts', 'third_party'", "'third_party'", 'test/server/build.test.js'],
     ['plan identity gate', 'server/plans.js', 'plan.documentId !== current.documentId', 'false', 'test/server/plans.test.js'],
     ['plan expiry', 'server/plans.js', 'Date.parse(plan.expiresAt) <= time', 'false', 'test/server/plans.test.js'],
     ['plan replay', 'server/plans.js', "if (plan.status === 'applied') return", "if (false) return", 'test/server/plans.test.js'],
@@ -26,7 +33,7 @@ try {
     ['plan effect direction', 'server/planEffects.js', 'monthlyImpactCents(monthly(row), monthly(old))', 'monthlyImpactCents(monthly(old), monthly(row))', 'test/server/plans.test.js'],
     ["plan rejection gate", "server/plans.js", "      pending(plan);\n      return transaction(() => { plan.status = 'rejected';", "      return transaction(() => { plan.status = 'rejected';", "test/server/plans.test.js"],
     ["plan repeat rejection", "server/plans.js", "if (plan.status === 'rejected') return plan;", "if (false) return plan;", "test/server/plans.test.js"],
-    ["plan fixed recordedAt", "server/plans.js", "}, plan.price.recordedAt);", "}, timestamp());", "test/server/plans.test.js"],
+    ["plan fixed recordedAt", "server/plans.js", "packSizeMilli: plan.price.packSizeMilli }, plan.price.recordedAt);\n        if (JSON.stringify", "packSizeMilli: plan.price.packSizeMilli }, timestamp());\n        if (JSON.stringify", "test/server/plans.test.js"],
     ["plan no-volume exclusion", "server/planEffects.js", "row.monthlyVolume === null ? 'no-volume'", "row.monthlyVolume === null ? null", "test/server/plans.test.js"],
     ["plan unknown exclusion", "server/planEffects.js", "impact === null ? 'cost-unknown'", "impact === null ? null", "test/server/plans.test.js"],
     ["plan replacement", "server/plans.js", "old.status = 'superseded';", "old.status = 'pending';", "test/server/plans.test.js"],
@@ -129,15 +136,17 @@ try {
       ["res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');", ''],
       ["res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');", ''],
     ].map(([before, after], i) => [`CSP/isolation ${i + 1}`, 'server/http.js', before, after, 'test/server/review.test.js']),
+    ['reviewed consequences gate', 'server/plans.js', 'consequencesFingerprint !== preview(plan, current).consequencesFingerprint', 'false', 'test/server/plans.test.js'],
   ];
   const filter = process.env.MENUPILOT_MUTATION_FILTER;
   const commandFor = test => test.endsWith('.tsx')
     ? [join(dir, 'node_modules/vitest/vitest.mjs'), 'run', test, '-t', 'plan card labels'] : ['--test', test];
-  const options = { cwd: dir, encoding: 'utf8', timeout: 30000, env: { ...process.env, TMPDIR: testTempDir, TMP: testTempDir, TEMP: testTempDir, VITEST_MAX_WORKERS: '2' } };
+  // CLI baselines spawn many processes; leave headroom for concurrent verification on the host.
+  const options = { cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, TMPDIR: testTempDir, TMP: testTempDir, TEMP: testTempDir, VITEST_MAX_WORKERS: '2' } };
   const run = args => spawnSync(process.execPath, args, options);
   const output = result => `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
   const assertGreen = (name, result) => {
-    if (result.error || result.status !== 0) throw new Error(`${name} failed (exit ${result.status}):\n${output(result)}`);
+    if (result.error || result.status !== 0) throw new Error(`${name} failed (exit ${result.status}, signal ${result.signal ?? 'none'}, error ${result.error?.code ?? 'none'}):\n${output(result)}`);
   };
   const isTestFailure = result => {
     const text = output(result);
