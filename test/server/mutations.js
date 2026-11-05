@@ -136,11 +136,12 @@ try {
       ["res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');", ''],
       ["res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');", ''],
     ].map(([before, after], i) => [`CSP/isolation ${i + 1}`, 'server/http.js', before, after, 'test/server/review.test.js']),
+    ['reviewed consequences gate', 'server/plans.js', 'consequencesFingerprint !== preview(plan, current).consequencesFingerprint', 'false', 'test/server/plans.test.js'],
   ];
   const filter = process.env.MENUPILOT_MUTATION_FILTER;
   const commandFor = test => test.endsWith('.tsx')
     ? [join(dir, 'node_modules/vitest/vitest.mjs'), 'run', test, '-t', 'plan card labels'] : ['--test', test];
-// CLI baselines spawn many processes; leave headroom for concurrent verification on the host.
+  // CLI baselines spawn many processes; leave headroom for concurrent verification on the host.
   const options = { cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, TMPDIR: testTempDir, TMP: testTempDir, TEMP: testTempDir, VITEST_MAX_WORKERS: '2' } };
   const run = args => spawnSync(process.execPath, args, options);
   const output = result => `${result.stdout ?? ''}\n${result.stderr ?? ''}`;

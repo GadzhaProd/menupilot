@@ -12,7 +12,7 @@ const priceHistoryHash = prices => createHash('sha256').update(JSON.stringify(pr
   ({ seq, recordedAt, packPriceCents, packSizeMilli }) => [seq, recordedAt, packPriceCents, packSizeMilli],
 ))).digest('hex');
 const normalize = value => value.trim().normalize('NFC').toLocaleLowerCase('en');
-const fail = (code, message, candidates) => { throw Object.assign(new StoreError(code, message), { ...(candidates && { candidates }), ...(['plan-stale', 'plan-expired'].includes(code) && { status: 409 }) }); };
+const fail = (code, message, candidates) => { throw Object.assign(new StoreError(code, message), { ...(candidates && { candidates }), ...(['plan-stale', 'plan-expired', 'plan-consequences-changed'].includes(code) && { status: 409 }) }); };
 function findIngredient(entries, token) {
   const needle = normalize(token);
   const ids = entries.filter(i => normalize(i.id) === needle);
@@ -53,7 +53,9 @@ export function createPlans(storage, now) {
     const after = structuredClone(current.document);
     appendPrice(after, plan.ingredient.id, { packPriceCents: Number(plan.price.packPriceCents), packSizeMilli: plan.price.packSizeMilli }, plan.price.recordedAt);
     const effects = planEffects(current.document, after, plan.ingredient.id, timestamp());
-    return { ...plan, effects, effectsUpdated: JSON.stringify(effects) !== JSON.stringify(plan.effects) };
+    const ingredient = { ...plan.ingredient, name: current.document.ingredients.find(i => i.id === plan.ingredient.id).name };
+    const consequencesFingerprint = createHash('sha256').update(JSON.stringify({ id: plan.id, ingredient, price: plan.price, effects })).digest('hex');
+    return { ...plan, ingredient, consequencesFingerprint, effects, effectsUpdated: JSON.stringify(effects) !== JSON.stringify(plan.effects) };
   }
   function refresh() {
     const current = storage.load(), time = new Date(now()).getTime();
@@ -137,7 +139,7 @@ export function createPlans(storage, now) {
         return preview(plan, current);
       });
     },
-    apply(id) {
+    apply(id, consequencesFingerprint) {
       // Check dependencies and write the price/receipt under the same writer transaction.
       // Return lifecycle refusals so their stale/expired mark can commit before throwing.
       const outcome = transaction(() => {
@@ -145,6 +147,7 @@ export function createPlans(storage, now) {
         if (plan.status === 'applied') return { ...storage.load(), receipt: plan.receipt };
         try { pending(plan); } catch (error) { return { error }; }
         const current = storage.load(), document = structuredClone(current.document);
+        if (consequencesFingerprint !== preview(plan, current).consequencesFingerprint) fail('plan-consequences-changed', 'Consequences changed. Review the updated figures and confirm again.');
         const price = appendPrice(document, plan.ingredient.id, { packPriceCents: Number(plan.price.packPriceCents), packSizeMilli: plan.price.packSizeMilli }, plan.price.recordedAt);
         if (JSON.stringify(encodePlan(price)) !== JSON.stringify(plan.price)) fail('plan-stale', 'Price history changed. Ask the agent to propose again.');
         const result = storage.write({ kind: 'save', document, expectedDocumentId: current.documentId, expectedRevision: current.revision, opId: plan.opId }, 'agent', { withinTransaction: true, planId: plan.id, ingredientId: plan.ingredient.id });

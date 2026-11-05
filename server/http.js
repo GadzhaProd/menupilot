@@ -184,9 +184,9 @@ export async function serveLocal({ storage, dataDir, distDir, port, instanceId =
           const action = path.split('/').at(-1);
           if (['apply', 'reject'].includes(action) && source !== 'ui') { send(res, 403, { code: 'ui-required', message: 'Only the owner in the MenuPilot window can apply or reject a plan.' }); return; }
           const body = await apiBody(2048);
-          if (action !== 'propose' && (!body || Array.isArray(body) || typeof body.id !== 'string' || Object.keys(body).length !== 1)) throw new StoreError('invalid-argument', 'Provide a plan ID.');
+          if (action !== 'propose' && (!body || Array.isArray(body) || typeof body.id !== 'string' || Object.keys(body).some(key => !['id', ...(action === 'apply' ? ['consequencesFingerprint'] : [])].includes(key)))) throw new StoreError('invalid-argument', 'Provide a plan ID.');
           value = action === 'propose' ? await storage.plans.propose(body, 'cli')
-            : await storage.plans[action === 'status' ? 'get' : action](body.id);
+            : await storage.plans[action === 'status' ? 'get' : action](body.id, body.consequencesFingerprint);
         }
         else if (req.method === 'GET' && path === '/api/document') value = storage.load();
         else if (req.method === 'GET' && path === '/api/version') value = storage.version();

@@ -29,7 +29,7 @@ test('plans: fixed normalized price, nested parity, no-volume exclusion, idempot
   assert.equal(plan.status, 'pending'); assert.equal(plan.price.packPriceCents, '1800');
   assert.equal(plan.price.packSizeMilli, 1000000); assert.equal(plan.price.seq, 2);
   assert.deepEqual(s.load(), before);
-  const result = s.plans.apply(plan.id);
+  const result = s.plans.apply(plan.id, s.plans.get(plan.id).consequencesFingerprint);
   const price = result.document.ingredients[0].prices.at(-1);
   assert.equal(price.recordedAt, plan.price.recordedAt);
   assert.equal(result.revision, 1);
@@ -43,7 +43,7 @@ test('plans: fixed normalized price, nested parity, no-volume exclusion, idempot
   assert.equal(plan.effects.dishes.find(d => d.id === 'no-volume').monthlyImpactCents, null);
   assert.equal(plan.effects.dishes.find(d => d.id === 'no-volume').excludedReason, 'no-volume');
   assert.equal(plan.effects.dishes.find(d => d.id === doc.recipes[1].id).excludedReason, null);
-  assert.deepEqual(s.plans.apply(plan.id).receipt, result.receipt);
+  assert.deepEqual(s.plans.apply(plan.id, s.plans.get(plan.id).consequencesFingerprint).receipt, result.receipt);
   assert.equal(s.load().revision, 1);
   assert.equal(s.plans.get(plan.id).status, 'applied');
   assert.equal(s.journal.list()[0].source, 'agent'); assert.equal(s.journal.list()[0].confirmedBy, 'ui');
@@ -60,7 +60,7 @@ test('plans: stale identity, expiry and rejection never append a price', t => {
     if (mode === 'expiry') advance(86400000);
     if (mode === 'reject') assert.equal(s.plans.reject(plan.id).status, 'rejected');
     const before = s.load();
-    assert.throws(() => s.plans.apply(plan.id), { code: mode === 'expiry' ? 'plan-expired' : mode === 'reject' ? 'plan-rejected' : 'plan-stale' });
+    assert.throws(() => s.plans.apply(plan.id, s.plans.get(plan.id).consequencesFingerprint), { code: mode === 'expiry' ? 'plan-expired' : mode === 'reject' ? 'plan-rejected' : 'plan-stale' });
     assert.deepEqual(s.load(), before);
     assert.equal(s.plans.get(plan.id).status, mode === 'expiry' ? 'expired' : mode === 'reject' ? 'rejected' : 'stale');
   }
@@ -68,10 +68,10 @@ test('plans: stale identity, expiry and rejection never append a price', t => {
 test('plans: rollback includes receipt, revision, history and applied mark, even a failure at final plan update', t => {
   const { s } = fixture(t), plan = s.plans.propose(input), before = s.load();
   s.db.exec("CREATE TRIGGER fail_plan BEFORE UPDATE ON plans BEGIN SELECT RAISE(ABORT, 'full'); END");
-  assert.throws(() => s.plans.apply(plan.id), { code: 'write-failed' });
+  assert.throws(() => s.plans.apply(plan.id, s.plans.get(plan.id).consequencesFingerprint), { code: 'write-failed' });
   assert.deepEqual(s.load(), before); assert.equal(s.plans.get(plan.id).status, 'pending');
   for (const table of ['ops', 'journal', 'history']) assert.equal(s.db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n, 0);
-  s.db.exec('DROP TRIGGER fail_plan'); assert.equal(s.plans.apply(plan.id).revision, 1);
+  s.db.exec('DROP TRIGGER fail_plan'); assert.equal(s.plans.apply(plan.id, s.plans.get(plan.id).consequencesFingerprint).revision, 1);
 });
 test('plans: exact lookup, compatible units, comma, zero, negative and unsafe price', t => {
   const doc = smallDocument(); doc.ingredients[0].name = 'Café'; doc.ingredients[1].name = 'Café';
@@ -103,11 +103,11 @@ test('plans HTTP: CLI cannot approve/reject even with Origin; UI requires correc
   try {
     const plan = s.plans.propose(input);
     for (const action of ['apply', 'reject']) for (const [token, origin, code] of [[server.cliToken, undefined, 'ui-required'], [server.cliToken, server.address, 'ui-required'], [ui, undefined, 'origin'], [ui, 'https://evil.example', 'origin']]) {
-      const res = await fetch(server.address + '/api/plans/' + action, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(origin && { Origin: origin }) }, body: JSON.stringify({ id: plan.id }) });
+      const res = await fetch(server.address + '/api/plans/' + action, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(origin && { Origin: origin }) }, body: JSON.stringify({ id: plan.id, consequencesFingerprint: plan.consequencesFingerprint }) });
       assert.equal(res.status, 403); assert.equal((await res.json()).code, code);
     }
     assert.equal(s.plans.get(plan.id).status, 'pending');
-    const res = await fetch(server.address + '/api/plans/apply', { method: 'POST', headers: { Authorization: `Bearer ${ui}`, Origin: server.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: plan.id }) });
+    const res = await fetch(server.address + '/api/plans/apply', { method: 'POST', headers: { Authorization: `Bearer ${ui}`, Origin: server.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: plan.id, consequencesFingerprint: plan.consequencesFingerprint }) });
     assert.equal(res.status, 200);
   } finally { await server.close(); }
 });
@@ -160,12 +160,12 @@ test('plans: byte budgets refuse oversized effects and pending total; terminal r
 });
 
 test('plans: original receipt survives later write and database reopen', t => {
-  const { s, dir, now } = fixture(t), p = s.plans.propose(input), applied = s.plans.apply(p.id);
+  const { s, dir, now } = fixture(t), p = s.plans.propose(input), applied = s.plans.apply(p.id, s.plans.get(p.id).consequencesFingerprint);
   const next = structuredClone(applied.document); next.ingredients[1].name = 'new name';
   s.write({ kind: 'save', document: next, expectedDocumentId: applied.documentId, expectedRevision: applied.revision, opId: 'later' });
   const reopened = createSqliteStorage(join(dir, 'data.db'), { now });
   try {
-    const replay = reopened.plans.apply(p.id);
+    const replay = reopened.plans.apply(p.id, reopened.plans.get(p.id).consequencesFingerprint);
     assert.deepEqual(replay.receipt, applied.receipt); assert.equal(replay.revision, 2);
     assert.equal(replay.document.ingredients[0].prices.length, 2);
   } finally { reopened.close(); }
@@ -181,7 +181,7 @@ test('plans: replacement, price guardrails and delayed apply preserve the propos
   assert.throws(() => s.plans.propose({ ...input, packPrice: '100000.01' }), { code: 'price-limit' });
   assert.equal(s.plans.get(b.id).status, 'pending');
   advance(3600000);
-  const applied = s.plans.apply(b.id);
+  const applied = s.plans.apply(b.id, s.plans.get(b.id).consequencesFingerprint);
   assert.equal(applied.document.ingredients[0].prices.at(-1).recordedAt, b.price.recordedAt);
   assert.equal(s.journal.list()[0].planId, b.id);
   assert.equal(s.journal.list()[0].ingredientId, b.ingredient.id);
@@ -193,7 +193,7 @@ test('plans: replacement, price guardrails and delayed apply preserve the propos
 test('plans: reject is idempotent only for rejected plans and cannot change applied/stale/expired', t => {
   for (const state of ['applied', 'stale', 'expired', 'rejected']) {
     const { s, advance } = fixture(t), p = s.plans.propose(input);
-    if (state === 'applied') s.plans.apply(p.id);
+    if (state === 'applied') s.plans.apply(p.id, s.plans.get(p.id).consequencesFingerprint);
     if (state === 'stale') { const c = s.load(); c.document.ingredients[0].prices.push({ ...c.document.ingredients[0].prices[0], seq: 2 }); s.write({ kind: 'save', document: c.document, expectedDocumentId: c.documentId, expectedRevision: c.revision, opId: 'change' }); }
     if (state === 'expired') advance(86400000);
     if (state === 'rejected') { const first = s.plans.reject(p.id); assert.deepEqual(s.plans.reject(p.id), first); }
@@ -214,7 +214,7 @@ test('plans HTTP: stale/expired return conflict and listing carries its version'
       if (mode === 'expired') advance(86400000);
       else { const c = s.load(); c.document.ingredients[0].prices.push({ ...c.document.ingredients[0].prices[0], seq: 2 }); s.write({ kind: 'save', document: c.document, expectedDocumentId: c.documentId, expectedRevision: c.revision, opId: 'change' }); }
       for (const action of ['apply', 'reject']) {
-        const r = await fetch(server.address + '/api/plans/' + action, { method: 'POST', headers, body: JSON.stringify({ id: p.id }) });
+        const r = await fetch(server.address + '/api/plans/' + action, { method: 'POST', headers, body: JSON.stringify({ id: p.id, ...(action === 'apply' && { consequencesFingerprint: p.consequencesFingerprint }) }) });
         assert.equal(r.status, 409); assert.equal((await r.json()).code, 'plan-' + mode);
       }
     }
@@ -271,21 +271,21 @@ test('plans: different ingredients remain pending and refresh nested effects aga
   const b = s.plans.propose({ ...input, ingredient: 'i2', packPrice: '7' });
   assert.equal(s.plans.get(b.id).effectsUpdated, false);
   advance(1000);
-  s.plans.apply(a.id);
+  s.plans.apply(a.id, s.plans.get(a.id).consequencesFingerprint);
   const refreshed = s.plans.get(b.id);
   assert.equal(refreshed.status, 'pending');
   assert.equal(refreshed.effectsUpdated, true);
   assert.notDeepEqual(refreshed.effects, b.effects);
   const beforeSecond = dashboardData(s.load().document, '2026-10-22T12:00:01.000Z');
   assert.equal(refreshed.effects.dishes[0].comparisonCostMicro, String(beforeSecond.dishes[0].currentCostMicro));
-  const final = s.plans.apply(b.id);
+  const final = s.plans.apply(b.id, s.plans.get(b.id).consequencesFingerprint);
   const dashboard = dashboardData(final.document, '2026-10-22T11:59:59.999Z');
   assert.equal(refreshed.effects.dishes[0].currentCostMicro, String(dashboard.dishes[0].currentCostMicro));
   assert.equal(refreshed.effects.dishes[0].currentFoodCostTenthsPct, String(dashboard.dishes[0].currentFoodCostTenthsPct));
   assert.equal(refreshed.effects.preps[0].currentBatchMicro, String(dashboard.preps[0].currentBatchMicro));
   assert.equal(BigInt(a.effects.totalMonthlyImpactCents) + BigInt(refreshed.effects.totalMonthlyImpactCents), dashboard.totalMonthlyImpactCents);
   assert.deepEqual(final.document.ingredients[1].prices.at(-1), { ...b.price, packPriceCents: Number(b.price.packPriceCents) });
-  assert.deepEqual(s.plans.apply(b.id).receipt, final.receipt);
+  assert.deepEqual(s.plans.apply(b.id, s.plans.get(b.id).consequencesFingerprint).receipt, final.receipt);
   assert.equal(s.load().revision, 2);
 });
 test('plans: unrelated edits remain pending; recipe, VAT and volume edits refresh consequences', t => {
@@ -299,7 +299,7 @@ test('plans: unrelated edits remain pending; recipe, VAT and volume edits refres
   const updated = s.plans.get(p.id);
   assert.equal(updated.status, 'pending'); assert.equal(updated.effectsUpdated, true);
   assert.notDeepEqual(updated.effects, p.effects);
-  assert.equal(s.plans.apply(p.id).receipt.changed, true);
+  assert.equal(s.plans.apply(p.id, s.plans.get(p.id).consequencesFingerprint).receipt.changed, true);
 });
 test('plans: own price history, base unit and deletion invalidate a plan', t => {
   for (const change of ['price', 'unit', 'delete', 'earlier-history']) {
@@ -319,7 +319,7 @@ test('plans: own price history, base unit and deletion invalidate a plan', t => 
     });
     const before = s.load();
     assert.equal(s.plans.get(p.id).status, 'stale', change);
-    assert.throws(() => s.plans.apply(p.id), { code: 'plan-stale' });
+    assert.throws(() => s.plans.apply(p.id, s.plans.get(p.id).consequencesFingerprint), { code: 'plan-stale' });
     assert.deepEqual(s.load(), before);
   }
 });
@@ -334,23 +334,25 @@ test('plans: replacements invalidate even with identical document ID and prices,
     const reopened = createSqliteStorage(join(dir, 'data.db'), { now });
     try {
       assert.equal(reopened.plans.get(p.id).status, 'stale', kind);
-      assert.throws(() => reopened.plans.apply(p.id), { code: 'plan-stale' });
+      assert.throws(() => reopened.plans.apply(p.id, reopened.plans.get(p.id).consequencesFingerprint), { code: 'plan-stale' });
     } finally { reopened.close(); }
   }
 });
-test('plans HTTP: concurrent applies of different ingredients both commit once', async t => {
+test('plans HTTP: concurrent overlapping consequences require renewed approval and commit once', async t => {
   const { s, dir } = fixture(t, invoiceDocument());
   writeFileSync(join(dir, 'index.html'), '<head></head>');
   const server = await serveLocal({ storage: s, dataDir: dir, distDir: dir, port: 0 });
   try {
     const ui = (await signIn(server, dir)).token;
     const a = s.plans.propose(input), b = s.plans.propose({ ...input, ingredient: 'i2' });
-    const apply = p => fetch(server.address + '/api/plans/apply', { method: 'POST', headers: { Authorization: `Bearer ${ui}`, Origin: server.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.id }) });
+    const apply = p => fetch(server.address + '/api/plans/apply', { method: 'POST', headers: { Authorization: `Bearer ${ui}`, Origin: server.address, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.id, consequencesFingerprint: p.consequencesFingerprint }) });
     const responses = await Promise.all([apply(a), apply(b), apply(a), apply(b)]);
-    assert.deepEqual(responses.map(r => r.status), [200, 200, 200, 200]);
+    assert.deepEqual(responses.map(r => r.status), [200, 409, 200, 409]);
     const receipts = await Promise.all(responses.map(r => r.json()));
     assert.deepEqual(receipts[0].receipt, receipts[2].receipt);
-    assert.deepEqual(receipts[1].receipt, receipts[3].receipt);
+    assert.equal(receipts[1].code, 'plan-consequences-changed');
+    assert.equal(receipts[3].code, 'plan-consequences-changed');
+    assert.equal((await apply(s.plans.get(b.id))).status, 200);
     assert.equal(s.load().revision, 2);
     assert.deepEqual(s.load().document.ingredients.map(i => i.prices.length), [2, 2]);
   } finally { await server.close(); }
@@ -360,7 +362,7 @@ test('plans CLI: status and list return live effects and localized update notice
   const { executePlanCommand, printPlan } = await import('../../server/cliPlans.js');
   const { s } = fixture(t, invoiceDocument());
   const a = s.plans.propose(input), b = s.plans.propose({ ...input, ingredient: 'i2' });
-  s.plans.apply(a.id);
+  s.plans.apply(a.id, s.plans.get(a.id).consequencesFingerprint);
   for (const locale of ['en', 'nl']) for (const command of ['plan', 'plans']) {
     const result = await executePlanCommand(command, [...(command === 'plan' ? ['status', b.id] : []), '--locale', locale], async route =>
       route === 'plans' ? s.plans.snapshot() : route === 'plans/status' ? s.plans.get(b.id) : s.backups.status());
@@ -386,4 +388,31 @@ test('plans: failed replacement rolls back invalidation; legacy plans fail close
   assert.equal(s.plans.get(p.id).status, 'pending');
   saveCurrent(s, doc => { doc.ingredients[1].name = 'Changed'; }, 'after-legacy');
   assert.equal(s.plans.get(p.id).status, 'stale');
+});
+
+test('plans: approval binds reviewed consequences; mismatches roll back every write', t => {
+  const { s } = fixture(t, invoiceDocument());
+  const a = s.plans.propose(input), b = s.plans.propose({ ...input, ingredient: 'i2' });
+  assert.match(b.consequencesFingerprint, /^[a-f0-9]{64}$/);
+  s.plans.apply(a.id, a.consequencesFingerprint);
+  const before = s.load();
+  const rows = () => ['plans', 'ops', 'journal', 'history', 'meta'].map(table => s.db.prepare(`SELECT * FROM ${table}`).all());
+  const original = rows();
+  for (const fingerprint of [undefined, 'bad', a.consequencesFingerprint, b.consequencesFingerprint]) {
+    assert.throws(() => s.plans.apply(b.id, fingerprint), { code: 'plan-consequences-changed', status: 409 });
+    assert.deepEqual(s.load(), before); assert.deepEqual(rows(), original);
+  }
+  const fresh = s.plans.get(b.id);
+  assert.equal(fresh.status, 'pending');
+  assert.notEqual(fresh.consequencesFingerprint, b.consequencesFingerprint);
+  const applied = s.plans.apply(b.id, fresh.consequencesFingerprint);
+  assert.deepEqual(s.plans.apply(b.id, b.consequencesFingerprint).receipt, applied.receipt);
+});
+
+test('plans: pending preview uses the current ingredient name', t => {
+  const { s } = fixture(t), p = s.plans.propose(input);
+  saveCurrent(s, doc => { doc.ingredients[0].name = 'Renamed ingredient'; });
+  for (const fresh of [s.plans.get(p.id), s.plans.list()[0], s.plans.snapshot().plans[0]]) {
+    assert.equal(fresh.status, 'pending'); assert.equal(fresh.ingredient.name, 'Renamed ingredient');
+  }
 });
