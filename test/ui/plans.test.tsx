@@ -182,3 +182,15 @@ test('mobile plans show one card per page and respond to desktop resizing', asyn
   expect(screen.getAllByRole('article')).toHaveLength(3);
   rendered.unmount(); expect(media.removeEventListener).toHaveBeenCalled();
 });
+
+test('Dutch piece packaging uses st in the panel and confirmation', async () => {
+  const piecePlan = { ...plan, ingredient: { ...plan.ingredient, unit: 'pc' }, proposedPrice: { ...plan.proposedPrice, packSizeMilli: 12000, unitPrice: { cents: '150', per: 'pc' } } };
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ plans: [piecePlan] }), { status: 200 })));
+  mount('nl');
+  const article = await screen.findByRole('article');
+  expect(article.textContent).toContain('12 st');
+  expect(article.textContent).toContain('/st');
+  expect(article.textContent).not.toContain('pc');
+  await userEvent.click(screen.getByRole('button', { name: 'Toepassen' }));
+  expect(screen.getByRole('alertdialog').textContent).toContain('/st');
+});
