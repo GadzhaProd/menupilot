@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useDocument } from '@/ui/data/DataProvider';
+import { useDocument, useNow } from '@/ui/data/DataProvider';
 import { dashboardData, largestCostIncrease, type DashboardDishRow } from '@/ui/domain/dashboard';
 import { ComparisonPicker } from '@/ui/dashboard/ComparisonPicker';
 import { DishImpactCards } from '@/ui/dashboard/DishImpactCards';
@@ -18,20 +18,20 @@ import type { Translate } from '@/ui/i18n/messages';
 import { hrefFor } from '@/ui/router/routes';
 import { DemoWelcome } from '@/ui/dashboard/DemoWelcome';
 
-function dateDaysAgo(days: number): string {
-  const date = new Date();
+export function dateDaysAgo(days: number, now: Date): string {
+  const date = new Date(now);
   date.setUTCHours(0, 0, 0, 0);
   date.setTime(date.getTime() - days * 24 * 60 * 60 * 1000);
   return date.toISOString().slice(0, 10);
 }
 
-function isSelectableDate(date: string): boolean {
+function isSelectableDate(date: string, now: Date): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const year = Number(date.slice(0, 4));
   if (year < 1000 || year > 9999) return false;
   const parsed = new Date(`${date}T00:00:00.000Z`);
   return parsed.toISOString().slice(0, 10) === date
-    && date <= new Date().toISOString().slice(0, 10);
+    && date <= now.toISOString().slice(0, 10);
 }
 
 function excludedReasons(rows: readonly DashboardDishRow[], t: Translate): string[] {
@@ -44,10 +44,11 @@ function excludedReasons(rows: readonly DashboardDishRow[], t: Translate): strin
 
 export function DashboardPage() {
   const document = useDocument();
+  const now = useNow();
   const { t, plural } = useLocale();
   const f = useFormatters();
   const figures = useDishFigures();
-  const [comparisonDate, setComparisonDate] = useState(() => dateDaysAgo(30));
+  const [comparisonDate, setComparisonDate] = useState(() => dateDaysAgo(30, now));
   const [quickDays, setQuickDays] = useState('30');
   const comparisonInstant = `${comparisonDate}T23:59:59.999Z`;
   const data = useMemo(
@@ -57,11 +58,11 @@ export function DashboardPage() {
 
   function selectPreset(days: number) {
     setQuickDays(String(days));
-    setComparisonDate(dateDaysAgo(days));
+    setComparisonDate(dateDaysAgo(days, now));
   }
 
   function selectDate(date: string) {
-    if (!isSelectableDate(date)) return;
+    if (!isSelectableDate(date, now)) return;
     setQuickDays('');
     setComparisonDate(date);
   }
@@ -105,7 +106,7 @@ export function DashboardPage() {
       <p className="font-semibold">{t('prices.noPricesTitle', { date: f.date(comparisonDate) })}</p>
       <p>{t('prices.noPricesBody')}</p>
     </InlineStatus>}
-    <ComparisonPicker comparisonDate={comparisonDate} quickDays={quickDays} onPreset={selectPreset} onDateChange={selectDate} />
+    <ComparisonPicker comparisonDate={comparisonDate} today={now.toISOString().slice(0, 10)} quickDays={quickDays} onPreset={selectPreset} onDateChange={selectDate} />
     <Surface aria-labelledby="dishes-title" className="max-sm:px-4">
       <h2 id="dishes-title" className="text-xl font-semibold">{t('dashboard.dishes')}</h2>
       <p className="mt-1 mb-4 text-sm text-muted-foreground">{t('dashboard.perPortion')}</p>

@@ -14,26 +14,32 @@ import { assertQuickCheck, dateFor, isSupportedNode, localDoctor } from '../../s
 import { hasValidOpenResult } from '../../server/cliSecurity.js';
 import { createServer } from 'node:net';
 
+const testClock = () => process.env.MENUPILOT_TEST_CLOCK === '1'
+  && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(process.env.MENUPILOT_TEST_NOW ?? '')
+  ? new Date(process.env.MENUPILOT_TEST_NOW).getTime()
+  : Date.now();
+
 async function fixture(t, document, backupStatus = {}, { realBackups = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-cli-'));
   const dist = join(dir, 'dist');
   const { mkdirSync } = await import('node:fs'); mkdirSync(dist);
   writeFileSync(join(dist, 'index.html'), '<html><head></head><body></body></html>');
   const token = 'ab'.repeat(32);
-  const raw = createSqliteStorage(join(dir, 'menupilot.db'), { initialDocument: document });
+  const raw = createSqliteStorage(join(dir, 'menupilot.db'), { initialDocument: document, now: () => new Date(testClock()) });
   const storage = realBackups ? await manageBackups(raw, dir, { timers: false }) : raw;
   if (!realBackups) storage.backups = { list: () => [], verify: async id => { throw new StoreError('not-found', `Backup ${id} was not found.`); }, status: () => ({ lastBackupAt: null, lastExternalBackupAt: null, externalConfigured: false,
     dirty: false, overdue: false, externalOverdue: false, backupError: null, externalError: null, clockWarning: false, corruptBackups: 0, corruptExternalBackups: 0, ...backupStatus }) };
-  const server = await serveLocal({ storage, dataDir: dir, distDir: dist, port: 0, cliToken: token, instanceId: 'test-instance' });
+  const server = await serveLocal({ storage, dataDir: dir, distDir: dist, port: 0, cliToken: token, instanceId: 'test-instance', now: testClock });
   writeFileSync(join(dir, 'lock'), JSON.stringify({ address: server.address, instanceId: 'test-instance' }));
   writeFileSync(join(dir, 'token'), token); chmodSync(join(dir, 'token'), 0o600);
   t.after(async () => { await server.close(); storage.close(); rmSync(dir, { recursive: true, force: true }); });
   return { dir, server, storage, token };
 }
 
+const CLI_TEST_NOW = process.env.MENUPILOT_TEST_NOW ?? '2026-10-22T12:00:00.000Z';
 function invoke(dir, ...args) {
   return new Promise(resolve => {
-    const child = spawn(process.execPath, ['server/cli.js', ...args], { cwd: process.cwd(), env: { ...process.env, MENUPILOT_DATA_DIR: dir } });
+    const child = spawn(process.execPath, ['server/cli.js', ...args], { cwd: process.cwd(), env: { ...process.env, MENUPILOT_DATA_DIR: dir, MENUPILOT_TEST_CLOCK: '1', MENUPILOT_TEST_NOW: CLI_TEST_NOW } });
     let stdout = '', stderr = '';
     child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
     child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
@@ -41,8 +47,8 @@ function invoke(dir, ...args) {
   });
 }
 
-const enDemo = () => shiftDemoDates(JSON.parse(readDemoFile(new URL('../../data/demo.json', import.meta.url), 'utf8')), '2026-10-22T12:00:00.000Z');
-const nlDemo = () => shiftDemoDates(JSON.parse(readDemoFile(new URL('../../data/demo.nl.json', import.meta.url), 'utf8')), '2026-10-22T12:00:00.000Z');
+const enDemo = () => shiftDemoDates(JSON.parse(readDemoFile(new URL('../../data/demo.json', import.meta.url), 'utf8')), CLI_TEST_NOW);
+const nlDemo = () => shiftDemoDates(JSON.parse(readDemoFile(new URL('../../data/demo.nl.json', import.meta.url), 'utf8')), CLI_TEST_NOW);
 
 test('CLI JSON what-changed matches the Dashboard gold values and has a stable envelope', async t => {
   const f = await fixture(t, enDemo());
@@ -282,11 +288,15 @@ test('doctor accepts a healthy initialized SQLite database with no saved documen
 });
 
 test('date ranges use Dashboard UTC date and end-of-day semantics; future dates are rejected', () => {
-  const daysAgo = days => { const date = new Date(); date.setUTCHours(0, 0, 0, 0); date.setTime(date.getTime() - days * 86400000); return date.toISOString().slice(0, 10); };
-  assert.equal(dateFor('30d'), `${daysAgo(30)}T23:59:59.999Z`);
-  assert.equal(dateFor('7d'), `${daysAgo(7)}T23:59:59.999Z`);
-  assert.equal(dateFor('90d'), `${daysAgo(90)}T23:59:59.999Z`);
-  assert.throws(() => dateFor('2099-01-01'), error => error.code === 'invalid-argument');
+  for (const now of ['2026-11-05T12:00:00.000Z', '2026-12-05T12:00:00.000Z', '2027-12-10T12:00:00.000Z', '2027-12-31T12:00:00.000Z']) {
+    const clock = () => new Date(now);
+    const today = new Date(now); today.setUTCHours(0, 0, 0, 0);
+    const expected = days => new Date(today.getTime() - days * 86400000).toISOString().slice(0, 10);
+    assert.equal(dateFor('30d', clock), `${expected(30)}T23:59:59.999Z`);
+    assert.equal(dateFor('7d', clock), `${expected(7)}T23:59:59.999Z`);
+    assert.equal(dateFor('90d', clock), `${expected(90)}T23:59:59.999Z`);
+    assert.throws(() => dateFor('2099-01-01', clock), error => error.code === 'invalid-argument');
+  }
 });
 
 test('doctor checks the supported Node boundaries, lock ownership, and occupied port', async t => {

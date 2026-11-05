@@ -6,6 +6,7 @@ import { summarizeUsers } from '@/ui/forms/usage';
 import {
   go, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
+import { NOW } from './helpers';
 
 const user = () => userEvent.setup();
 const RANGE = { min: '2026-09-01', max: '2026-10-25' };
@@ -111,9 +112,9 @@ describe('Price valid from', () => {
     await u.click(screen.getByRole('button', { name: 'New price for Tomatoes' }));
     const dialog = await screen.findByRole('dialog');
     const date = within(dialog).getByLabelText('Price valid from') as HTMLInputElement;
-    expect(date.value).toBe(todayInput());
+    expect(date.value).toBe(todayInput(new Date(NOW)));
     expect(date.min).toBe('2026-09-01');
-    expect(date.max).toBe(todayInput());
+    expect(date.max).toBe(todayInput(new Date(NOW)));
     await u.type(within(dialog).getByLabelText(/Pack price/), '2,50');
     fireEvent.change(date, { target: { value: '2026-09-15' } });
     await u.click(within(dialog).getByRole('button', { name: 'Save price' }));
