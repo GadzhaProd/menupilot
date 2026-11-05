@@ -68,6 +68,7 @@ jobs:
           restore-keys: ${{ runner.os }}-playwright-
       - run: npm run build # in CI the Playwright web server previews the existing dist
       - run: npx playwright install --with-deps chromium
+        timeout-minutes: 10 # a stuck browser download should fail fast, not consume the job limit
       - run: npm run test:e2e
       - run: npm run test:e2e:local
       - uses: actions/upload-artifact@v6
@@ -97,4 +98,5 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
           restore-keys: ${{ runner.os }}-playwright-
       - run: npx playwright install --with-deps webkit firefox
+        timeout-minutes: 10 # a stuck browser download should fail fast, not consume the job limit
       - run: npm run test:e2e:compat
