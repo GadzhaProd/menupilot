@@ -320,12 +320,20 @@ test('multi-line invoice: two proposals, sequential owner confirmations and curr
     await panel.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Aged cheddar', exact: true }) }).getByRole('button', { name: 'Apply', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: 'Confirm apply', exact: true })).toBeEnabled();
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
     await expect(dialog).toHaveCount(0);
+    // Open the second proposal immediately, without waiting for polling or CLI requests.
+    await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Confirm apply', exact: true })).toBeEnabled();
+    await expect(dialog).toContainText('Consequences updated after other changes.');
+    await page.screenshot({ path: info.outputPath('invoice-immediate-dialog-en.png'), fullPage: true });
     expect((await cli(['plan', 'status', cheddar.data.id])).data.status).toBe('applied');
     const remaining = (await cli(['plan', 'status', beef.data.id])).data;
     expect(remaining.status).toBe('pending'); expect(remaining.effectsUpdated).toBe(true);
+    for (const effect of remaining.effects.dishes) await expect(dialog).toContainText(effect.currentCostMicro.display);
+    await page.keyboard.press('Escape');
     await expect(panel.getByRole('article')).toHaveCount(1);
     await expect(panel).toContainText('Consequences updated after other changes.');
     await page.screenshot({ path: info.outputPath('invoice-updated-en.png'), fullPage: true });
