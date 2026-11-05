@@ -98,6 +98,7 @@ for (const form of ['ingredient', 'price', 'recipe', 'scenario', 'data'] as cons
       };
       if (form === 'data') adapter.importDocument = delayed; else adapter.save = delayed;
       await act(async () => { render(<StrictMode><DataProvider storage={storage} adapter={adapter} demo={demo} now={() => NOW}><App /></DataProvider></StrictMode>); });
+      await screen.findByRole('heading', { level: 1 });
       const ready = await prepare(form);
       const before = storage.getItem(STORAGE_KEY);
       fireEvent.click(ready.button); fireEvent.click(ready.button);

@@ -18,7 +18,7 @@ async function prepared() {
 }
 it('previews differences and restores a version with confirmation, archiving current data', async () => {
   const { storage, store } = (await prepared()); (await renderApp(storage)); await go('#/data');
-  await userEvent.click(screen.getByRole('button', { name: 'Preview version' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Preview version' }));
   const dialog = screen.getByRole('alertdialog');
   expect(within(dialog).getByText(/Changed: Updated beef \(ingredient\)/)).toBeTruthy();
   expect(savedDocument(storage).ingredients[0]!.name).toBe('Updated beef');
