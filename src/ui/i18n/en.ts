@@ -58,7 +58,6 @@ const baseEn = {
   'page.recipe': 'Recipe',
   'page.notFound': 'Not found',
   'help.contextLink': 'Help for this page',
-  'help.loading': 'Loading the guide…',
   'terms.prep': 'Prep',
   'terms.baseline': 'Baseline',
   'terms.demo': 'Demo data',

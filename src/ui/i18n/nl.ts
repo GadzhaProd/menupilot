@@ -58,7 +58,6 @@ const baseNl = {
   'page.recipe': 'Recept',
   'page.notFound': 'Niet gevonden',
   'help.contextLink': 'Hulp bij deze pagina',
-  'help.loading': 'De handleiding wordt geladen…',
   'terms.prep': 'Basisrecept',
   'terms.baseline': 'Huidige situatie',
   'terms.demo': 'Voorbeeldgegevens',
