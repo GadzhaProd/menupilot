@@ -31,8 +31,6 @@ jobs:
           restore-keys: ${{ runner.os }}-playwright-
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - run: npx playwright install --with-deps webkit firefox
-      - run: npm run test:e2e:compat
       - run: npm run test:e2e:local
       - uses: actions/upload-artifact@v6
         if: failure()
@@ -43,3 +41,22 @@ jobs:
             test-results/
             test-results-local/
           if-no-files-found: warn
+
+  compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-playwright-
+      - run: npx playwright install --with-deps webkit firefox
+      - run: npm run test:e2e:compat
