@@ -10,11 +10,16 @@ const secLink = (id: HelpSectionId, capital = false) => to(id, capital ? `Sectio
  * The guide in English. Button and field names are written exactly as the English screen shows them.
  * The Russian guide shows the same screen, so the pictures are shared with it.
  */
-export const contentEn: HelpDocument = {
+const createContentEn = (local: boolean): HelpDocument => ({
   lang: 'en',
   title: 'MenuPilot: step-by-step guide',
   subtitle: 'For anyone who has never used a program like this. Take your time: every step is one small action.',
   ui: {
+    licensesLoading: 'Loading licenses…',
+    licensesError: 'Could not load the licenses. Check the connection and try again.',
+    retry: 'Try again',
+    dataFolder: "Local data folder",
+    licenses: "Third-party licenses",
     languageLabel: 'Language of this guide',
     print: 'Print this guide',
     contents: 'Contents',
@@ -101,14 +106,14 @@ export const contentEn: HelpDocument = {
         {
           kind: 'note',
           tone: 'safe',
-          title: 'A demo cafe is already inside',
-          text: ['The first time you open MenuPilot you see a made-up burger cafe. Nothing in it is real, so try everything freely. How to switch to your own data is in ', secLink('data'), '.'],
+          title: local ? "A demo cafe is available" : 'A demo cafe is already inside',
+          text: local ? "The local version starts empty. To practise with the fictional cafe, use Data → Reset to demo data and confirm. This replaces current data, so export a backup first if you have entered anything. The examples and pictures below use that demo." : ['The first time you open MenuPilot you see a made-up burger cafe. Nothing in it is real, so try everything freely. How to switch to your own data is in ', secLink('data'), '.'],
         },
         {
           kind: 'note',
           tone: 'important',
           title: 'Where your data lives',
-          text: ['A browser is the program you use to open MenuPilot, such as Chrome, Safari or Edge. Your saved data stays only in that browser on this computer. It is not sent anywhere and there is no account. ', secLink('data', true), ' explains how to make a backup.'],
+          text: local ? "Saved ingredients, prices, recipes and scenarios live in a database on this computer (menupilot.db in the data folder). The header shows the exact folder. This local version uses the browser to show your data; clearing browser data does not delete the database. There is no account or automatic sync with another computer." : ['A browser is the program you use to open MenuPilot, such as Chrome, Safari or Edge. Your saved data stays only in that browser on this computer. It is not sent anywhere and there is no account. ', secLink('data', true), ' explains how to make a backup.'],
         },
       ],
     },
@@ -191,8 +196,8 @@ export const contentEn: HelpDocument = {
             },
             {
               term: 'Browser',
-              meaning: 'The program you use to open websites and MenuPilot, for example Chrome, Safari or Edge. MenuPilot keeps your data inside it, on this computer only.',
-              example: 'If you open MenuPilot in Safari after using it in Chrome, you see no data: each browser keeps its own.',
+              meaning: local ? "The program that displays MenuPilot, for example Chrome, Safari or Edge. In local mode it reads saved data from the database on this computer." : 'The program you use to open websites and MenuPilot, for example Chrome, Safari or Edge. MenuPilot keeps your data inside it, on this computer only.',
+              example: local ? "A different browser can open the same local database with a new sign-in link. Browser drafts and preferences are separate." : 'If you open MenuPilot in Safari after using it in Chrome, you see no data: each browser keeps its own.',
             },
             {
               term: 'Backup',
@@ -208,8 +213,8 @@ export const contentEn: HelpDocument = {
       id: 'first-start',
       title: 'First start: the demo cafe',
       blocks: [
-        { kind: 'p', text: ['When you open MenuPilot for the first time, it already contains a made-up burger cafe: 12 ingredients, 5 dishes and 2 preps. Use it to learn. When you have practised, you can empty the program and enter your own data (', secLink('data'), ').'] },
-        { kind: 'note', tone: 'safe', title: 'Local version', text: ['The local version starts empty; its demo notice appears only after demo data is loaded. After a restart, open the new address printed in the terminal window running npm start. If needed, run npm run menupilot -- open-url. Recipe drafts are stored in this browser on this computer for this dataset for up to 7 days, including across tabs. Unsaved ingredient and supplier-price dialog entries are not retained.'] },
+        { kind: 'p', text: local ? "The local version starts empty. To practise with the fictional cafe, use Data → Reset to demo data and confirm. This replaces current data, so export a backup first if you have entered anything. The examples and pictures below use that demo." : ['When you open MenuPilot for the first time, it already contains a made-up burger cafe: 12 ingredients, 5 dishes and 2 preps. Use it to learn. When you have practised, you can empty the program and enter your own data (', secLink('data'), ').'] },
+        ...(local ? [{ kind: 'note' as const, tone: 'safe' as const, title: "Start, stop and sign in", text: "In the project folder, run npm start and keep that terminal window open. Open the sign-in address it prints. Stop with Ctrl+C in that window, or npm run menupilot -- stop from another terminal. Closing a browser tab does not stop MenuPilot. After a restart, an expired sign-in or a new tab, use npm run menupilot -- open-url to open a new sign-in link. This is an owner action: an agent must not open or approve its own proposal." }] : []),
         {
           kind: 'note',
           tone: 'safe',
@@ -746,7 +751,15 @@ export const contentEn: HelpDocument = {
       id: 'data',
       title: 'Your data and backups',
       blocks: [
-        { kind: 'p', text: 'Your data is saved after you successfully use a save button. MenuPilot does not upload it to a server. It stays in this browser on this computer. Recipe drafts are also stored in this browser on this computer for this dataset for up to 7 days. Someone with access to this browser may see them. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects saved data.' },
+        { kind: 'p', text: local ? "Save buttons store your changes in the local database only after success. The browser keeps recipe drafts for this dataset for up to 7 days, plus language/theme choices and the window session. Unsaved simulator scenarios stay in the open app; unsaved ingredient and supplier-price dialog entries are not retained. Drafts are not backups and are not included in exports. Someone with access to the browser may see drafts." : 'Your data is saved after you successfully use a save button. MenuPilot does not upload it to a server. It stays in this browser on this computer. Recipe drafts are also stored in this browser on this computer for this dataset for up to 7 days. Someone with access to this browser may see them. The other side of this: if the browser data is cleared, or you open MenuPilot in another browser or on another computer, your data is not there. A backup copy protects saved data.' },
+        ...(local ? [
+          { kind: 'h3' as const, text: "Automatic copies and recovery"},
+          { kind: 'p' as const, text: "MenuPilot keeps verified database copies in backups/ inside the data folder: normally within about five minutes of a saved change, and daily while running. It also tries to copy pending changes on normal shutdown. Sleep, disk problems and errors can delay copies. Read the backup warning in the header. Keep a separate Export backup file on another disk; a copy on the same disk cannot protect against losing that disk."},
+          { kind: 'p' as const, text: "Data → Export backup downloads a JSON file. Data → Import backup previews and replaces saved data after your confirmation. Previous versions can also be previewed and restored. For database copies, use npm run menupilot -- backup list, then backup verify <id> and backup restore <id> (with the same npm run menupilot -- prefix). Restore replaces current data and first makes a verified copy; changes after the chosen copy are lost. If MenuPilot cannot start, ask the person who installed it to follow README → Local backups and recovery. Do not delete the data folder."},
+          { kind: 'h3' as const, text: "An agent proposes; you decide"},
+          { kind: 'p' as const, text: "An agent can read MenuPilot numbers and propose a new supplier price excl. VAT, as on the invoice. A proposal changes nothing. Open Awaiting your confirmation, check the old and new pack prices, pack size, affected dishes and warnings. Choose Apply or Reject and confirm in the dialog. Each proposal lasts 24 hours. If data changed, it becomes stale; after 24 hours it expires. Ask for a new proposal. A newer proposal for the same ingredient replaces the older one."},
+          { kind: 'p' as const, text: "The CLI cannot apply or reject proposals. Other websites cannot confirm through your browser. This protects against mistakes, not malicious software with your computer permissions: such software could read or change files or capture the sign-in key. Keep the live data folder on a local disk, not a cloud or network folder."}
+        ] : []),
         { kind: 'image', image: img('data-page', 'The Data page with the cards Export backup, Import backup, Reset to demo data and Start with empty data.', 'Make a backup before replacing or removing data.') },
         {
           kind: 'note',
@@ -871,7 +884,7 @@ export const contentEn: HelpDocument = {
             { message: 'Some fields need attention. They are marked above.', meaning: 'Scroll up. The fields with a problem have a red text under them. Correct them and press Save again.' },
             { message: 'This ingredient is still used by recipes and cannot be deleted.', meaning: ['You cannot delete something that a recipe uses. See the end of ', sec('ingredients'), '.'] },
             { message: 'A prep cannot use itself.', meaning: 'A prep cannot contain itself. Choose another ingredient or prep for that line.' },
-            { message: 'Your browser storage is full. Your data was not changed.', meaning: ['The browser has no room left. Make a backup (', sec('data'), ') and ask someone to free browser space.'] },
+            { message: 'Your browser storage is full. Your data was not changed.', meaning: local ? "Browser space may be needed for drafts and preferences. Saved local data lives in the database. Read the error and free the affected storage; do not delete the data folder." : ['The browser has no room left. Make a backup (', sec('data'), ') and ask someone to free browser space.'] },
             { message: 'This file is not valid JSON. Your current data was not changed.', meaning: 'The file you chose is not a MenuPilot backup. Choose the file whose name starts with menupilot-backup. Nothing was changed.' },
           ],
         },
@@ -883,12 +896,12 @@ export const contentEn: HelpDocument = {
           title: 'What to check',
           steps: [
             { text: 'Stay calm and do not click “Start with empty data” or “Reset to demo data”: they replace everything.' },
-            { text: 'Check that you use the same browser (for example Chrome, not Edge), the same computer and the same web address as before, and not a private window. The data lives in one browser on one computer.', result: 'If it was a different browser, open the one you used before.' },
+            ...(local ? [{ text: "Check that npm start is running on the same computer with the same data folder. Compare the folder in the header; MENUPILOT_DATA_DIR can select another folder. Use npm run menupilot -- open-url for a new sign-in link. Do not reset or import until you have checked the folder." }] : [{ text: 'Check that you use the same browser (for example Chrome, not Edge), the same computer and the same web address as before, and not a private window. The data lives in one browser on one computer.', result: 'If it was a different browser, open the one you used before.' }]),
             { text: ['If you have a backup file: click ', b('Data'), ', then ', b('Import backup'), ' and choose it (', sec('data'), ').'], result: 'Your data comes back as it was on the day of the backup.' },
-            { text: ['If the page says “Your data could not be opened” and “Nothing was changed or deleted”, do not press anything else. Ask the person who set up the program for you to help.'], result: 'Your saved data is still in the browser. It was only not readable.' },
+            { text: ['If the page says “Your data could not be opened” and “Nothing was changed or deleted”, do not press anything else. Ask the person who set up the program for you to help.'], result: local ? "The database has not been replaced. Ask the person who installed MenuPilot to inspect the error and backups before restoring anything." : 'Your saved data is still in the browser. It was only not readable.' },
           ],
         },
-        { kind: 'p', text: 'If there is no backup and the browser data was cleared, the data cannot be brought back. This is why a weekly backup is worth the few seconds.' },
+        { kind: 'p', text: local ? "Clearing browser data can remove drafts and preferences, but not the local database. If the database or disk is lost, recovery needs a usable backup. Keep an exported copy elsewhere." : 'If there is no backup and the browser data was cleared, the data cannot be brought back. This is why a weekly backup is worth the few seconds.' },
         { kind: 'h3', text: 'I want to work on another computer' },
         {
           kind: 'steps',
@@ -934,4 +947,7 @@ export const contentEn: HelpDocument = {
       ],
     },
   ],
-};
+});
+
+export const contentEn = createContentEn(false);
+export const localContentEn = createContentEn(true);

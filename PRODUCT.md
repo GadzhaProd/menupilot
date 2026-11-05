@@ -20,7 +20,27 @@ A small recipe-costing and scenario calculator. Its central workflow connects da
 
 ## Operating Context
 
-The owner enters supplier pack prices from invoices, maintains recipes, checks Dashboard, and tries changes in Profit Simulator. Data stays in this browser; JSON export/import is the backup mechanism. There are no accounts or server synchronisation. Demo dishes, suppliers and prices are fictional.
+The owner enters supplier pack prices from invoices, maintains recipes, checks Dashboard, and tries changes in Profit Simulator. Both modes share these calculations and screens. Demo dishes, suppliers and prices are fictional.
+
+This is the current capability and storage map; the old D1-only server preview description is superseded.
+
+| Capability / storage | Published browser version | Local version (`npm start`) |
+|---|---|---|
+| Saved ingredients, prices, recipes and scenarios | Browser storage on this device/origin | SQLite database `menupilot.db` in the computer’s data folder; the header shows the exact path |
+| First use | Fictional demo cafe | Empty; demo can be loaded explicitly from Data |
+| Recipe drafts | Browser storage for this dataset, up to 7 days | Same; clearing the browser removes drafts, not the database |
+| Other browser state | Language/theme preferences; unsaved simulator scenarios in the open app | Same, plus the window session; ingredient/price dialog entries are not retained |
+| Portable backup | JSON export/import through Data; import previews and requires confirmation | Same; independent of the browser installation, with no merge or sync |
+| Previous versions | Up to 10 versions within 1 MiB | Up to 32 versions within 64 MiB |
+| Automatic database copies | None | Verified snapshots under `backups/`, normally within about five minutes of changes and daily while running; pending changes also copied on normal shutdown. Errors/sleep can delay this. Optional second destination via `MENUPILOT_BACKUP_DIR` |
+| Recovery | JSON import or previous versions; clearing browser storage also removes history | JSON import, previous versions, verified database backup restore; offline recovery instructions in README |
+| Agent access | No local API or CLI connection | CLI reads/calculations; agent proposes one supplier price excl. VAT at a time; owner reviews consequences and confirms Apply/Reject in the window |
+| Proposal lifetime | Not available | 24 hours; any dataset/revision change makes it stale; a newer proposal for the same ingredient supersedes the old one |
+| Start / stop / sign-in | Open the published site | `npm start`; Ctrl+C or `npm run menupilot -- stop`; a fresh sign-in link via `npm run menupilot -- open-url` |
+
+No accounts, hosted data service or automatic device/browser-to-local synchronization. The local server listens on loopback. CLI credentials cannot confirm proposals, and browser Origin/Host/session checks block confirmation from other websites. These controls protect against mistakes, not malicious software with the owner’s OS permissions. Keep the live database on a local disk; copies on that same disk do not protect against losing it.
+
+Owner instructions, default data paths, backup limits and failure/recovery cases: [Run locally](README.md#run-locally), [Use with an AI agent](README.md#use-with-an-ai-agent), [Local backups and recovery](README.md#local-backups-and-recovery). Technical entry points: [server/README.md](server/README.md).
 
 ## Capabilities and Constraints
 
@@ -30,9 +50,9 @@ The owner enters supplier pack prices from invoices, maintains recipes, checks D
 - Monthly figures use the owner's optional safe-integer estimate ≥ 0, never a forecast. Missing volume is “—”, excluded from menu total; zero is a valid estimate. Unknown ingredient cost is not zero.
 - Scenarios never change real data. Their baseline snapshots include reachable preps; stale scenarios remain visibly stale until the existing explicit update action.
 - Prep nesting, cycle/depth guards, immutability on failed saves/imports and all arithmetic remain as defined in docs/planning/03_ARCHITECTURE.md and AGENTS.md.
-- No AI, POS, OCR, inventory, auth, billing, multi-location, new currencies, demand forecasting or food-safety/allergen advice.
+- No built-in AI model, POS, OCR, inventory, account authentication, billing, multi-location, new currencies, demand forecasting or food-safety/allergen advice. External agents can use the local CLI under owner-confirmation rules.
 - Existing stack: React 19, strict TypeScript UI, Tailwind v4, shadcn/Radix; JS/JSDoc core. Calculations stay in src/calc, document state in store. No new dependencies installed by this design task. Motion is permitted by the owner; the design candidate is exact version 14.4.0, with runtime checks required before implementation.
-- Current repository interface is EN; Help is EN/RU. The owner now explicitly requests EN/NL UI through typed t() keys. Preserve the existing RU Help option and stable Help anchors; add complete NL content during implementation. The C+ mockups are fully NL; no DOM text replacement is permitted for localisation.
+- The interface is EN/NL through typed t() keys; Help is EN/NL/RU and follows the active storage mode. Preserve stable Help anchors. No DOM text replacement is permitted for localisation.
 
 ## Brand Commitments
 
