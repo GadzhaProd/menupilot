@@ -1,10 +1,9 @@
 name: CI
 
-# Pushes to main are checked (and deployed) by pages.yml, so they are not repeated here.
 on:
-  push:
-    branches-ignore: [main]
+  # Changes reach main through pull requests; checks run once per pull request (pushes to main are checked by pages.yml).
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -67,8 +66,9 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
           restore-keys: ${{ runner.os }}-playwright-
       - run: npm run build # in CI the Playwright web server previews the existing dist
-      - run: npx playwright install --with-deps chromium
-        timeout-minutes: 10 # a stuck browser download should fail fast, not consume the job limit
+      # Browser downloads on hosted runners occasionally stall; retry a bounded install instead of hanging.
+      - run: for attempt in 1 2 3; do timeout 300 npx playwright install --with-deps chromium && exit 0; echo "Playwright install attempt $attempt failed"; done; exit 1
+        timeout-minutes: 16
       - run: npm run test:e2e
       - run: npm run test:e2e:local
       - uses: actions/upload-artifact@v6
@@ -97,6 +97,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
           restore-keys: ${{ runner.os }}-playwright-
-      - run: npx playwright install --with-deps webkit firefox
-        timeout-minutes: 10 # a stuck browser download should fail fast, not consume the job limit
+      # Browser downloads on hosted runners occasionally stall; retry a bounded install instead of hanging.
+      - run: for attempt in 1 2 3; do timeout 300 npx playwright install --with-deps webkit firefox && exit 0; echo "Playwright install attempt $attempt failed"; done; exit 1
+        timeout-minutes: 16
       - run: npm run test:e2e:compat
