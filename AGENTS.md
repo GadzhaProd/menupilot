@@ -108,6 +108,7 @@ Read docs/planning/*.md before larger changes.
 - Small steps; one feature per commit; commit only when tests pass.
 - Do not refactor unrelated code. Keep changed code clean (boy scout rule).
 - No git push, publishing or deleting data without the owner's approval.
+- Every change reaches `main` through a GitHub pull request: a description of what and why, CI results and the independent review verdict; merge only after all checks are green. No direct pushes to `main`. PR texts and commits never name AI as an author.
 - If a task grows much larger than planned, stop and explain why.
 
 ## Report after each stage (in Russian)
