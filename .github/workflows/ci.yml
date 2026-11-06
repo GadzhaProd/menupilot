@@ -64,8 +64,8 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-          restore-keys: ${{ runner.os }}-playwright-
+          key: ${{ runner.os }}-ubuntu-24.04-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-ubuntu-24.04-playwright-
       - run: npm run build # in CI the Playwright web server previews the existing dist
       - run: npx playwright install --with-deps chromium
         timeout-minutes: 15 # a stuck browser download should fail, not consume the job limit
@@ -95,8 +95,8 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-          restore-keys: ${{ runner.os }}-playwright-
+          key: ${{ runner.os }}-ubuntu-24.04-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-ubuntu-24.04-playwright-
       - run: npx playwright install --with-deps webkit firefox
         timeout-minutes: 15 # a stuck browser download should fail, not consume the job limit
       - run: npm run test:e2e:compat
