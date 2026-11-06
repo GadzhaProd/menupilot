@@ -8,10 +8,11 @@ on:
 permissions:
   contents: read
 
+# Pinned runner: ubuntu-latest moved to 26.04, where Playwright's browser dependencies install too slowly.
 # The same gates run as parallel jobs so each stays well inside its time limit.
 jobs:
   unit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -27,7 +28,7 @@ jobs:
       - run: npm run build
 
   mutations:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -39,7 +40,7 @@ jobs:
       - run: npm run test:mutations
 
   future:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -51,7 +52,7 @@ jobs:
       - run: npm run check:future
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -66,9 +67,8 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
           restore-keys: ${{ runner.os }}-playwright-
       - run: npm run build # in CI the Playwright web server previews the existing dist
-      # Browser downloads on hosted runners occasionally stall; retry a bounded install instead of hanging.
-      - run: for attempt in 1 2 3; do timeout 300 npx playwright install --with-deps chromium && exit 0; echo "Playwright install attempt $attempt failed"; done; exit 1
-        timeout-minutes: 16
+      - run: npx playwright install --with-deps chromium
+        timeout-minutes: 15 # a stuck browser download should fail, not consume the job limit
       - run: npm run test:e2e
       - run: npm run test:e2e:local
       - uses: actions/upload-artifact@v6
@@ -82,7 +82,7 @@ jobs:
           if-no-files-found: warn
 
   compat:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -97,7 +97,6 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
           restore-keys: ${{ runner.os }}-playwright-
-      # Browser downloads on hosted runners occasionally stall; retry a bounded install instead of hanging.
-      - run: for attempt in 1 2 3; do timeout 300 npx playwright install --with-deps webkit firefox && exit 0; echo "Playwright install attempt $attempt failed"; done; exit 1
-        timeout-minutes: 16
+      - run: npx playwright install --with-deps webkit firefox
+        timeout-minutes: 15 # a stuck browser download should fail, not consume the job limit
       - run: npm run test:e2e:compat
