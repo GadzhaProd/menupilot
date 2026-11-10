@@ -18,6 +18,7 @@ export const pricesEn = {
   'prices.deleteDishDescription': 'The dish and its lines are removed. You can get it back from Previous versions on the Data page. Ingredients are not deleted.',
   'prices.prepInUseNow': 'This prep is used by other recipes, so it cannot be deleted yet.',
   'prices.ingredientInUseNow': 'This ingredient is used by recipes, so it cannot be deleted yet.',
+  'prices.missingOnDate': 'Missing prices on this date:',
   'prices.noPricesTitle': 'No dish has complete ingredient prices on {date}',
-  'prices.noPricesBody': 'There is nothing to compare with yet, so no change can be shown. This is not “no change”. Choose a later date, or add a past supplier price excl. VAT with its invoice date (Ingredients → New price → “Price valid from”), even if a newer price is already saved. The price with the latest date remains current.',
+  'prices.noPricesBody': 'There is nothing to compare with yet, so no change can be shown. This is not “no change”. A comparison needs a price on this date for every ingredient in the dish, including its preps. Missing ingredient names are shown with each dish. Choose a later date, or add a past supplier price excl. VAT with its invoice date (Ingredients → New price → “Price valid from”), even if a newer price is already saved. The price with the latest date remains current.',
 } as const;

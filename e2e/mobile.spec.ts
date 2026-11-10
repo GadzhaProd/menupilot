@@ -1,3 +1,4 @@
+import { markPriceTests } from './mark-price';
 import { backdatedPriceTests } from './backdated-price';
 import { expect, test } from './fixtures';
 
@@ -87,3 +88,5 @@ test('Dutch mobile saving state preserves the new ingredient draft at 375px', as
 });
 
 backdatedPriceTests();
+
+markPriceTests();

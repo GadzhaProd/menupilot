@@ -108,7 +108,7 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
   const copy = useValidationCopy();
   const { execute, commandStatus } = useCommands();
   const current = selectPriceAtDate(ingredient.prices);
-  const range = useMemo(() => ({ min: '2000-01-01', max: todayInput(now) }), [ingredient.prices, now]);
+  const range = useMemo(() => ({ min: '2000-01-01', max: todayInput(now) }), [now]);
   const [draft, setDraft] = useState<PriceDraft>(() => {
     // Prices change more often than pack sizes: start from the last pack size.
     const size = current ? quantityToInput(current.packSizeMilli, ingredient.unit) : null;

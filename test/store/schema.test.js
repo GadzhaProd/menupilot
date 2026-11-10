@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { parseBackup } from '../../src/store/serialization.js';
 import { recipeCost } from '../../src/calc/costing.js';
 import { checkRecipeGraph } from '../../src/store/graph.js';
 import { LIMITS } from '../../src/store/check.js';
@@ -269,4 +270,20 @@ test('recordedAt in the future is rejected only when a clock is supplied (5 min 
   scenarioDoc.scenarios = [makeScenario(scenarioDoc, 'd1')];
   scenarioDoc.scenarios[0].baseline.ingredients[0].prices[0].recordedAt = '2027-01-01T00:00:00.000Z';
   assert.ok(validateDocument(scenarioDoc, { now }).errors.some((message) => /baseline.*future/.test(message)));
+});
+
+
+test('schema and import reject price dates before 2000, including scenario baselines; boundary is inclusive', () => {
+  for (const recordedAt of ['1950-01-01T00:00:00.000Z', '1999-12-31T23:59:59.999Z']) {
+    const doc = smallDocument(); doc.ingredients[0].prices[0].recordedAt = recordedAt;
+    assert.match(validateDocument(doc).errors.join(' '), /recordedAt.*must be on or after 2000-01-01/);
+    assert.throws(() => parseBackup(JSON.stringify(doc)), /2000-01-01/);
+  }
+  const doc = smallDocument(); doc.ingredients[0].prices[0].recordedAt = '2000-01-01T00:00:00.000Z';
+  assert.equal(validateDocument(doc).valid, true);
+  assert.deepEqual(parseBackup(JSON.stringify(doc)).document, doc);
+  const scenarioDoc = smallDocument();
+  scenarioDoc.scenarios.push(makeScenario(scenarioDoc, 'd1'));
+  scenarioDoc.scenarios[0].baseline.ingredients[0].prices[0].recordedAt = '1999-12-31T00:00:00.000Z';
+  assert.match(validateDocument(scenarioDoc).errors.join(' '), /baseline.*recordedAt.*2000-01-01/);
 });

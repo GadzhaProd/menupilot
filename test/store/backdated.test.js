@@ -23,6 +23,7 @@ test('browser: unsorted price dates can import/export; edits, deletions and reor
   for (const mutate of [
     d => { d.ingredients[0].prices[0].packPriceCents++; },
     d => { d.ingredients[0].prices.shift(); },
+    d => { d.ingredients[0].prices.pop(); },
     d => { d.ingredients[0].prices.reverse(); d.ingredients[0].prices.forEach((p, i) => { p.seq = i + 1; }); },
   ]) {
     const candidate = structuredClone(imported); mutate(candidate);

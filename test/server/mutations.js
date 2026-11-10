@@ -13,6 +13,12 @@ try {
   }
   symlinkSync(join(process.cwd(), 'node_modules'), join(dir, 'node_modules'), 'dir');
   const mutants = [
+    ['review history truncation', 'src/store/transitions.js', 'current.prices.length < old.prices.length || old.prices.some', 'old.prices.slice(0, current.prices.length).some', 'test/store/backdated.test.js'],
+    ['review import lower bound', 'src/store/entities.js', "instantNotAfter('2000-01-01T00:00:00.000Z', price.recordedAt)", "instantNotAfter('1900-01-01T00:00:00.000Z', price.recordedAt)", 'test/store/schema.test.js'],
+    ['review missing prep prices', 'src/calc/dashboard.js', 'if (prep) visit(prep);', 'if (prep) continue;', 'test/calc/dashboard-missing.test.js'],
+    ['review all missing prices', 'src/calc/dashboard.js', 'for (const line of current.lines)', 'for (const line of current.lines.slice(0, 1))', 'test/calc/dashboard-missing.test.js'],
+    ['review missing price deduplication', 'src/calc/dashboard.js', 'missing.set(ingredient.id,', 'missing.set(Symbol(),', 'test/calc/dashboard-missing.test.js'],
+
     ['backdated date selection', 'src/calc/internal.js', 'timestampNanoseconds > selectedTimestampNanoseconds', 'timestampNanoseconds < selectedTimestampNanoseconds', 'test/calc/price-history.test.js'],
     ['backdated sequence tie', 'src/calc/internal.js', 'sequence > selectedSequence', 'sequence < selectedSequence', 'test/calc/price-history.test.js'],
     ['backdated effective instant', 'src/store/price.js', 'effectiveDate === undefined ? stamp : effectiveInstant(effectiveDate, stamp);', 'stamp;', 'test/store/price-date.test.js'],

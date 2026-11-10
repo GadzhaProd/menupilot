@@ -1,3 +1,4 @@
+import { markPriceTests } from './mark-price';
 import { backdatedPriceTests } from './backdated-price';
 import { readFile } from 'node:fs/promises';
 import { expect, test } from './fixtures';
@@ -512,3 +513,5 @@ test('queued price save keeps the dialog and commits once after the writer is re
 });
 
 backdatedPriceTests();
+
+markPriceTests();

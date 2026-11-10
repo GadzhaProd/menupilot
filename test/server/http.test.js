@@ -249,6 +249,7 @@ test('HTTP/SQLite and browser: backdated commands, imports and append-only trans
     for (const mutate of [
       d => { d.ingredients[0].prices[0].packPriceCents++; },
       d => { d.ingredients[0].prices.shift(); },
+      d => { d.ingredients[0].prices.pop(); },
       d => { d.ingredients[0].prices.reverse(); d.ingredients[0].prices.forEach((p, i) => { p.seq = i + 1; }); },
     ]) {
       const candidate = structuredClone(doc); mutate(candidate);

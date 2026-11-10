@@ -18,6 +18,7 @@ export const pricesNl = {
   'prices.deleteDishDescription': 'Het gerecht en de regels ervan worden verwijderd. Je kunt het terughalen via Vorige versies op de pagina Gegevens. Ingrediënten worden niet verwijderd.',
   'prices.prepInUseNow': 'Dit basisrecept wordt in andere recepten gebruikt en kan nog niet worden verwijderd.',
   'prices.ingredientInUseNow': 'Dit ingrediënt wordt in recepten gebruikt en kan nog niet worden verwijderd.',
+  'prices.missingOnDate': 'Ontbrekende prijzen op deze datum:',
   'prices.noPricesTitle': 'Op {date} heeft nog geen enkel gerecht volledige ingrediëntprijzen',
-  'prices.noPricesBody': 'Er is nog niets om mee te vergelijken, dus er kan geen verandering worden getoond. Dit betekent niet “geen verandering”. Kies een latere datum, of voeg een eerdere inkoopprijs excl. btw toe met de factuurdatum (Ingrediënten → Nieuwe prijs → “Prijs geldig vanaf”), ook als er al een nieuwere prijs is opgeslagen. De prijs met de laatste datum blijft de huidige prijs.',
+  'prices.noPricesBody': 'Er is nog niets om mee te vergelijken, dus er kan geen verandering worden getoond. Dit betekent niet “geen verandering”. Voor een vergelijking heeft elk ingrediënt van het gerecht, ook in de basisrecepten, een prijs op deze datum nodig. Bij elk gerecht staat welke ingrediëntprijzen ontbreken. Kies een latere datum, of voeg een eerdere inkoopprijs excl. btw toe met de factuurdatum (Ingrediënten → Nieuwe prijs → “Prijs geldig vanaf”), ook als er al een nieuwere prijs is opgeslagen. De prijs met de laatste datum blijft de huidige prijs.',
 } as const;
