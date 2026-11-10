@@ -2,6 +2,7 @@ import { createHistory } from './history.js';
 import { createBackupStatus } from './backup.js';
 import { StoreError } from './errors.js';
 import { assertValidDocument } from './schema.js';
+import { assertValidTransition } from './transitions.js';
 import { parseBackup, serializeBackup } from './serialization.js';
 import { withWriteLock } from './writeAccess.js';
 import { newId } from './ids.js';
@@ -72,6 +73,10 @@ export function createBrowserStorageAdapter(storage, { initialDocument, now = ()
       return publicRecord(current); // Replay returns the latest committed state, without another write.
     }
     if (expectedRevision !== (current?.revision ?? 0) || raw !== expectedRaw || marker !== expectedMarker) return conflict(raw, marker);
+    if (policy.checkTransition) {
+      assertValidDocument(document);
+      assertValidTransition(current.document, document);
+    }
     const documentId = policy.newIdentity ? newId() : current?.documentId ?? newId();
     if (!policy.requireHistory && !policy.newIdentity && current?.documentId && JSON.stringify(document) === JSON.stringify(current.document)) return publicRecord(current);
     const migration = current?.schemaVersion === 1;
@@ -118,7 +123,7 @@ export function createBrowserStorageAdapter(storage, { initialDocument, now = ()
       expectedRaw = raw; expectedMarker = marker; current = next;
       return publicRecord(next);
     },
-    save: (document, expectedRevision, opId = newId()) => transaction(document, expectedRevision, opId),
+    save: (document, expectedRevision, opId = newId()) => transaction(document, expectedRevision, opId, { checkTransition: true }),
     importDocument: (record, expectedRevision, opId = newId()) => transaction(record.document, expectedRevision, opId,
       { requireHistory: true, newIdentity: !record.documentId || record.documentId !== current?.documentId }),
     reset: (document, expectedRevision, opId = newId(), kind = 'empty') => transaction(document, expectedRevision, opId,

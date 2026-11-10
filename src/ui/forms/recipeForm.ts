@@ -3,6 +3,7 @@
  * The draft holds exactly what the owner typed; `buildRecipe` turns it into the stored shape
  * or into one message per field. Cost is never calculated here (that is src/calc).
  */
+import { selectPriceAtDate } from '@/ui/domain/calc';
 import type {
   BaseUnit, MenuDocument, Recipe, RecipeInput, RecipeLine,
 } from '@/ui/domain/types';
@@ -99,8 +100,9 @@ export function blankDraft(kind: 'dish' | 'prep', defaultVatRateBp: number): Rec
 function lineToDraft(line: RecipeLine, catalog: Catalog, locale: 'en' | 'nl' = 'en'): LineDraft {
   const base = baseUnitOfRef(refKey(line.ref), catalog) ?? 'g';
   const ingredient = line.ref.kind === 'ingredient' ? catalog.ingredients.find(entry => entry.id === line.ref.id) : undefined;
-  const preferred = ingredient?.prices.at(-1)
-    ? quantityToInput(ingredient.prices.at(-1)!.packSizeMilli, ingredient.unit, locale).unit
+  const currentPrice = ingredient ? selectPriceAtDate(ingredient.prices) : null;
+  const preferred = ingredient && currentPrice
+    ? quantityToInput(currentPrice.packSizeMilli, ingredient.unit, locale).unit
     : ingredient?.unit;
   const { text, unit } = quantityToInput(line.netQtyMilli, base, locale, preferred);
   return {

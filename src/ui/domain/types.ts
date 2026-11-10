@@ -30,7 +30,7 @@ interface IngredientShape {
   id: string;
   name: string;
   unit: BaseUnit;
-  /** Append-only history; the current price is the latest entry. */
+  /** Append-only history; the current price has the latest price date; ties use the later-added entry. */
   prices: PriceRecordShape[];
 }
 

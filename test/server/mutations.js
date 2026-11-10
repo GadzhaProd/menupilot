@@ -8,11 +8,23 @@ try {
   // Route all server-test temporary data under this disposable root. The final
   // recursive removal then cleans leftovers even if a test or child exits early.
   const testTempDir = join(dir, 'test-tmp'); mkdirSync(testTempDir);
-  for (const path of ['server', 'src', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'vite.config.js', 'scripts', 'third_party', 'tsconfig.json', 'package.json', 'package-lock.json', 'index.html', 'public', 'data', 'README.md', 'docs/planning']) {
+  for (const path of ['server', 'src', 'test/calc', 'test/store', 'test/server', 'test/ui', 'vitest.config.js', 'vite.config.js', 'scripts', 'third_party', 'tsconfig.json', 'package.json', 'package-lock.json', 'index.html', 'public', 'data', 'README.md', 'docs/planning']) {
     mkdirSync(join(dir, path, '..'), { recursive: true }); cpSync(path, join(dir,path), { recursive: true });
   }
   symlinkSync(join(process.cwd(), 'node_modules'), join(dir, 'node_modules'), 'dir');
   const mutants = [
+    ['backdated date selection', 'src/calc/internal.js', 'timestampNanoseconds > selectedTimestampNanoseconds', 'timestampNanoseconds < selectedTimestampNanoseconds', 'test/calc/price-history.test.js'],
+    ['backdated sequence tie', 'src/calc/internal.js', 'sequence > selectedSequence', 'sequence < selectedSequence', 'test/calc/price-history.test.js'],
+    ['backdated effective instant', 'src/store/price.js', 'effectiveDate === undefined ? stamp : effectiveInstant(effectiveDate, stamp);', 'stamp;', 'test/store/price-date.test.js'],
+    ['backdated same day only', 'src/store/price.js', 'new Date(price.recordedAt).toISOString().slice(0, 10) === day', 'true', 'test/store/price-date.test.js'],
+    ['backdated lower bound', 'src/store/price.js', "effectiveDate < '2000-01-01'", 'false', 'test/store/price-date.test.js'],
+    ['backdated future bound', 'src/store/price.js', 'effectiveDate > utcDay(stamp)', 'false', 'test/store/price-date.test.js'],
+    ['backdated immutable prefix', 'src/store/transitions.js', 'price[key] !== current.prices[index]?.[key]', 'false', 'test/store/backdated.test.js'],
+    ['backdated browser transition', 'src/store/browserAdapter.js', 'if (policy.checkTransition)', 'if (false)', 'test/store/backdated.test.js'],
+    ['backdated CLI current price', 'server/cliRead.js', 'const price = selectPriceAtDate(ingredient.prices);', 'const price = ingredient.prices.at(-1);', 'test/server/cli.test.js'],
+    ['backdated CLI history order', 'server/cliRead.js', 'priceHistory: pricesNewestFirst(ingredient.prices).reverse().map', 'priceHistory: ingredient.prices.map', 'test/server/cli.test.js'],
+    ['backdated plan current price', 'server/plans.js', 'const oldPrice = selectPriceAtDate(target.prices);', 'const oldPrice = target.prices.at(-1);', 'test/server/plans.test.js'],
+
     ["apply-all receipt reserve", "server/plans.js", "p.status === 'pending' ? batchReserve : 0", "0", "test/server/plans-all.test.js"],
     ["apply-all final byte budget", "server/plans.js", "futureBytes > PLAN_LIMITS.bytes", "false", "test/server/plans-all.test.js"],
     ["apply-all CLI pending count", "server/cliPlans.js", "data.filter(plan => plan.status === 'pending').length >= 2", "true", "test/server/plans-all.test.js"],

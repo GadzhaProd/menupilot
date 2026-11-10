@@ -298,7 +298,7 @@ const createContentEn = (local: boolean): HelpDocument => ({
       id: 'ingredients',
       title: 'Ingredients and their prices',
       blocks: [
-        { kind: 'p', text: 'Everything starts with ingredients: what you buy and the price on the supplier’s invoice. MenuPilot keeps every price you enter, with its date. The newest price is the one used in calculations. The older ones stay in the history, and the Dashboard needs them to show what changed.' },
+        { kind: 'p', text: 'Everything starts with ingredients: what you buy and the price on the supplier’s invoice. MenuPilot keeps every price you enter, with its date. Calculations use the price with the latest price date; for the same date, the later entry is used. The older ones stay in the history, and the Dashboard needs them to show what changed.' },
         { kind: 'image', image: img('ingredients-list', 'The Ingredients page: the table Current supplier prices with the buttons New price, Price history, Rename and Delete at the end of each row.', 'Each row has four buttons on the right. The button Add ingredient is at the top right of the page.') },
         {
           kind: 'steps',
@@ -367,7 +367,7 @@ const createContentEn = (local: boolean): HelpDocument => ({
           kind: 'note',
           tone: 'important',
           title: 'Price valid from, and a price of 0',
-          text: ['The field ', b('Price valid from'), ' is the date on the invoice (dates are calendar days in UTC, like everywhere in MenuPilot, so just after midnight in the Netherlands “today” can still be yesterday’s date). It is today unless you change it. You may pick an earlier day, but not before the date of the previous price and not in the future. A price with an earlier date counts on the Dashboard from that day on, so you can enter last week’s invoice today. If you type a price of 0, MenuPilot warns you that recipes will count the product as free, and saves it only after you tick the box. If you do not know the price, leave it empty: recipes then show “cost unknown”.'],
+          text: ['The field ', b('Price valid from'), ' is the date on the invoice (dates are calendar days in UTC, like everywhere in MenuPilot, so just after midnight in the Netherlands “today” can still be yesterday’s date). It is today unless you change it. You may pick any day from 1 January 2000 to today, even if a newer invoice price is already saved. The price with the latest date remains current. A past supplier price excl. VAT counts from its invoice day for Dashboard comparisons. If there is already a price on that day, a warning explains that the new price counts as the later entry for that day. Existing entries stay unchanged. If you type a price of 0, MenuPilot warns you that recipes will count the product as free, and saves it only after you tick the box. If you do not know the price, leave it empty: recipes then show “cost unknown”.'],
         },
         {
           kind: 'steps',
@@ -852,7 +852,7 @@ const createContentEn = (local: boolean): HelpDocument => ({
           items: [
             ['The number is not saved yet: click its field. Hold Ctrl and press A (on a Mac: ⌘ and A). Type the correct number. Then click the save button.'],
             ['You do not want to save at all: click ', b('Cancel'), ' (in a recipe: ', b('Discard changes'), '). Nothing is saved.'],
-            ['A wrong ingredient price was already saved: open ', b('New price'), ' for that ingredient and save the right price. The newest price counts. The incorrect price stays in the history. It may still affect comparisons with dates before your correction.'],
+            ['A wrong ingredient price was already saved: open ', b('New price'), ' for that ingredient and save the right price. The price with the latest date counts; for the same date, the later entry is used. The incorrect price stays in the history. It may still affect comparisons with dates before your correction.'],
             ['A recipe was saved with a wrong number: click ', b('Recipes'), ', open the dish, correct the number and click ', b('Save changes'), '.'],
           ],
         },

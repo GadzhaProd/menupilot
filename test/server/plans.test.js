@@ -416,3 +416,18 @@ test('plans: pending preview uses the current ingredient name', t => {
     assert.equal(fresh.status, 'pending'); assert.equal(fresh.ingredient.name, 'Renamed ingredient');
   }
 });
+
+
+test('plans after an earlier invoice: preview, warnings and fixed new price use the current dated price', t => {
+  const doc = smallDocument();
+  doc.ingredients[0].prices.push({ seq: 2, recordedAt: '2025-12-31T00:00:00.000Z', packPriceCents: 1, packSizeMilli: 1000000 });
+  const { s } = fixture(t, doc);
+  const plan = s.plans.propose({ ...input, packPrice: '6' });
+  assert.equal(plan.previousPrice.packPriceCents, '500');
+  assert.equal(plan.warnings.some(w => w.code === 'large-price-change'), false);
+  assert.equal(plan.price.seq, 3);
+  const applied = s.plans.apply(plan.id, s.plans.get(plan.id).consequencesFingerprint);
+  assert.deepEqual(applied.document.ingredients[0].prices.slice(0, 2), doc.ingredients[0].prices);
+  assert.equal(applied.document.ingredients[0].prices[2].packPriceCents, 600);
+  assert.ok(plan.effects.dishes.length > 0);
+});

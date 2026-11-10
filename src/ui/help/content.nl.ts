@@ -298,7 +298,7 @@ const createContentNl = (local: boolean): HelpDocument => ({
       id: 'ingredients',
       title: 'Ingrediënten en hun prijzen',
       blocks: [
-        { kind: 'p', text: 'Alles begint met ingrediënten: wat je inkoopt en de prijs op de factuur van de leverancier. MenuPilot bewaart elke prijs die je invult, met de datum. De nieuwste prijs wordt in berekeningen gebruikt. De oudere blijven in de geschiedenis staan, en het Overzicht heeft ze nodig om te laten zien wat er veranderd is.' },
+        { kind: 'p', text: 'Alles begint met ingrediënten: wat je inkoopt en de prijs op de factuur van de leverancier. MenuPilot bewaart elke prijs die je invult, met de datum. Berekeningen gebruiken de prijs met de laatste prijsdatum; bij dezelfde datum geldt de later ingevoerde prijs. De oudere blijven in de geschiedenis staan, en het Overzicht heeft ze nodig om te laten zien wat er veranderd is.' },
         { kind: 'image', image: img('ingredients-list', 'De pagina Ingrediënten: de tabel Huidige inkoopprijzen met de knoppen Nieuwe prijs, Prijsgeschiedenis, Hernoemen en Verwijderen aan het eind van elke rij.', 'Elke rij heeft rechts vier knoppen. De knop Ingrediënt toevoegen staat rechtsboven op de pagina.') },
         {
           kind: 'steps',
@@ -367,7 +367,7 @@ const createContentNl = (local: boolean): HelpDocument => ({
           kind: 'note',
           tone: 'important',
           title: 'Prijs geldig vanaf, en een prijs van 0',
-          text: ['Het veld ', b('Prijs geldig vanaf'), ' is de datum van de factuur (datums zijn kalenderdagen in UTC, zoals overal in MenuPilot; vlak na middernacht in Nederland kan “vandaag” dus nog de datum van gisteren zijn). Het is vandaag, tenzij je het wijzigt. Je kunt een eerdere dag kiezen, maar niet vóór de datum van de vorige prijs en niet in de toekomst. Een prijs met een eerdere datum telt op het Overzicht vanaf die dag, dus je kunt vandaag de factuur van vorige week invoeren. Typ je een prijs van 0, dan waarschuwt MenuPilot dat recepten het product als gratis rekenen en wordt de prijs pas opgeslagen nadat je het vakje aanvinkt. Weet je de prijs niet, laat het veld dan leeg: recepten tonen dan “kosten onbekend”.'],
+          text: ['Het veld ', b('Prijs geldig vanaf'), ' is de datum van de factuur (datums zijn kalenderdagen in UTC, zoals overal in MenuPilot; vlak na middernacht in Nederland kan “vandaag” dus nog de datum van gisteren zijn). Het is vandaag, tenzij je het wijzigt. Je kunt elke dag van 1 januari 2000 tot vandaag kiezen, ook als er al een prijs van een nieuwere factuur is opgeslagen. De prijs met de laatste datum blijft de huidige prijs. Een eerdere inkoopprijs excl. btw telt vanaf de factuurdatum mee bij vergelijkingen op het Overzicht. Is er al een prijs op die dag, dan legt een waarschuwing uit dat de nieuwe prijs als de latere invoer voor die dag geldt. Bestaande invoer blijft ongewijzigd. Typ je een prijs van 0, dan waarschuwt MenuPilot dat recepten het product als gratis rekenen en wordt de prijs pas opgeslagen nadat je het vakje aanvinkt. Weet je de prijs niet, laat het veld dan leeg: recepten tonen dan “kosten onbekend”.'],
         },
         {
           kind: 'steps',
@@ -852,7 +852,7 @@ const createContentNl = (local: boolean): HelpDocument => ({
           items: [
             ['Het getal is nog niet opgeslagen: klik in het veld. Houd Ctrl ingedrukt en druk op A (op een Mac: ⌘ en A). Typ het juiste getal. Klik daarna op de opslaanknop.'],
             ['Je wilt helemaal niets opslaan: klik op ', b('Annuleren'), ' (in een recept: ', b('Wijzigingen ongedaan maken'), '). Er wordt niets opgeslagen.'],
-            ['Een verkeerde ingrediëntprijs is al opgeslagen: open ', b('Nieuwe prijs'), ' van dat ingrediënt en sla de juiste prijs op. De nieuwste prijs telt. De verkeerde prijs blijft in de geschiedenis staan. Die kan nog meetellen bij vergelijkingen met een datum vóór je correctie.'],
+            ['Een verkeerde ingrediëntprijs is al opgeslagen: open ', b('Nieuwe prijs'), ' van dat ingrediënt en sla de juiste prijs op. De prijs met de laatste datum telt; bij dezelfde datum geldt de later ingevoerde prijs. De verkeerde prijs blijft in de geschiedenis staan. Die kan nog meetellen bij vergelijkingen met een datum vóór je correctie.'],
             ['Een recept is met een verkeerd getal opgeslagen: klik op ', b('Recepten'), ', open het gerecht, verbeter het getal en klik op ', b('Wijzigingen opslaan'), '.'],
           ],
         },

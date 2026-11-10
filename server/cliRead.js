@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { connect } from 'node:net';
 import { createBaselineSnapshot, simulate } from '../src/calc/simulate.js';
-import { recipeCost, metrics, packUnitPriceCents } from '../src/calc/costing.js';
+import { recipeCost, metrics, packUnitPriceCents, pricesNewestFirst, selectPriceAtDate } from '../src/calc/costing.js';
 import { dashboardData } from '../src/calc/dashboard.js';
 import {
   formatEURFromCentsLocale,
@@ -124,9 +124,9 @@ function exactCandidates(entries, locale = 'en') {
     name: entry.name,
     unit: entry.unit ?? entry.outputUnit ?? null,
     packaging: entry.prices?.length ? {
-        packPrice: money(entry.prices.at(-1).packPriceCents, locale),
+        packPrice: money(selectPriceAtDate(entry.prices).packPriceCents, locale),
         packPriceLabel: 'excl. VAT',
-        packSizeMilli: entry.prices.at(-1).packSizeMilli
+        packSizeMilli: selectPriceAtDate(entry.prices).packSizeMilli
       } : null
   }));
 }
@@ -259,7 +259,7 @@ function parseNonNegativeInteger(raw, name) {
 }
 
 function unitPackaging(ingredient, locale) {
-  const price = ingredient.prices.at(-1);
+  const price = selectPriceAtDate(ingredient.prices);
   if (!price) {
     return null;
   }
@@ -416,9 +416,9 @@ function evaluateSimulation(doc, dishToken, values, locale, now = () => new Date
           name: target?.name,
           unit: target?.unit ?? target?.outputUnit,
           packaging: target?.prices?.length ? {
-              packPrice: money(target.prices.at(-1).packPriceCents, locale),
+              packPrice: money(selectPriceAtDate(target.prices).packPriceCents, locale),
               packPriceLabel: 'excl. VAT',
-              packSizeMilli: target.prices.at(-1).packSizeMilli
+              packSizeMilli: selectPriceAtDate(target.prices).packSizeMilli
             } : null
         })));
     }
@@ -818,7 +818,7 @@ export async function executeReadCommand(command, args, api, {
       id: ingredient.id,
       name: ingredient.name,
       unit: ingredient.unit,
-      priceHistory: ingredient.prices.map(price => ({
+      priceHistory: pricesNewestFirst(ingredient.prices).reverse().map(price => ({
         sequence: price.seq,
         recordedAt: price.recordedAt,
         packPriceCents: String(price.packPriceCents),

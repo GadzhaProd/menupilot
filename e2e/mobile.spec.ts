@@ -1,3 +1,4 @@
+import { backdatedPriceTests } from './backdated-price';
 import { expect, test } from './fixtures';
 
 const burgerUrl = '#/simulator/dish_classic_burger';
@@ -84,3 +85,5 @@ test('Dutch mobile saving state preserves the new ingredient draft at 375px', as
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('status').filter({ hasText: /^Opgeslagen$/ })).toBeVisible();
 });
+
+backdatedPriceTests();

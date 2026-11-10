@@ -12,7 +12,7 @@ export interface IngredientValidationCopy {
   /** A zero price needs the owner's explicit confirmation. */
   zeroUnconfirmed?: string;
   validFromInvalid?: string; validFromFuture?: string;
-  /** `date` is the previous price's day, `YYYY-MM-DD`. */
+  /** `date` is the earliest supported day, `YYYY-MM-DD`. */
   validFromEarlier?(date: string): string;
 }
 
@@ -23,7 +23,7 @@ const EN_VALIDATION: IngredientValidationCopy = {
   zeroUnconfirmed: 'Tick the box to confirm a free product, or clear the price if you do not know it.',
   validFromInvalid: 'Enter a valid date.',
   validFromFuture: 'The date cannot be in the future.',
-  validFromEarlier: (date) => `The date cannot be earlier than the previous price (${date}).`,
+  validFromEarlier: (date) => `Choose a date on or after ${date}.`,
 };
 
 export function validateName(text: string, copy: IngredientValidationCopy = EN_VALIDATION): { ok: true; value: string } | { ok: false; error: string } {
@@ -48,14 +48,8 @@ export type PriceField = 'packSize' | 'packPrice' | 'confirmZero' | 'validFrom';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Today as `YYYY-MM-DD`: the UTC calendar day, like every date in MenuPilot (Dashboard comparison, history). */
-export function todayInput(now: Date = new Date()): string {
+export function todayInput(now: Date): string {
   return now.toISOString().slice(0, 10);
-}
-
-/** The UTC day of the newest price (the earliest "valid from" day the next one may have), or null. */
-export function lastPriceDay(prices: readonly { recordedAt: string }[]): string | null {
-  const last = prices.at(-1);
-  return last ? new Date(last.recordedAt).toISOString().slice(0, 10) : null;
 }
 
 /** True when the draft's price is exactly zero (it parses and is 0): the warning and the checkbox are shown. */
@@ -65,7 +59,7 @@ export function isZeroPrice(draft: Pick<PriceDraft, 'packPrice'>): boolean {
 }
 
 export interface DateRange {
-  /** Earliest allowed day: the day of the previous price. */
+  /** Earliest supported day: 2000-01-01. */
   min: string | null;
   /** Latest allowed day: today. */
   max: string;

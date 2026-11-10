@@ -98,7 +98,7 @@ test('recipe lines have no own unit and only known fields', () => {
   assertRejects((doc) => { doc.recipes[0].lines[0].unit = 'kg'; }, /lines\[0\]\.unit.*unknown/i);
 });
 
-test('price history: seq strictly increasing, recordedAt not decreasing', () => {
+test('price history: seq strictly increasing, price dates may be out of order', () => {
   const twoPrices = (doc) => {
     doc.ingredients[0].prices.push({
       seq: 2, recordedAt: '2026-02-01T00:00:00.000Z', packPriceCents: 600, packSizeMilli: 1_000_000,
@@ -106,7 +106,7 @@ test('price history: seq strictly increasing, recordedAt not decreasing', () => 
   };
   assert.deepEqual(errorsOf(twoPrices), []);
   assertRejects((doc) => { twoPrices(doc); doc.ingredients[0].prices[1].seq = 1; }, /seq.*increas/);
-  assertRejects((doc) => { twoPrices(doc); doc.ingredients[0].prices[1].recordedAt = '2025-12-31T00:00:00.000Z'; }, /recordedAt.*earlier/);
+  assert.deepEqual(errorsOf((doc) => { twoPrices(doc); doc.ingredients[0].prices[1].recordedAt = '2025-12-31T00:00:00.000Z'; }), []);
   assert.deepEqual(errorsOf((doc) => { twoPrices(doc); doc.ingredients[0].prices[1].recordedAt = doc.ingredients[0].prices[0].recordedAt; }), []);
 });
 

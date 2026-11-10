@@ -475,3 +475,28 @@ test('human CLI escapes terminal controls in names, plans and errors while JSON 
   const json = await invoke(f.dir, 'ingredient', doc.ingredients[0].id, '--json');
   assert.equal(JSON.parse(json.stdout).data.name, name);
 });
+
+
+test('CLI with a last-added older invoice reports current packaging and Dashboard values by date', async t => {
+  const doc = enDemo();
+  const ingredient = doc.ingredients.find(i => i.id === 'ing_beef');
+  const current = ingredient.prices.at(-1);
+  ingredient.prices.push({ ...current, seq: current.seq + 1, recordedAt: '2025-01-01T00:00:00.000Z', packPriceCents: 1, packSizeMilli: 500000 });
+  const f = await fixture(t, doc);
+  const dishes = await invoke(f.dir, 'ingredients', '--json');
+  assert.equal(dishes.status, 0, dishes.stderr);
+  const row = JSON.parse(dishes.stdout).data.find(i => i.id === ingredient.id);
+  assert.equal(row.currentPrice.packPrice.cents, String(current.packPriceCents));
+  assert.equal(row.currentPrice.packSizeMilli, current.packSizeMilli);
+  const history = JSON.parse((await invoke(f.dir, 'ingredient', ingredient.id, '--json')).stdout).data.priceHistory;
+  assert.equal(history[0].sequence, current.seq + 1);
+  assert.equal(history.at(-1).sequence, current.seq);
+  const result = await invoke(f.dir, 'what-changed', '--since', '2025-01-02', '--json');
+  assert.equal(result.status, 0, result.stderr);
+  const { dashboardData } = await import('../../src/calc/dashboard.js');
+  const dashboard = dashboardData(doc, '2025-01-02T23:59:59.999Z');
+  const actual = JSON.parse(result.stdout).data.dishes.find(r => r.id === 'dish_classic_burger');
+  const expected = dashboard.dishes.find(r => r.id === actual.id);
+  assert.equal(actual.currentCost.micro, String(expected.currentCostMicro));
+  assert.equal(actual.comparisonCost, null); // Other ingredients have no historical price yet.
+});

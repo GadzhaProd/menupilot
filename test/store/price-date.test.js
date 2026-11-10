@@ -3,6 +3,7 @@ import test from 'node:test';
 import { selectPriceAtDate } from '../../src/calc/costing.js';
 import { dashboardData } from '../../src/calc/dashboard.js';
 import { STORAGE_KEY, StoreError, createStore } from '../../src/store/store.js';
+import { newPrice } from '../../src/store/price.js';
 import { validateDocument } from '../../src/store/schema.js';
 import { encoded } from './fixtures.js';
 import { memoryStorage, readDemo, smallDocument } from './fixtures.js';
@@ -88,13 +89,42 @@ test('effectiveDate on the day of an earlier past price is clamped to that price
   assert.deepEqual(validateDocument(doc, { now: NOW }).errors, []);
 });
 
-test('effectiveDate earlier than the previous price date is refused and nothing changes', async () => {
+test('an earlier invoice appends without changing current price and makes Dashboard comparable', async () => {
   const store = await seeded();
-  await store.addPrice('i1', PRICE, { effectiveDate: '2026-10-15' });
+  await store.addPrice('i1', PRICE);
   const before = store.getDocument();
-  await rejectsInvalid(store.addPrice('i1', PRICE, { effectiveDate: '2026-10-14' }), /2026-10-15/);
-  await rejectsInvalid(store.addPrice('i1', PRICE, { effectiveDate: '2025-12-31' }), /earlier/);
+  const doc = await store.addPrice('i1', { ...PRICE, packPriceCents: 200 }, { effectiveDate: '2025-12-31' });
+  const prices = doc.ingredients[0].prices;
+  assert.deepEqual(prices.slice(0, -1), before.ingredients[0].prices);
+  assert.equal(prices.at(-1).recordedAt, '2025-12-31T00:00:00.000Z');
+  assert.equal(selectPriceAtDate(prices).packPriceCents, 650);
+  assert.equal(selectPriceAtDate(prices, '2025-12-31T23:59:59.999Z').packPriceCents, 200);
+  const row = dashboardData(doc, '2025-12-31T23:59:59.999Z').dishes[0];
+  assert.equal(row.status, 'ready');
+  assert.ok(row.currentCostMicro > row.comparisonCostMicro);
+});
+
+test('same past invoice day uses its latest instant even when a newer day was added in between', async () => {
+  const initial = smallDocument();
+  initial.ingredients[0].prices[0].recordedAt = '2026-01-01T12:00:00.000Z';
+  const store = createStore(memoryStorage({ [STORAGE_KEY]: encoded(initial) }), { demo: readDemo(), now: () => NOW });
+  await store.load();
+  await store.addPrice('i1', PRICE);
+  await store.addPrice('i1', { ...PRICE, packPriceCents: 200 }, { effectiveDate: '2026-01-01' });
+  const doc = await store.addPrice('i1', { ...PRICE, packPriceCents: 300 }, { effectiveDate: '2026-01-01' });
+  assert.equal(selectPriceAtDate(doc.ingredients[0].prices, '2026-01-02T00:00:00Z').packPriceCents, 300);
+  assert.equal(doc.ingredients[0].prices.at(-1).recordedAt, '2026-01-01T12:00:00.000Z');
+  assert.equal(selectPriceAtDate(doc.ingredients[0].prices).packPriceCents, 650);
+});
+
+test('price dates before 2000 are refused; the lower bound is accepted', async () => {
+  assert.throws(() => newPrice([], PRICE, NOW, '1999-12-31'), /2000-01-01/);
+  const store = await seeded();
+  const before = store.getDocument();
+  await rejectsInvalid(store.addPrice('i1', PRICE, { effectiveDate: '1999-12-31' }), /2000-01-01/);
   assert.equal(store.getDocument(), before);
+  const doc = await store.addPrice('i1', PRICE, { effectiveDate: '2000-01-01' });
+  assert.equal(doc.ingredients[0].prices.at(-1).recordedAt, '2000-01-01T00:00:00.000Z');
 });
 
 test('effectiveDate in the future is refused', async () => {

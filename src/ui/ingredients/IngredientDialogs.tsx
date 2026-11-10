@@ -11,10 +11,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { useCommands, useDocument, useNow } from '@/ui/data/DataProvider';
-import { selectPriceAtDate } from '@/ui/domain/calc';
+import { pricesNewestFirst, selectPriceAtDate } from '@/ui/domain/calc';
 import type { Ingredient } from '@/ui/domain/types';
 import {
-  lastPriceDay, todayInput, validateName, validateNewIngredient, validatePrice, type IngredientDraft, type PriceDraft,
+  todayInput, validateName, validateNewIngredient, validatePrice, type IngredientDraft, type PriceDraft,
 } from '@/ui/forms/ingredientForm';
 import { formatQuantityLocale, quantityToInput, type EnteredUnit } from '@/ui/forms/numbers';
 import { recipesUsing } from '@/ui/forms/recipeForm';
@@ -49,7 +49,7 @@ export function AddIngredientDialog({ onClose, onCloseAutoFocus }: DialogProps) 
   const now = useNow();
   const copy = useValidationCopy();
   const { execute, commandStatus } = useCommands();
-  const range = useMemo(() => ({ min: null, max: todayInput(now) }), [now]);
+  const range = useMemo(() => ({ min: '2000-01-01', max: todayInput(now) }), [now]);
   const [draft, setDraft] = useState<IngredientDraft>({ name: '', packSize: '', packSizeUnit: 'kg', packPrice: '', validFrom: range.max });
   const [attempt, setAttempt] = useState(0);
   const [saveError, setSaveError] = useState<StoreFailure | null>(null);
@@ -108,7 +108,7 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
   const copy = useValidationCopy();
   const { execute, commandStatus } = useCommands();
   const current = selectPriceAtDate(ingredient.prices);
-  const range = useMemo(() => ({ min: lastPriceDay(ingredient.prices), max: todayInput(now) }), [ingredient.prices, now]);
+  const range = useMemo(() => ({ min: '2000-01-01', max: todayInput(now) }), [ingredient.prices, now]);
   const [draft, setDraft] = useState<PriceDraft>(() => {
     // Prices change more often than pack sizes: start from the last pack size.
     const size = current ? quantityToInput(current.packSizeMilli, ingredient.unit) : null;
@@ -144,7 +144,7 @@ export function NewPriceDialog({ ingredient, onClose, onCloseAutoFocus }: Dialog
           </DialogDescription>
         </DialogHeader>
         <form ref={formRef} noValidate onSubmit={submit} className="grid gap-4"><fieldset disabled={commandStatus === 'saving'} className="contents">
-          <PriceFields draft={draft} onChange={setDraft} errors={errors} base={ingredient.unit} range={range} />
+          <PriceFields draft={draft} onChange={setDraft} errors={errors} base={ingredient.unit} range={range} prices={ingredient.prices} />
           <SaveError failure={saveError} />
           <DialogFooter>
             <DialogClose asChild><Button disabled={commandStatus === 'saving'} type="button" variant="outline">{t('ingredients.cancel')}</Button></DialogClose>
@@ -168,7 +168,7 @@ export function HistoryDialog({ ingredient, onCloseAutoFocus, onClose }: DialogP
   const { commandStatus } = useCommands();
   const { t, locale } = useLocale();
   const f = useFormatters();
-  const newestFirst = [...ingredient.prices].reverse();
+  const newestFirst = pricesNewestFirst(ingredient.prices);
   return (
     <Dialog open onOpenChange={(open) => { if (!open && commandStatus !== 'saving') onClose(); }}>
       <DialogContent data-draft-kind="ingredient" data-draft-id={ingredient.id} onCloseAutoFocus={onCloseAutoFocus} className="max-w-2xl">

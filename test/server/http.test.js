@@ -11,7 +11,9 @@ import { createSqliteStorage } from '../../server/sqlite.js';
 import { serveLocal } from '../../server/http.js';
 import { createHttpStorageAdapter } from '../../src/store/httpAdapter.js';
 import { storageAdapterContract } from '../store/adapterContract.js';
-import { smallDocument } from '../store/fixtures.js';
+import { createStore, STORAGE_KEY } from '../../src/store/store.js';
+import { selectPriceAtDate } from '../../src/calc/costing.js';
+import { smallDocument, memoryStorage, encoded } from '../store/fixtures.js';
 
 async function fixture(options = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-http-'));
@@ -228,4 +230,33 @@ test('HTTP: body deadline does not time out a completed request while verifying 
     headers: { Authorization: `Bearer ${server.cliToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'test' }) });
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { verified: true, id: 'test' });
+});
+
+
+test('HTTP/SQLite and browser: backdated commands, imports and append-only transitions agree', async t => {
+  const f = await fixture(); t.after(() => f.close());
+  const now = () => '2026-10-22T12:00:00.000Z';
+  const demo = smallDocument();
+  const browser = createStore(memoryStorage({ [STORAGE_KEY]: encoded(demo) }), { demo, now });
+  const local = createStore(null, { demo, now, adapter: f.open() });
+  await browser.load(); await local.load();
+  for (const store of [browser, local]) {
+    await store.addPrice('i1', { packPriceCents: 800, packSizeMilli: 1000000 });
+    await store.addPrice('i1', { packPriceCents: 100, packSizeMilli: 500000 }, { effectiveDate: '2025-12-31' });
+    const doc = store.getDocument();
+    assert.equal(selectPriceAtDate(doc.ingredients[0].prices).packPriceCents, 800);
+    assert.equal(selectPriceAtDate(doc.ingredients[0].prices, '2025-12-31T23:59:59.999Z').packPriceCents, 100);
+    for (const mutate of [
+      d => { d.ingredients[0].prices[0].packPriceCents++; },
+      d => { d.ingredients[0].prices.shift(); },
+      d => { d.ingredients[0].prices.reverse(); d.ingredients[0].prices.forEach((p, i) => { p.seq = i + 1; }); },
+    ]) {
+      const candidate = structuredClone(doc); mutate(candidate);
+      await assert.rejects(store.save(candidate), { code: 'invalid-transition' });
+      assert.equal(store.getDocument(), doc);
+    }
+    await store.importJSON(JSON.stringify(doc));
+  }
+  assert.deepEqual(browser.getDocument(), local.getDocument());
+  assert.deepEqual(f.storage.load().document, local.getDocument());
 });
