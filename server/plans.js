@@ -183,7 +183,47 @@ export function createPlans(storage, now) {
       fail('plan-' + plan.status, `This plan is ${plan.status}. Ask the agent to propose again.`);
     }
   }
+  function batchIds(ids) {
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > PLAN_LIMITS.pending
+      || ids.some(id => typeof id !== 'string' || !id || id.length > 200)
+      || new Set(ids).size !== ids.length) {
+      fail('invalid-argument', 'Provide a non-empty list of unique plan IDs (maximum 50).');
+    }
+    return [...ids].sort();
+  }
+  function batchPreview(ids) {
+    const available = refresh();
+    const plans = ids.map(id => available.find(plan => plan.id === id));
+    const current = storage.load();
+    const found = plans.filter(Boolean);
+    if (new Set(found.map(plan => plan.ingredient.id)).size !== found.length) {
+      fail('plan-duplicate-ingredient', 'Only one proposal per ingredient can be applied together.');
+    }
+    if (plans.some(plan => !plan || plan.status !== 'pending' || plan.protocolVersion !== 1 || stale(plan, current))) {
+      fail('plan-consequences-changed', 'Proposals changed. Review pending proposals again.');
+    }
+    const document = structuredClone(current.document);
+    const reviewed = plans.map(plan => {
+      const price = appendPrice(document, plan.ingredient.id, {
+        packPriceCents: Number(plan.price.packPriceCents), packSizeMilli: plan.price.packSizeMilli
+      }, plan.price.recordedAt);
+      if (JSON.stringify(encodePlan(price)) !== JSON.stringify(plan.price)) {
+        fail('plan-consequences-changed', 'Price history changed. Review pending proposals again.');
+      }
+      const ingredient = current.document.ingredients.find(i => i.id === plan.ingredient.id);
+      return { ...plan, ingredient: { ...plan.ingredient, name: ingredient.name } };
+    });
+    const effects = planEffects(current.document, document, plans.map(plan => plan.ingredient.id), timestamp());
+    // Bind membership, displayed supplier details, shared effects and the exact document revision.
+    const consequencesFingerprint = createHash('sha256').update(JSON.stringify({
+      documentId: current.documentId, revision: current.revision,
+      plans: reviewed.map(({ id, ingredient, previousPrice, proposedPrice, warnings }) =>
+        ({ id, ingredient, previousPrice, proposedPrice, warnings })), effects
+    })).digest('hex');
+    return { current, document, review: { plans: reviewed, effects, consequencesFingerprint } };
+  }
   return {
+    reviewAll: ids => transaction(() => batchPreview(batchIds(ids)).review),
     list: () => transaction(() => refresh().map(p => preview(p))),
     snapshot: () => transaction(() => ({
       ...storage.version(),
@@ -358,6 +398,41 @@ export function createPlans(storage, now) {
         throw outcome.error;
       }
       return outcome;
+    },
+    applyAll(planIds, consequencesFingerprint, opId) {
+      const ids = batchIds(planIds);
+      if (typeof opId !== 'string' || !opId || opId.length > 200) {
+        fail('invalid-argument', 'Provide a valid operation ID.');
+      }
+      return transaction(() => {
+        const old = db.prepare('SELECT receipt FROM ops WHERE id=?').get(opId);
+        if (old) {
+          const receipt = JSON.parse(old.receipt);
+          if (JSON.stringify(receipt.planIds) !== JSON.stringify(ids)
+            || receipt.consequencesFingerprint !== consequencesFingerprint) {
+            fail('op-id-reused', 'This operation ID was already used for different content.');
+          }
+          return { ...storage.load(), receipt };
+        }
+        const { current, document, review } = batchPreview(ids);
+        if (consequencesFingerprint !== review.consequencesFingerprint) {
+          fail('plan-consequences-changed', 'Consequences changed. Review the updated figures and confirm again.');
+        }
+        const result = storage.write({
+          kind: 'save', document, expectedDocumentId: current.documentId,
+          expectedRevision: current.revision, opId
+        }, 'agent', { withinTransaction: true, planIds: ids, consequencesFingerprint });
+        if (result.conflict) {
+          fail('plan-consequences-changed', 'Data changed. Review the updated figures and confirm again.');
+        }
+        for (const plan of review.plans) {
+          plan.status = 'applied';
+          plan.receipt = result.receipt;
+          plan.appliedAt = timestamp();
+          save(plan);
+        }
+        return result;
+      });
     },
     reject(id) {
       const plan = transaction(() => get(id));

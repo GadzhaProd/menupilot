@@ -272,6 +272,8 @@ export async function serveLocal({
     { method: 'GET', path: '/api/plans', role: 'token', handler: () => storage.plans.snapshot() },
     { method: 'POST', path: '/api/plans/propose', role: 'token', handler: proposePlan },
     { method: 'POST', path: '/api/plans/status', role: 'token', handler: planStatus },
+    { method: 'POST', path: '/api/plans/review-all', ...ownerPlanAccess, handler: reviewAllPlans },
+    { method: 'POST', path: '/api/plans/apply-all', ...ownerPlanAccess, handler: applyAllPlans },
     { method: 'POST', path: '/api/plans/apply', ...ownerPlanAccess, handler: applyPlan },
     { method: 'POST', path: '/api/plans/reject', ...ownerPlanAccess, handler: rejectPlan },
     { method: 'GET', path: '/api/document', role: 'token', handler: () => storage.load() },
@@ -360,6 +362,25 @@ export async function serveLocal({
   async function applyPlan({ apiBody }) {
     const body = await planBody(apiBody, 'apply');
     return storage.plans.apply(body.id, body.consequencesFingerprint);
+  }
+
+  async function batchPlanBody(apiBody, applying) {
+    const body = await apiBody(16384);
+    const fields = ['planIds', ...(applying ? ['consequencesFingerprint', 'opId'] : [])];
+    if (!body || Array.isArray(body) || Object.keys(body).some(key => !fields.includes(key))) {
+      throw new StoreError('invalid-argument', 'Provide plan IDs and the reviewed consequences.');
+    }
+    return body;
+  }
+
+  async function reviewAllPlans({ apiBody }) {
+    const body = await batchPlanBody(apiBody, false);
+    return storage.plans.reviewAll(body.planIds);
+  }
+
+  async function applyAllPlans({ apiBody }) {
+    const body = await batchPlanBody(apiBody, true);
+    return storage.plans.applyAll(body.planIds, body.consequencesFingerprint, body.opId);
   }
 
   async function rejectPlan({ apiBody }) {

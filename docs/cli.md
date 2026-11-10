@@ -93,6 +93,8 @@ Agents must never open or apply their own plans, or access data files directly (
 
 ## Propose a supplier price (local mode)
 
+`plans` includes an EN/NL confirmation hint in text and JSON (`confirmation`): the owner can choose **Apply all** / **Alles toepassen** when at least two proposals are pending. The UI reviews every supplier price and one combined consequence total on a copy of the current document. Confirming saves all selected prices atomically with one revision and operation receipt; the journal identifies every plan. If proposals or the document change before confirmation, nothing is written and the owner must review again. The CLI still cannot apply or reject proposals; do not add individual previews to invent a combined total.
+
 ```sh
 npm run menupilot -- propose add-price --ingredient "Beef mince 80/20" --pack-price 18,00 --pack-size 1 kg
 npm run menupilot -- propose add-price --ingredient ing_beef --pack-price 18.00 --pack-size "1 kg" --json
@@ -153,6 +155,6 @@ Lifecycle is refreshed on access. Retention is bounded to 50 pending, 200 total 
 
 Additional stable errors: `plan-budget`, `plan-stale`, `plan-expired`, `plan-rejected`, `plan-applied`, `plan-superseded`, `plan-version`, `write-failed` (exit 1); `ui-required` and `origin` (HTTP 403, exit 1); `invalid-argument`/`invalid-unit`/`usage` (exit 2); `ambiguous`/`not-found` (exit 4, with candidates for ingredient resolution). `plan-stale` and `plan-expired` return HTTP 409 with advice to ask the agent again. `price-limit` returns exit 2. Pack sizes accept `1 kg` and `1kg`.
 
-For a multi-line supplier invoice, run one `propose add-price` per confirmed ingredient and pack size. The owner reviews all proposals in the same **Awaiting your confirmation** panel and applies each separately. After each Apply, remaining consequences refresh; do not add the original previews together or describe them as a combined invoice total. Each Apply checks ingredient dependencies on the current document and commits its own price, history, journal and receipt in one transaction.
+For a multi-line supplier invoice, run one `propose add-price` per confirmed ingredient and pack size. The owner can select **Apply all** / **Alles toepassen** in **Awaiting your confirmation** and review the combined invoice total in one dialog. All selected prices, their applied marks, the journal and the operation receipt commit in one transaction with one new revision. Individual confirmation is also available; after each Apply, remaining consequences refresh. Never add the original previews together yourself.
 
 A failed apply leaves the ingredient, revision, history, journal, receipt and applied mark unchanged.
