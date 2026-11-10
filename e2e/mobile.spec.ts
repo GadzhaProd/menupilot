@@ -71,7 +71,7 @@ test('mobile Recipes keeps the food cost visible without horizontal scrolling', 
   await page.goto('#/recipes');
   await screen(page, 'Recipes');
   const burger = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Classic Burger', exact: true }) });
-  await expect(burger).toContainText(/Food cost %:\s*40.4%/);
+  await expect(burger).toContainText(/Food cost %:\s*40\.4%/);
   await noOverflow(page);
 });
 

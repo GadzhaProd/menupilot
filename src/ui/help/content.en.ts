@@ -762,8 +762,8 @@ const createContentEn = (local: boolean): HelpDocument => ({
           { kind: 'p' as const, text: "The CLI cannot apply or reject proposals. Other websites cannot confirm through your browser. This protects against mistakes, not malicious software with your computer permissions: such software could read or change files or capture the sign-in key. Keep the live data folder on a local disk, not a cloud or network folder."}
         ] : []),
         ...(!local ? [
-          { kind: 'h3' as const, text: 'Keep your data on your computer' },
-          { kind: 'p' as const, text: ['Want your data on your computer, with automatic backups? The computer version keeps its database on your computer, makes copies every five minutes, and lets you work with an AI agent. See ', { href: 'https://github.com/GadzhaProd/menupilot#run-locally', text: 'Run locally' }, '.'] },
+          { kind: 'h3' as const, text: 'Keep your data on your computer (macOS or Linux)' },
+          { kind: 'p' as const, text: ['Want to store your data on your computer, with automatic backups (about every 5 minutes)? The computer version keeps its database on your computer and lets you work with an AI agent. See ', { href: 'https://github.com/GadzhaProd/menupilot#run-locally', text: 'Run locally (opens in a new tab)' }, '.'] },
         ] : []),
         { kind: 'image', image: img('data-page', 'The Data page with the cards Export backup, Import backup, Reset to demo data and Start with empty data.', 'Make a backup before replacing or removing data.') },
         {

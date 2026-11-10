@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -19,6 +19,21 @@ export function RecipesPage() {
   const dishes = useMemo(() => dishRows(document), [document]);
   const preps = useMemo(() => prepRows(document), [document]);
   const prepCosts = useMemo(() => new Map(document.recipes.filter((entry) => entry.kind === 'prep').map((entry) => [entry.id, recipeCosts(entry, document)])), [document]);
+  const [foodCostSort, setFoodCostSort] = useState<'asc' | 'desc' | null>(null);
+  const sortedDishes = useMemo(() => {
+    if (foodCostSort === null) return dishes;
+    return dishes.map((dish, index) => ({ dish, index })).sort((a, b) => {
+      const left = a.dish.foodCostTenthsPct;
+      const right = b.dish.foodCostTenthsPct;
+      if (left === null || right === null) {
+        if (left === null && right !== null) return 1;
+        if (left !== null && right === null) return -1;
+        return a.index - b.index;
+      }
+      if (left === right) return a.index - b.index;
+      return left < right ? (foodCostSort === 'asc' ? -1 : 1) : (foodCostSort === 'asc' ? 1 : -1);
+    }).map(({ dish }) => dish);
+  }, [dishes, foodCostSort]);
 
   return (
     <section aria-labelledby="page-title" className="space-y-6">
@@ -37,25 +52,28 @@ export function RecipesPage() {
           </div>
           {dishes.length === 0 ? <EmptyState title={t('recipes.emptyDishTitle')} description={t('recipes.emptyDishDescription')} action={<Button asChild><a href={hrefFor({ name: 'recipe-new', kind: 'dish' })}>{t('recipes.newDish')}</a></Button>} /> : (
             <>
-            <div className="hidden grid-cols-[minmax(0,1fr)_minmax(10rem,auto)_minmax(9rem,auto)] gap-4 border-b pb-2 text-sm font-medium text-muted-foreground md:grid">
-              <span>{t('recipes.dishName')}</span><span>{t('recipes.dishCostColumn')}</span><span>{t('recipes.foodCostExclVat')}</span>
+            <div className="grid grid-cols-1 justify-items-end gap-4 border-b pb-2 text-sm font-medium text-muted-foreground md:grid-cols-[minmax(0,1fr)_minmax(10rem,auto)_minmax(9rem,auto)]">
+              <span className="hidden md:block">{t('recipes.dishName')}</span><span className="hidden md:block">{t('recipes.dishCostColumn')}</span>
+              <button type="button" className="min-h-10 rounded px-2 text-right underline underline-offset-4 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 md:min-h-0 md:px-0" aria-label={`${t('recipes.foodCostExclVat')}, ${t(foodCostSort === 'asc' ? 'recipes.sortFoodCostDescending' : 'recipes.sortFoodCostAscending')}`} onClick={() => setFoodCostSort(foodCostSort === 'asc' ? 'desc' : 'asc')}>
+                {t('recipes.foodCostExclVat')} {foodCostSort === 'asc' ? '↑' : foodCostSort === 'desc' ? '↓' : '↕'}
+              </button>
             </div>
             <ul className="divide-y">
-              {dishes.map((dish) => (
+              {sortedDishes.map((dish) => (
                 <li key={dish.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-2 md:grid-cols-[minmax(0,1fr)_minmax(10rem,auto)_minmax(9rem,auto)] md:gap-4">
                   <a className="min-w-0 font-medium underline-offset-4 hover:underline focus-visible:underline" href={hrefFor({ name: 'recipe', id: dish.id })}>{dish.name}</a>
                   <span className="col-span-2 text-sm text-muted-foreground md:col-span-1 md:col-start-2">
-                    <span className="mr-1 md:sr-only">{t('recipes.dishCostShort')}:</span>
+                    {dish.status !== 'cost-unknown' && <span className="mr-1 md:sr-only">{t('recipes.dishCostShort')}:</span>}
                     {dish.status === 'error'
                       ? t('recipes.cannotCalculate')
                       : dish.costPerPortionMicro === null ? t('common.costUnknown') : f.microMoney(dish.costPerPortionMicro)}
                   </span>
-                  <span className="col-start-2 row-start-1 shrink-0 text-right text-sm text-muted-foreground md:col-start-3 md:row-auto">
+                  <span data-testid="dish-food-cost" className="col-start-2 row-start-1 shrink-0 text-right text-sm text-muted-foreground md:col-start-3 md:row-auto">
                     <span className="mr-1 md:sr-only">{t('recipes.foodCostShort')}:</span>
                     {dish.status === 'error'
                       ? t('recipes.cannotCalculate')
                       : dish.status === 'cost-unknown' ? t('common.costUnknown')
-                        : dish.status === 'price-zero' ? t('common.notApplicable') : f.percent(dish.foodCostTenthsPct)}
+                        : dish.status === 'price-zero' ? <span title={t('recipe.notApplicableHint')}>{t('common.notApplicable')}</span> : f.percent(dish.foodCostTenthsPct)}
                   </span>
                 </li>
               ))}

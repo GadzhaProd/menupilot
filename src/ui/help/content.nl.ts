@@ -762,8 +762,8 @@ const createContentNl = (local: boolean): HelpDocument => ({
           { kind: 'p' as const, text: "De CLI kan voorstellen niet toepassen of afwijzen. Andere websites kunnen niet via je browser bevestigen. Dit beschermt tegen vergissingen, niet tegen kwaadaardige software met jouw computerrechten: die kan bestanden lezen of wijzigen of de aanmeldsleutel onderscheppen. Houd de actieve gegevensmap op een lokale schijf, niet in een cloud- of netwerkmap."}
         ] : []),
         ...(!local ? [
-          { kind: 'h3' as const, text: 'Je gegevens op je computer bewaren' },
-          { kind: 'p' as const, text: ['Wil je je gegevens op je computer bewaren, met automatische kopieën? De computerversie bewaart de database op je computer, maakt elke vijf minuten kopieën en laat je samenwerken met een AI-agent. Lees ', { href: 'https://github.com/GadzhaProd/menupilot#run-locally', text: 'Lokaal gebruiken' }, '.'] },
+          { kind: 'h3' as const, text: 'Je gegevens op je computer bewaren (macOS of Linux)' },
+          { kind: 'p' as const, text: ['Wil je je gegevens op je computer bewaren, met automatische kopieën (ongeveer elke 5 minuten)? De computerversie bewaart de database op je computer en laat je samenwerken met een AI-agent. Lees ', { href: 'https://github.com/GadzhaProd/menupilot#run-locally', text: 'Lokaal gebruiken (opent in een nieuw tabblad)' }, '.'] },
         ] : []),
         { kind: 'image', image: img('data-page', 'De pagina Gegevens met de kaarten Reservekopie exporteren, Reservekopie importeren, Terugzetten naar voorbeeldgegevens en Begin met lege gegevens.', 'Maak eerst een reservekopie voordat je gegevens vervangt of verwijdert.') },
         {
