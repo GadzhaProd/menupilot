@@ -166,3 +166,52 @@ viewports. The temporary axe resolver is also copied there for reproducibility.
 6. **Что не доделано.** Публикация, pull request и merge не выполнялись: по заданию
    их делает координатор после независимого ревью. Новые зависимости и изменение
    формата документа не потребовались.
+
+## Review corrections ALL-R2 and ALL-R1
+
+The byte-budget regression reproduces the reviewer's production-limit fixture:
+50 ingredients feed one prep and 100 dishes. Before the fix, accepting all 50
+proposals and applying them exceeded the 2 MiB plans limit. The red run also
+reproduced the missing final budget guard and the CLI hint with one pending plan
+(7 passed, 3 failed).
+
+Pending proposals now reserve a full maximum-membership batch receipt, including
+worst-case JSON escaping of a 200-character operation ID, in addition to the
+existing lifecycle allowance. Large proposal sets can therefore reach
+`plan-budget` earlier, before acceptance. A second check measures the future
+serialized applied records under the writer transaction, before the price write.
+It protects older pending proposals that were accepted with the smaller reserve.
+A refusal leaves document, plans, operations, journal, history and metadata
+unchanged. The receipt representation and domain document format stay the same.
+
+The regression applies every accepted proposal with the longest escaped opId and
+asserts the actual stored UTF-8 bytes remain within the production limit. Another
+regression models an old insufficient reserve and installs an INSERT trigger to
+prove refusal occurs before the document write. The CLI test covers 2, 1 and 0
+pending proposals in EN/NL, in JSON and printed text, with terminal plans still
+present. The batch hint appears only with at least two pending proposals.
+
+Three new harness mutants remove the receipt reserve, final total-budget check,
+and CLI pending-count condition. Each runs after its own green baseline.
+
+Targeted verification after these corrections:
+
+- `node --test test/server/plans-all.test.js test/server/plans.test.js`: exit 0,
+  33 passed, 0 failed.
+- `VITEST_MAX_WORKERS=2 npx vitest run test/ui/plans.test.tsx`: exit 0,
+  1 file / 24 tests passed.
+- `NODE_OPTIONS=--import=/tmp/menupilot-apply-all-axe-resolve.mjs npm run test:e2e:local`:
+  exit 0, `10 passed (1.4m)`, desktop and 375 px. The existing temporary resolver
+  supplies the lockfile-pinned axe dependency missing from shared node_modules;
+  no dependency or lockfile changes were made.
+- `VITEST_MAX_WORKERS=2 npm run check`: exit 0; typecheck passed; core
+  `219 passed / 0 failed`; UI `45 files / 479 tests passed`; server
+  `171 passed / 0 failed`; nested `npm run test:mutations` reported
+  `132 CAUGHT, 1 SURVIVED (includes neutral control)`; the only survivor was the
+  neutral comment control. Production build completed: `✓ built in 558ms`.
+
+Revision logs (red, targeted server/UI, full check including mutations, local e2e)
+are saved in `/Users/gadzha/.bb/thread-storage/thr_ztwzvhepim/apply-all-review/`.
+The local e2e ran while the mutation harness was in its disposable checkout;
+server-suite rebuilds had finished before the browser started. No push or merge
+was performed.

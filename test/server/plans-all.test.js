@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { createSqliteStorage } from '../../server/sqlite.js';
 import { serveLocal } from '../../server/http.js';
 import { signIn } from './session-helper.js';
-import { smallDocument, line } from '../store/fixtures.js';
+import { PLAN_LIMITS } from '../../server/plans.js';
+import { smallDocument, ingredient, prep, dish, line } from '../store/fixtures.js';
 import { dashboardData } from '../../src/calc/dashboard.js';
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'menupilot-all-'));
@@ -22,6 +23,49 @@ function fixture(t) {
 }
 const rows = s => ['document', 'plans', 'ops', 'journal', 'history', 'meta'].map(table => s.db.prepare(`SELECT * FROM ${table}`).all());
 const apply = (s, ids, opId = 'invoice') => s.plans.applyAll(ids, s.plans.reviewAll(ids).consequencesFingerprint, opId);
+
+test('apply-all: 50 proposals and 100 dishes respect the production byte budget', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'menupilot-all-budget-'));
+  const ingredients = Array.from({ length: 50 }, (_, i) => ingredient('i' + String(i).padStart(2, '0')));
+  const recipes = [prep('prep', ingredients.map(i => line(i.id, 'ingredient', i.id, 1000))),
+    ...Array.from({ length: 100 }, (_, i) => ({
+      ...dish('dish' + String(i).padStart(3, '0'), [line('p', 'prep', 'prep', 1000000)]), monthlyVolume: 100
+    }))];
+  const s = createSqliteStorage(join(dir, 'data.db'), {
+    initialDocument: { version: 1, settings: { defaultVatRateBp: 900 }, ingredients, recipes, scenarios: [] },
+    now: () => Date.parse('2026-11-10T12:00:00Z')
+  });
+  t.after(() => { s.close(); rmSync(dir, { recursive: true }); });
+  const ids = [];
+  for (const i of ingredients) {
+    const before = rows(s);
+    try { ids.push(s.plans.propose({ ingredient: i.id, packPrice: '7', packSize: '1 kg' }).id); }
+    catch (error) {
+      assert.equal(error.code, 'plan-budget');
+      assert.deepEqual(rows(s), before, 'refused proposal changes no table');
+      break;
+    }
+  }
+  assert.ok(ids.length >= 2);
+  // Even the longest escaped operation ID must fit the reserved lifecycle room.
+  const result = apply(s, ids, '\0'.repeat(200));
+  assert.equal(result.revision, 1);
+  const stored = s.db.prepare('SELECT plan FROM plans').all();
+  assert.ok(stored.reduce((n, row) => n + Buffer.byteLength(row.plan), 0) <= PLAN_LIMITS.bytes);
+  assert.equal(stored.filter(row => JSON.parse(row.plan).status === 'applied').length, ids.length);
+});
+
+test('apply-all: final byte-budget preflight rejects without any SQL mutation', t => {
+  const { s, ids } = fixture(t), review = s.plans.reviewAll(ids), before = rows(s);
+  const limit = PLAN_LIMITS.bytes;
+  // Model an already accepted legacy set with insufficient lifecycle reserve.
+  PLAN_LIMITS.bytes = s.db.prepare('SELECT plan FROM plans').all().reduce((n, row) => n + Buffer.byteLength(row.plan), 0);
+  s.db.exec("CREATE TRIGGER no_price_write BEFORE INSERT ON document BEGIN SELECT RAISE(ABORT, 'preflight must run first'); END");
+  try {
+    assert.throws(() => s.plans.applyAll(ids, review.consequencesFingerprint, 'invoice'), { code: 'plan-budget' });
+    assert.deepEqual(rows(s), before);
+  } finally { PLAN_LIMITS.bytes = limit; }
+});
 
 test('apply-all: combined review matches Dashboard, one revision/receipt, audit identifies every plan; durable replay', t => {
   const { s, ids, plans, dir, now } = fixture(t);
@@ -135,13 +179,23 @@ test('apply-all HTTP: UI only, fingerprint/identity validation and concurrent si
 
 test('apply-all CLI: plans explains owner confirmation in EN/NL JSON and text', async t => {
   const { executePlanCommand, printPlan } = await import('../../server/cliPlans.js');
-  const { s } = fixture(t);
+  const { s, ids } = fixture(t);
   for (const locale of ['en', 'nl']) {
     const result = await executePlanCommand('plans', ['--locale', locale], async route => route === 'plans' ? s.plans.snapshot() : {});
     assert.match(result.confirmation, locale === 'nl' ? /Alles toepassen/ : /Apply all/);
     const output = []; t.mock.method(console, 'log', value => output.push(value));
     printPlan(result); t.mock.restoreAll();
     assert.ok(output.includes(result.confirmation));
+  }
+  for (const id of ids) {
+    s.plans.reject(id);
+    for (const locale of ['en', 'nl']) {
+      const result = await executePlanCommand('plans', ['--locale', locale], async route => route === 'plans' ? s.plans.snapshot() : {});
+      assert.equal(result.confirmation, undefined, 'no batch hint with fewer than two pending proposals');
+      const output = []; t.mock.method(console, 'log', value => output.push(value));
+      printPlan(result); t.mock.restoreAll();
+      assert.doesNotMatch(output.join('\n'), /Apply all|Alles toepassen/);
+    }
   }
 });
 

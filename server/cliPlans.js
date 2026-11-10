@@ -74,7 +74,7 @@ export async function executePlanCommand(command, args, api) {
     documentId: version.documentId,
     revision: version.revision,
     data: formatted,
-    ...(command === 'plans' && { confirmation: locale === 'nl'
+    ...(command === 'plans' && data.filter(plan => plan.status === 'pending').length >= 2 && { confirmation: locale === 'nl'
       ? 'De eigenaar kan alle openstaande voorstellen tegelijk bevestigen met Alles toepassen in het MenuPilot-venster. De agent kan niet bevestigen.'
       : 'The owner can confirm all pending proposals together with Apply all in the MenuPilot window. The agent cannot confirm.' }),
     warnings,

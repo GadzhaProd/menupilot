@@ -13,6 +13,9 @@ try {
   }
   symlinkSync(join(process.cwd(), 'node_modules'), join(dir, 'node_modules'), 'dir');
   const mutants = [
+    ["apply-all receipt reserve", "server/plans.js", "p.status === 'pending' ? batchReserve : 0", "0", "test/server/plans-all.test.js"],
+    ["apply-all final byte budget", "server/plans.js", "futureBytes > PLAN_LIMITS.bytes", "false", "test/server/plans-all.test.js"],
+    ["apply-all CLI pending count", "server/cliPlans.js", "data.filter(plan => plan.status === 'pending').length >= 2", "true", "test/server/plans-all.test.js"],
     ["apply-all fingerprint", "server/plans.js", "consequencesFingerprint !== review.consequencesFingerprint", "false", "test/server/plans-all.test.js"],
     ["apply-all revision binding", "server/plans.js", "documentId: current.documentId, revision: current.revision,", "documentId: current.documentId,", "test/server/plans-all.test.js"],
     ["apply-all pending gate", "server/plans.js", "plan.status !== 'pending' || plan.protocolVersion", "false || plan.protocolVersion", "test/server/plans-all.test.js"],

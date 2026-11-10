@@ -329,9 +329,16 @@ export function createPlans(storage, now) {
           fail('plan-budget', 'Too many pending plans or this plan is too large. Review pending plans first.');
         }
         // Evict oldest terminal plans only; pending plans are never silently discarded.
-        // Reserve room for receipts and lifecycle timestamps before accepting a plan.
-        const reservedBytes = p => Buffer.byteLength(JSON.stringify(p)) + 1024;
-        let total = plans.reduce((n, p) => n + reservedBytes(p), bytes + 1024);
+        // IDs generated here are UUIDs. Reserve a maximum-size batch receipt for
+        // every pending plan, including a fully JSON-escaped 200-character opId.
+        // The original 1 KiB allowance covers the remaining receipt/lifecycle fields.
+        const batchReserve = Buffer.byteLength(JSON.stringify({
+          opId: '\0'.repeat(200), planIds: Array(PLAN_LIMITS.pending).fill(plan.id),
+          consequencesFingerprint: '0'.repeat(64)
+        }));
+        const reservedBytes = p => Buffer.byteLength(JSON.stringify(p)) + 1024
+          + (p.status === 'pending' ? batchReserve : 0);
+        let total = plans.reduce((n, p) => n + reservedBytes(p), reservedBytes(plan));
         let count = plans.length + 1;
         for (const old of [...plans].reverse()) {
           if (total <= PLAN_LIMITS.bytes && count <= PLAN_LIMITS.count) {
@@ -418,6 +425,22 @@ export function createPlans(storage, now) {
         if (consequencesFingerprint !== review.consequencesFingerprint) {
           fail('plan-consequences-changed', 'Consequences changed. Review the updated figures and confirm again.');
         }
+        // Check actual future records before writing prices. This also protects
+        // proposals accepted by older versions with only a 1 KiB receipt reserve.
+        const appliedAt = timestamp();
+        const projectedReceipt = {
+          opId, documentId: current.documentId ?? '00000000-0000-0000-0000-000000000000',
+          revision: current.revision + 1, changed: true, planIds: ids, consequencesFingerprint
+        };
+        const replacements = new Map(review.plans.map(plan => [plan.id, JSON.stringify({
+          ...plan, status: 'applied', receipt: projectedReceipt, appliedAt
+        })]));
+        const futureBytes = db.prepare('SELECT id,plan FROM plans').all().reduce((total, row) =>
+          total + Buffer.byteLength(replacements.get(row.id) ?? row.plan), 0);
+        if (futureBytes > PLAN_LIMITS.bytes
+          || [...replacements.values()].some(raw => Buffer.byteLength(raw) > PLAN_LIMITS.singleBytes)) {
+          fail('plan-budget', 'Plan storage budget reached. Apply fewer proposals at a time.');
+        }
         const result = storage.write({
           kind: 'save', document, expectedDocumentId: current.documentId,
           expectedRevision: current.revision, opId
@@ -428,7 +451,7 @@ export function createPlans(storage, now) {
         for (const plan of review.plans) {
           plan.status = 'applied';
           plan.receipt = result.receipt;
-          plan.appliedAt = timestamp();
+          plan.appliedAt = appliedAt;
           save(plan);
         }
         return result;
