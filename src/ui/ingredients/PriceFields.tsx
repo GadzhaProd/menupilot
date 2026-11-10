@@ -3,7 +3,7 @@ import { Select } from '@/components/ui/select';
 import { MoneyField, QuantityField } from '@/components/numeric-field';
 import { FormField } from '@/components/form-field';
 import { useLocale, useFormatters } from '@/ui/i18n';
-import type { BaseUnit } from '@/ui/domain/types';
+import type { BaseUnit, PriceRecord } from '@/ui/domain/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +26,9 @@ interface PriceFieldsProps {
   errors: FieldErrors<PriceField>;
   /** The ingredient's stored unit when it is known (New price); null while creating one. */
   base: BaseUnit | null;
-  /** Allowed "Price valid from" days: from the previous price's day to today. */
+  /** Allowed "Price valid from" days: from 2000-01-01 to today. */
   range: DateRange;
+  prices?: readonly PriceRecord[];
 }
 
 /** Validation messages in the current language, shared by the ingredient dialogs. */
@@ -45,7 +46,7 @@ export function useValidationCopy(): IngredientValidationCopy {
 }
 
 /** Pack size, pack price excl. VAT, and the equivalent price per kg, l or pc as you type. */
-export function PriceFields({ draft, onChange, errors, base, range }: PriceFieldsProps) {
+export function PriceFields({ draft, onChange, errors, base, range, prices = [] }: PriceFieldsProps) {
   const { t, locale } = useLocale();
   const f = useFormatters();
   const copy = useValidationCopy();
@@ -53,6 +54,7 @@ export function PriceFields({ draft, onChange, errors, base, range }: PriceField
   // The live preview does not need the zero confirmation or the date.
   const parsed = validatePrice({ ...draft, confirmZero: true, validFrom: '' }, base, copy);
   const zero = isZeroPrice(draft);
+  const duplicateDay = prices.some(price => new Date(price.recordedAt).toISOString().slice(0, 10) === (draft.validFrom || range.max));
   const zeroId = useId();
   const perUnit = parsed.ok ? f.packPrice(parsed.value.packPriceCents, parsed.value.packSizeMilli, parsed.value.unit) : null;
   const displayedPriceError = errors.packPrice ? priceError(draft.packPrice, t) : undefined;
@@ -126,6 +128,7 @@ export function PriceFields({ draft, onChange, errors, base, range }: PriceField
           />
         )}
       </FormField>
+      {duplicateDay ? <p role="status" className="text-sm text-muted-foreground">{t('prices.sameDayWarning')}</p> : null}
       <p aria-live="polite" className="text-sm text-muted-foreground">
         {perUnit === null ? t('ingredients.fillPriceToSee') : <>{t('ingredients.perUnitPreview')} <strong className="text-foreground">{perUnit}</strong> {t('common.exclVat')}.</>}
       </p>

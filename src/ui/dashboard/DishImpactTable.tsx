@@ -1,3 +1,4 @@
+import { MissingPrices } from './MissingPrices';
 import type { DashboardDishRow } from '@/ui/domain/dashboard';
 import { hrefFor } from '@/ui/router/routes';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,6 +22,7 @@ export function DishImpactTable({ rows, comparisonDate, largestId }: { rows: rea
             <a className="font-semibold underline-offset-4 hover:underline" href={hrefFor({ name: 'recipe', id: row.id })}>{row.name}</a>
             <span className="mt-1 block text-xs text-muted-foreground">{v.menu} {t('common.inclVat')} · {v.net} {t('common.exclVat')}</span>
             <a className="mt-2 inline-flex min-h-12 items-center text-sm underline underline-offset-4 no-print" href={hrefFor({ name: 'simulator', id: row.id })}>{t('dashboard.simulate')}</a>
+            <MissingPrices row={row} />
           </TableCell>
           <TableCell className="text-right align-top whitespace-normal">{v.before}</TableCell>
           <TableCell className="text-right align-top whitespace-normal font-semibold">{v.now}</TableCell>

@@ -56,6 +56,7 @@ declare module '@/calc/costing.js' {
     readonly ingredients: readonly T.Ingredient[];
     readonly recipes: readonly T.Recipe[];
   };
+  export function pricesNewestFirst(prices: readonly T.PriceRecord[]): T.PriceRecord[];
   export function selectPriceAtDate(
     prices: readonly T.PriceRecord[],
     asOf?: string,
@@ -138,7 +139,7 @@ declare module '@/store/store.js' {
     save(doc: T.MenuDocument): Promise<T.MenuDocument>;
     addIngredient(input: T.IngredientInput): Promise<{ id: string; document: T.MenuDocument }>;
     updateIngredient(id: string, changes: { name?: string; unit?: T.BaseUnit }): Promise<T.MenuDocument>;
-    /** `effectiveDate` (YYYY-MM-DD, UTC): the day the price is valid from; not before the previous price, not in the future. */
+    /** `effectiveDate` (YYYY-MM-DD, UTC): the day the price is valid from; on or after 2000-01-01, not in the future; earlier invoices are allowed. */
     addPrice(ingredientId: string, price: T.PriceInput, options?: { effectiveDate?: string }): Promise<T.MenuDocument>;
     deleteIngredient(id: string): Promise<T.MenuDocument>;
     saveRecipe(recipe: T.RecipeInput): Promise<{ id: string; document: T.MenuDocument }>;

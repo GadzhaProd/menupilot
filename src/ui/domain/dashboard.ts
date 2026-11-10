@@ -22,6 +22,8 @@ export interface DashboardDishRow {
   foodCostDeltaTenthsPct: bigint | null;
   monthlyImpactCents: bigint | null;
   status: DashboardStatus;
+  /** Unique reachable ingredients without a price at the comparison instant, in recipe order. */
+  missingPrices: { id: string; name: string }[];
   monthlyVolume: number | null;
 }
 

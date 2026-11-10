@@ -9,16 +9,11 @@ const DISH_FIELDS = ['menuPriceInclVatCents', 'vatRateBp', 'portions', 'monthlyV
 const PREP_FIELDS = ['outputMilli', 'outputUnit'];
 const MAX_BP = 10_000;
 
-function isEarlier(a, b) {
-  return instantNotAfter(a, b) && !instantNotAfter(b, a);
-}
-
 function checkPrices(prices, path, errors, ctx) {
   if (!checkArray(prices, path, errors) || !checkSize(prices, LIMITS.pricesPerIngredient, path, errors)) {
     return;
   }
   let previousSeq = null;
-  let previousAt = null;
   prices.forEach((price, index) => {
     const here = `${path}[${index}]`;
     if (!isObject(price)) {
@@ -37,10 +32,9 @@ function checkPrices(prices, path, errors, ctx) {
       previousSeq = price.seq;
     }
     if (timeOk) {
-      if (previousAt !== null && isEarlier(price.recordedAt, previousAt)) {
-        fail(errors, field(here, 'recordedAt'), `must not be earlier than the previous record (${previousAt})`);
+      if (!instantNotAfter('2000-01-01T00:00:00.000Z', price.recordedAt)) {
+        fail(errors, field(here, 'recordedAt'), 'must be on or after 2000-01-01');
       }
-      previousAt = price.recordedAt;
       if (ctx.latestRecordedAt && !instantNotAfter(price.recordedAt, ctx.latestRecordedAt)) {
         fail(errors, field(here, 'recordedAt'), 'must not be in the future');
       }

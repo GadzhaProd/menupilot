@@ -21,6 +21,16 @@ export function selectPriceAtDate(prices, asOf) {
   return selectPriceAtDateInternal(prices, asOf);
 }
 
+/** Price history for display, newest effective instant first; never reorders storage. */
+export function pricesNewestFirst(prices) {
+  // Validate single-entry histories too; the comparator is not called for those.
+  selectPriceAtDateInternal(prices);
+  return [...prices].sort((left, right) => {
+    if (left === right) return 0;
+    return selectPriceAtDateInternal([left, right]) === left ? -1 : 1;
+  });
+}
+
 /**
  * Calculate one ingredient line in integer micro-euros.
  * @param {{unit:string, prices:object[]}} ingredient

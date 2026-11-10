@@ -165,7 +165,7 @@ export function createStore(storage, { now = () => new Date(), demo, createId = 
 
     /**
      * Append a price record; earlier records are never changed. `effectiveDate` (YYYY-MM-DD, UTC)
-     * is the optional "valid from" day: not before the previous price's day, not in the future.
+     * is the optional "valid from" day: on or after 2000-01-01, not in the future; earlier invoices are allowed.
      */
     addPrice(ingredientId, price, { effectiveDate } = {}) {
       return change((draft) => {

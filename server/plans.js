@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { StoreError } from '../src/store/errors.js';
+import { selectPriceAtDate } from '../src/calc/costing.js';
 import { appendPrice } from '../src/store/price.js';
 import { assertValidDocument } from '../src/store/schema.js';
 import { parseMoneyToCents } from '../src/calc/money.js';
@@ -279,7 +280,7 @@ export function createPlans(storage, now) {
             message: 'The proposed supplier price is zero. Check the invoice before confirming.'
           });
         }
-        const oldPrice = target.prices.at(-1);
+        const oldPrice = selectPriceAtDate(target.prices);
         // Exact ratio comparison for the approval guardrail, without rounding either unit price.
         if (oldPrice) {
           const next = BigInt(packPriceCents) * BigInt(oldPrice.packSizeMilli);
@@ -312,7 +313,7 @@ export function createPlans(storage, now) {
           ingredient: { id: target.id, name: target.name, unit: target.unit },
           price,
           basis: basis(target),
-          previousPrice: packaging(target.prices.at(-1), target.unit),
+          previousPrice: packaging(selectPriceAtDate(target.prices), target.unit),
           proposedPrice: packaging(price, target.unit),
           effects: planEffects(current.document, document, target.id, createdAt),
           warnings,

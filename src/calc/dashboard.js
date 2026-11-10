@@ -1,26 +1,34 @@
 import { batchCostMicro, metrics, prepUnitCostDisplay, recipeCost, selectPriceAtDate } from './costing.js';
 import { averageFoodCostTenths, costChangeCents, foodCostChangeTenths, menuMonthlyImpactCents, monthlyImpactCents } from './impact.js';
 
-function recipePriceIssue(recipe, catalog, asOf, visited = new Set()) {
-  if (visited.has(recipe.id)) return null;
-  visited.add(recipe.id);
-  for (const line of recipe.lines) {
-    if (line.ref.kind === 'ingredient') {
-      const ingredient = catalog.ingredients.find(entry => entry.id === line.ref.id);
-      if (!ingredient || ingredient.prices.length === 0) return 'cost-unknown';
-      if (selectPriceAtDate(ingredient.prices, asOf) === null) return 'no-price-on-date';
-    } else {
-      const prep = catalog.recipes.find(entry => entry.id === line.ref.id && entry.kind === 'prep');
-      if (!prep) return 'cost-unknown';
-      const issue = recipePriceIssue(prep, catalog, asOf, visited);
-      if (issue !== null) return issue;
+function recipePriceIssues(recipe, catalog, asOf) {
+  const visited = new Set();
+  const missing = new Map();
+  let issue = null;
+  function visit(current) {
+    if (visited.has(current.id)) return;
+    visited.add(current.id);
+    for (const line of current.lines) {
+      if (line.ref.kind === 'ingredient') {
+        const ingredient = catalog.ingredients.find(entry => entry.id === line.ref.id);
+        if (!ingredient) { issue ??= 'cost-unknown'; continue; }
+        if (selectPriceAtDate(ingredient.prices, asOf) === null) {
+          issue ??= ingredient.prices.length === 0 ? 'cost-unknown' : 'no-price-on-date';
+          missing.set(ingredient.id, { id: ingredient.id, name: ingredient.name });
+        }
+      } else {
+        const prep = catalog.recipes.find(entry => entry.id === line.ref.id && entry.kind === 'prep');
+        if (prep) visit(prep);
+        else issue ??= 'cost-unknown';
+      }
     }
   }
-  return null;
+  visit(recipe);
+  return { issue, missingPrices: [...missing.values()] };
 }
 
 function makeDishRow(dish, catalog, asOf) {
-  const priceIssue = recipePriceIssue(dish, catalog, asOf);
+  const { issue: priceIssue, missingPrices } = recipePriceIssues(dish, catalog, asOf);
   const commonMetrics = { menuPriceInclVatCents: dish.menuPriceInclVatCents, vatRateBp: dish.vatRateBp, monthlyVolume: dish.monthlyVolume ?? null };
   try {
     const current = metrics({ recipeCostPerPortionMicro: recipeCost(dish, catalog).costPerPortionMicro, ...commonMetrics });
@@ -35,19 +43,19 @@ function makeDishRow(dish, catalog, asOf) {
       foodCostDeltaTenthsPct: foodCostChangeTenths(current.foodCostTenthsPct, historical.foodCostTenthsPct),
       monthlyImpactCents: monthlyImpact,
       status: priceIssue ?? ((current.status === 'cost-unknown' || historical.status === 'cost-unknown') ? 'cost-unknown' : 'ready'),
-      monthlyVolume: dish.monthlyVolume ?? null,
+      monthlyVolume: dish.monthlyVolume ?? null, missingPrices,
     };
   } catch (error) {
     if (!(error instanceof TypeError) && !(error instanceof RangeError)) throw error;
     return { id: dish.id, name: dish.name, menuPriceInclVatCents: dish.menuPriceInclVatCents,
       priceExclVatMicro: null, currentCostMicro: null, comparisonCostMicro: null, currentContributionMicro: null,
       currentFoodCostTenthsPct: null, costDeltaCents: null, foodCostDeltaTenthsPct: null, monthlyImpactCents: null,
-      status: 'error', monthlyVolume: dish.monthlyVolume ?? null };
+      status: 'error', monthlyVolume: dish.monthlyVolume ?? null, missingPrices };
   }
 }
 
 function makePrepRow(prep, catalog, asOf) {
-  const issue = recipePriceIssue(prep, catalog, asOf);
+  const { issue } = recipePriceIssues(prep, catalog, asOf);
   const costUnknown = issue === 'cost-unknown', noPriceOnDate = issue === 'no-price-on-date';
   const currentBatchCost = costUnknown ? null : batchCostMicro(prep, catalog);
   const historicalBatchCost = issue !== null ? null : batchCostMicro(prep, catalog, { asOf });

@@ -3,7 +3,7 @@
  * Results hold BigInt values: derive them while rendering, never store or serialise them.
  */
 import {
-  compare, createBaselineSnapshot, isBaselineStale, selectPriceAtDate, simulate,
+  compare, createBaselineSnapshot, isBaselineStale, pricesNewestFirst, selectPriceAtDate, simulate,
 } from '@/ui/domain/calc';
 import type {
   Baseline, BaseUnit, MenuDocument, PriceRecord, ScenarioComparison, SimulateResult,
@@ -78,7 +78,8 @@ export interface IngredientInfo {
 export function ingredientInfos(baseline: Baseline): IngredientInfo[] {
   return baseline.ingredients.map((ingredient) => {
     const price = selectPriceAtDate(ingredient.prices, baseline.takenAt);
-    const index = price === null ? -1 : ingredient.prices.indexOf(price);
+    const dated = pricesNewestFirst(ingredient.prices);
+    const index = price === null ? -1 : dated.indexOf(price);
     return {
       id: ingredient.id,
       name: ingredient.name,
@@ -87,7 +88,7 @@ export function ingredientInfos(baseline: Baseline): IngredientInfo[] {
         .filter((recipe) => recipe.lines.some((line) => line.ref.kind === 'ingredient' && line.ref.id === ingredient.id))
         .map((recipe) => recipe.name),
       price,
-      earlier: index > 0 ? ingredient.prices[index - 1] ?? null : null,
+      earlier: index >= 0 ? dated[index + 1] ?? null : null,
     };
   });
 }

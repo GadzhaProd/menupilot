@@ -1,3 +1,4 @@
+import { MissingPrices } from './MissingPrices';
 import type { DashboardDishRow } from '@/ui/domain/dashboard';
 import { hrefFor } from '@/ui/router/routes';
 import { useLocale } from '@/ui/i18n';
@@ -12,6 +13,7 @@ export function DishImpactCards({ rows }: { rows: readonly DashboardDishRow[] })
       const v = figures(row);
       return <article key={row.id} className="space-y-4 py-5">
         <h3 className="font-semibold"><a href={hrefFor({ name: 'recipe', id: row.id })}>{row.name}</a></h3>
+        <MissingPrices row={row} />
         <dl className="grid grid-cols-3 gap-2 text-sm">
           {[[t('common.before'), v.before, ''], [t('dashboard.now'), v.now, 'font-semibold'], [t('dashboard.change'), v.change, costTone(row.costDeltaCents)]].map(([label, value, tone]) =>
             <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className={`mt-1 break-words tabular-nums ${tone}`}>{value}</dd></div>)}
