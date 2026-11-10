@@ -1,7 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NOW, renderApp } from './helpers';
+import { NOW, renderApp, storageWith, demoCopy } from './helpers';
 
 beforeEach(() => {
   window.location.hash = '';
@@ -98,4 +98,25 @@ describe('Dashboard date comparison', () => {
     expect(datePicker.value).toBe('2027-01-01');
     expect(datePicker.max).toBe('2027-01-31');
   });
+});
+
+
+it('names missing comparison prices in both dish layouts, capped at three, with EN/NL guidance', async () => {
+  const doc = demoCopy();
+  for (const item of doc.ingredients) for (const price of item.prices) price.recordedAt = NOW;
+  await renderApp(storageWith(doc));
+  const row = dishRow('Classic Burger');
+  const note = within(row).getByText(/Missing prices on this date:/).closest('p')!;
+  expect(note.textContent).toMatch(/Beef mince 80\/20/);
+  expect(note.textContent).toContain('Brioche burger bun');
+  expect(note.textContent).toContain('Aged cheddar');
+  expect(note.textContent).toMatch(/and \d+ more/);
+  expect(note.textContent).not.toContain('Mayonnaise');
+  expect(within(note).getByRole('link', { name: 'Ingredients' }).getAttribute('href')).toBe('#/ingredients');
+  const card = screen.getAllByRole('article').find(a => within(a).queryByRole('link', { name: 'Classic Burger' }))!;
+  expect(within(card).getByText(/Missing prices on this date:/).textContent).toBe(note.textContent);
+  expect(screen.getByText(/A comparison needs a price on this date for every ingredient/).textContent).toContain('including its preps');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'NL – Nederlands' }));
+  expect(screen.getAllByText(/Ontbrekende prijzen op deze datum:/).length).toBeGreaterThan(0);
+  expect(screen.getByText(/Voor een vergelijking heeft elk ingrediënt/).textContent).toContain('basisrecepten');
 });

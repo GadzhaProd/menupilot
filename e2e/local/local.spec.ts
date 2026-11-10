@@ -91,6 +91,18 @@ test('local price history and recipe drafts survive restart; browser import repl
     await dialog.getByLabel(/Pack price/).fill('3.50');
     await dialog.getByRole('button', { name: 'Save price', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    // An earlier invoice must not replace the current supplier price in SQLite.
+    await page.getByRole('button', { name: 'New price for Local flour', exact: true }).click();
+    dialog = page.getByRole('dialog');
+    await dialog.getByLabel(/Pack price/).fill('1.00');
+    await dialog.getByLabel('Price valid from', { exact: true }).fill('2026-01-01');
+    await dialog.getByRole('button', { name: 'Save price', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole('button', { name: 'Price history of Local flour', exact: true }).click();
+    const datedRows = page.getByRole('dialog').getByRole('row');
+    await expect(datedRows.nth(1)).toContainText('€3.50');
+    await expect(datedRows.nth(3)).toContainText('€1.00');
+    await page.keyboard.press('Escape');
     // A recipe draft is registered in localStorage so a fresh tab can recover it.
     await page.getByRole('button', { name: 'New price for Local flour', exact: true }).click();
     await page.getByRole('dialog').getByLabel(/Pack price/).fill('4.00');
@@ -124,7 +136,7 @@ test('local price history and recipe drafts survive restart; browser import repl
     await expect(resumed.getByTestId('local-mode')).toBeVisible();
     await navigate(resumed, 'Ingredients');
     await resumed.getByRole('button', { name: 'Price history of Local flour', exact: true }).click();
-    await expect(resumed.getByRole('dialog').getByRole('row')).toHaveCount(3);
+    await expect(resumed.getByRole('dialog').getByRole('row')).toHaveCount(4);
     await expect(resumed.getByRole('dialog').getByText('€3.50', { exact: true })).toBeVisible();
     await resumed.keyboard.press('Escape');
     await expect(resumed.getByTestId('backup-status')).toContainText('Last backup:');

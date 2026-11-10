@@ -30,6 +30,10 @@ describe('CLI Dashboard parity', () => {
         if (index === 1) scenarioDoc.recipes.find((recipe) => recipe.kind === 'dish')!.monthlyVolume = 0;
         if (index === 2) scenarioDoc.recipes.find((recipe) => recipe.kind === 'dish')!.menuPriceInclVatCents = 0;
         if (index === 3) scenarioDoc.ingredients[0]!.prices = [];
+        if (index === 4) {
+          const ingredient = scenarioDoc.ingredients[0]!;
+          ingredient.prices.push({ ...ingredient.prices[0]!, seq: ingredient.prices.at(-1)!.seq + 1, recordedAt: '2026-01-01T00:00:00.000Z', packPriceCents: 100 });
+        }
         const date = dates[index] ?? new Date(today.getTime() - offset).toISOString().slice(0, 10);
         const asOf = `${date}T23:59:59.999Z`;
         const ui = dashboardData(scenarioDoc as never, asOf);

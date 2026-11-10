@@ -1,15 +1,18 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { lastPriceDay, todayInput, validateNewIngredient, validatePrice } from '@/ui/forms/ingredientForm';
+import { todayInput, validateNewIngredient, validatePrice } from '@/ui/forms/ingredientForm';
 import { summarizeUsers } from '@/ui/forms/usage';
 import {
   go, renderApp, savedDocument, sauceDoc, storageWith, STORAGE_KEY,
 } from './helpers';
 import { NOW } from './helpers';
+import type { MenuDocument } from '@/ui/domain/types';
+import { ingredientInfos } from '@/ui/domain/simulator';
+import { createBaselineSnapshot } from '@/ui/domain/calc';
 
 const user = () => userEvent.setup();
-const RANGE = { min: '2026-09-01', max: '2026-10-25' };
+const RANGE = { min: '2000-01-01', max: '2026-10-25' };
 const base = { packSize: '1', packSizeUnit: 'kg' as const, packPrice: '2,00' };
 
 beforeEach(() => { window.location.hash = ''; });
@@ -23,23 +26,34 @@ describe('price form rules', () => {
     expect(validateNewIngredient({ name: 'Salt', packSize: '1', packSizeUnit: 'kg', packPrice: '0' })).toMatchObject({ ok: false, errors: { confirmZero: expect.any(String) } });
   });
 
-  it('"valid from" must lie between the previous price and today; today passes no date', () => {
+  it('"valid from" must lie between 2000-01-01 and today; today passes no date', () => {
     expect(validatePrice({ ...base, validFrom: '2026-10-25' }, null, undefined, RANGE)).toMatchObject({ ok: true });
     expect((validatePrice({ ...base, validFrom: '2026-10-25' }, null, undefined, RANGE) as { value: object }).value).not.toHaveProperty('effectiveDate');
     expect(validatePrice({ ...base, validFrom: '' }, null, undefined, RANGE)).toMatchObject({ ok: true });
     expect(validatePrice({ ...base, validFrom: '2026-10-01' }, null, undefined, RANGE)).toMatchObject({ ok: true, value: { effectiveDate: '2026-10-01' } });
     expect(validatePrice({ ...base, validFrom: '2026-09-01' }, null, undefined, RANGE)).toMatchObject({ ok: true, value: { effectiveDate: '2026-09-01' } });
-    expect(validatePrice({ ...base, validFrom: '2026-08-31' }, null, undefined, RANGE)).toMatchObject({ ok: false, errors: { validFrom: expect.stringMatching(/earlier than the previous price/) } });
+    expect(validatePrice({ ...base, validFrom: '2026-08-31' }, null, undefined, RANGE)).toMatchObject({ ok: true });
+    expect(validatePrice({ ...base, validFrom: '1999-12-31' }, null, undefined, RANGE)).toMatchObject({ ok: false, errors: { validFrom: expect.stringMatching(/2000-01-01/) } });
     expect(validatePrice({ ...base, validFrom: '2026-10-26' }, null, undefined, RANGE)).toMatchObject({ ok: false, errors: { validFrom: expect.stringMatching(/future/) } });
     expect(validatePrice({ ...base, validFrom: '2026-02-30' }, null, undefined, RANGE)).toMatchObject({ ok: false, errors: { validFrom: expect.stringMatching(/valid date/) } });
   });
 
-  it('knows today and the day of the last price', () => {
+  it('uses UTC for today', () => {
     // Calendar days are UTC days everywhere, whatever the local clock says.
     expect(todayInput(new Date('2026-10-24T23:30:00.000Z'))).toBe('2026-10-24');
     expect(todayInput(new Date('2026-10-25T00:00:00.000Z'))).toBe('2026-10-25');
-    expect(lastPriceDay([])).toBeNull();
-    expect(lastPriceDay([{ recordedAt: '2026-09-01T00:00:00.000Z' }, { recordedAt: '2026-09-03T23:30:00-02:00' }])).toBe('2026-09-04');
+  });
+
+  it('simulator current and earlier prices follow invoice dates after a backdated addition', () => {
+    const doc = sauceDoc();
+    const ingredient = doc.ingredients[0]!;
+    ingredient.prices.push({ ...ingredient.prices[0]!, seq: 2, recordedAt: NOW, packPriceCents: 500 });
+    ingredient.prices.push({ ...ingredient.prices[0]!, seq: 3, recordedAt: '2026-09-15T00:00:00.000Z', packPriceCents: 300 });
+    doc.recipes = [recipeUsing('dish', 'Dish', 'ingredient', ingredient.id)] as typeof doc.recipes;
+    const baseline = createBaselineSnapshot(doc as unknown as MenuDocument, 'dish', NOW);
+    const info = ingredientInfos(baseline).find(i => i.id === ingredient.id)!;
+    expect(info.price?.seq).toBe(2);
+    expect(info.earlier?.seq).toBe(3);
   });
 
   it('lists at most 3 users, then "and N more"', () => {
@@ -113,7 +127,7 @@ describe('Price valid from', () => {
     const dialog = await screen.findByRole('dialog');
     const date = within(dialog).getByLabelText('Price valid from') as HTMLInputElement;
     expect(date.value).toBe(todayInput(new Date(NOW)));
-    expect(date.min).toBe('2026-09-01');
+    expect(date.min).toBe('2000-01-01');
     expect(date.max).toBe(todayInput(new Date(NOW)));
     await u.type(within(dialog).getByLabelText(/Pack price/), '2,50');
     fireEvent.change(date, { target: { value: '2026-09-15' } });
@@ -123,7 +137,7 @@ describe('Price valid from', () => {
     expect(prices.at(-1)).toMatchObject({ seq: 2, recordedAt: '2026-09-15T00:00:00.000Z', packPriceCents: 250 });
   });
 
-  it('shows a field error for a date before the previous price or in the future, and writes nothing', async () => {
+  it('shows a field error for a date before 2000 or in the future, and writes nothing', async () => {
     const u = user();
     const storage = await openIngredients();
     const before = storage.data.get(STORAGE_KEY);
@@ -132,11 +146,11 @@ describe('Price valid from', () => {
     const date = within(dialog).getByLabelText('Price valid from') as HTMLInputElement;
     await u.type(within(dialog).getByLabelText(/Pack price/), '2,50');
 
-    fireEvent.change(date, { target: { value: '2026-08-31' } });
+    fireEvent.change(date, { target: { value: '1999-12-31' } });
     await u.click(within(dialog).getByRole('button', { name: 'Save price' }));
     expect(date.getAttribute('aria-invalid')).toBe('true');
     expect(document.activeElement).toBe(date);
-    expect(document.getElementById(date.getAttribute('aria-describedby')?.split(' ').at(-1) ?? '')?.textContent).toMatch(/earlier than the previous price \(1 Sep\w* 2026\)/);
+    expect(document.getElementById(date.getAttribute('aria-describedby')?.split(' ').at(-1) ?? '')?.textContent).toMatch(/on or after 1 Jan 2000/);
 
     fireEvent.change(date, { target: { value: '2999-01-01' } });
     expect(document.getElementById(date.getAttribute('aria-describedby')?.split(' ').at(-1) ?? '')?.textContent).toMatch(/cannot be in the future/);
@@ -146,6 +160,27 @@ describe('Price valid from', () => {
     expect(date.getAttribute('aria-invalid')).toBeNull();
     await u.click(within(dialog).getByRole('button', { name: 'Save price' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('an older invoice is allowed after a later price; same-day warning and dated history stay clear', async () => {
+    const u = user();
+    const doc = sauceDoc();
+    doc.ingredients[0]!.prices[0]!.recordedAt = NOW;
+    const storage = await openIngredients(storageWith(doc));
+    await u.click(screen.getByRole('button', { name: 'New price for Tomatoes' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('status').textContent).toMatch(/already a price on this date/);
+    await u.type(within(dialog).getByLabelText(/Pack price/), '1,00');
+    fireEvent.change(within(dialog).getByLabelText('Price valid from'), { target: { value: '2026-08-01' } });
+    expect(within(dialog).queryByText(/already a price on this date/)).toBeNull();
+    await u.click(within(dialog).getByRole('button', { name: 'Save price' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const ingredient = savedDocument(storage).ingredients[0]!;
+    expect(ingredient.prices.at(-1)).toMatchObject({ packPriceCents: 100, recordedAt: '2026-08-01T00:00:00.000Z' });
+    await u.click(screen.getByRole('button', { name: 'Price history of Tomatoes' }));
+    const rows = within(screen.getByRole('dialog')).getAllByRole('row');
+    expect(rows[1]!.textContent).toContain('€2.00');
+    expect(rows[2]!.textContent).toContain('€1.00');
   });
 
   it('Add ingredient takes the initial price date too', async () => {
@@ -213,7 +248,7 @@ describe('Dashboard without prices on the comparison date', () => {
     fireEvent.change(screen.getByLabelText('Choose date'), { target: { value: '2026-01-01' } });
     const note = screen.getByText('No dish has complete ingredient prices on 1 Jan 2026', { selector: 'p.font-semibold' }).closest('[role="status"]') as HTMLElement;
     expect(note.textContent).toMatch(/This is not “no change”/);
-    expect(note.textContent).toMatch(/Choose a later date, or add a past price with the date on the invoice/);
+    expect(note.textContent).toMatch(/add a past supplier price excl. VAT with its invoice date/);
     const impact = screen.getByRole('heading', { name: 'Monthly impact at your volume' }).closest('section') as HTMLElement;
     expect(impact.textContent).toContain('—');
     expect(impact.textContent).not.toContain('€0.00');

@@ -125,3 +125,25 @@ export function encoded(doc) {
   return JSON.stringify({ version: 2, schemaVersion: 2, documentId: 'fixture', revision: 1, document: doc });
 }
 export function decoded(raw) { const value = JSON.parse(raw); return value?.version === 2 ? value.document : value; }
+
+/** Mark's first-day burger: one prep, five ingredients, all prices entered today. */
+export function markPriceDocument() {
+  const make = (id, name, unit, packPriceCents, packSizeMilli) => ({ id, name, unit,
+    prices: [{ seq: 1, recordedAt: '2026-10-20T12:00:00.000Z', packPriceCents, packSizeMilli }] });
+  return {
+    version: 1, settings: { defaultVatRateBp: 900 }, scenarios: [],
+    ingredients: [
+      make('beef', 'Beef mince', 'g', 1950, 1000000),
+      make('bun', 'Burger buns', 'pc', 1056, 12000),
+      make('cheese', 'Cheddar', 'g', 1320, 1000000),
+      make('tomato', 'Tomatoes', 'g', 200, 1000000),
+      make('onion', 'Onions', 'g', 700, 5000000),
+    ],
+    recipes: [
+      prep('sauce', [line('tomato', 'ingredient', 'tomato', 1400000), line('onion', 'ingredient', 'onion', 1000000)], 2600000),
+      { ...dish('burger', [line('beef', 'ingredient', 'beef', 180000), line('bun', 'ingredient', 'bun', 1000),
+        line('cheese', 'ingredient', 'cheese', 30000), line('sauce', 'prep', 'sauce', 60000)]), name: 'Mark Burger',
+        menuPriceInclVatCents: 1450, monthlyVolume: 300 },
+    ],
+  };
+}

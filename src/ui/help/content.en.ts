@@ -298,7 +298,7 @@ const createContentEn = (local: boolean): HelpDocument => ({
       id: 'ingredients',
       title: 'Ingredients and their prices',
       blocks: [
-        { kind: 'p', text: 'Everything starts with ingredients: what you buy and the price on the supplier’s invoice. MenuPilot keeps every price you enter, with its date. The newest price is the one used in calculations. The older ones stay in the history, and the Dashboard needs them to show what changed.' },
+        { kind: 'p', text: 'Everything starts with ingredients: what you buy and the price on the supplier’s invoice. MenuPilot keeps every price you enter, with its date. Calculations use the price with the latest price date; for the same date, the later entry is used. The older ones stay in the history, and the Dashboard needs them to show what changed.' },
         { kind: 'image', image: img('ingredients-list', 'The Ingredients page: the table Current supplier prices with the buttons New price, Price history, Rename and Delete at the end of each row.', 'Each row has four buttons on the right. The button Add ingredient is at the top right of the page.') },
         {
           kind: 'steps',
@@ -367,7 +367,7 @@ const createContentEn = (local: boolean): HelpDocument => ({
           kind: 'note',
           tone: 'important',
           title: 'Price valid from, and a price of 0',
-          text: ['The field ', b('Price valid from'), ' is the date on the invoice (dates are calendar days in UTC, like everywhere in MenuPilot, so just after midnight in the Netherlands “today” can still be yesterday’s date). It is today unless you change it. You may pick an earlier day, but not before the date of the previous price and not in the future. A price with an earlier date counts on the Dashboard from that day on, so you can enter last week’s invoice today. If you type a price of 0, MenuPilot warns you that recipes will count the product as free, and saves it only after you tick the box. If you do not know the price, leave it empty: recipes then show “cost unknown”.'],
+          text: ['The field ', b('Price valid from'), ' is the date on the invoice (dates are calendar days in UTC, like everywhere in MenuPilot, so just after midnight in the Netherlands “today” can still be yesterday’s date). It is today unless you change it. You may pick any day from 1 January 2000 to today, even if a newer invoice price is already saved. The price with the latest date remains current. A past supplier price excl. VAT counts from its invoice day for Dashboard comparisons. If there is already a price on that day, a warning explains that the new price counts as the later entry for that day. Existing entries stay unchanged. If you type a price of 0, MenuPilot warns you that recipes will count the product as free, and saves it only after you tick the box. If you do not know the price, leave it empty: recipes then show “cost unknown”.'],
         },
         {
           kind: 'steps',
@@ -593,8 +593,8 @@ const createContentEn = (local: boolean): HelpDocument => ({
           items: [
             { message: '—', meaning: ['No monthly sales number was entered for this dish (the table says “Volume missing”). It is left out of the monthly total. Open the dish. Enter the number of portions in ', b('Monthly volume (optional)'), '. Click ', b('Save changes'), '.'] },
             { message: 'cost unknown', meaning: ['A price is missing for an ingredient of this dish. Add the price on the Ingredients page.'] },
-            { message: 'no price on this date', meaning: ['One of the ingredients had no price yet on the chosen date, because you started entering prices later. Choose a more recent date, or add a past price with the date of the invoice (', b('New price'), ', field ', b('Price valid from'), ').'] },
-            { message: 'No dish has complete ingredient prices on …', meaning: ['The Dashboard shows this note instead of a bare €0.00 when no dish has all of its ingredient prices on the chosen date. There is nothing to compare with, so this is not “no change”. Choose a later date, or add a past price with the date of the invoice.'] },
+            { message: 'no price on this date', meaning: ['A comparison needs a price on the chosen date for every ingredient of the dish and its preps. Missing ingredient names are shown with the dish (up to three, then “and N more”). Adding just one past price may leave other ingredients missing. Choose a more recent date, or add a past price with the date of the invoice (', b('New price'), ', field ', b('Price valid from'), ').'] },
+            { message: 'No dish has complete ingredient prices on …', meaning: ['The Dashboard shows this note instead of a bare €0.00 when no dish has all of its ingredient prices on the chosen date. There is nothing to compare with, so this is not “no change”. Every ingredient of a dish and its preps needs a price on that date; missing names are shown with each dish. Choose a later date, or add the missing past prices with their invoice dates.'] },
             { message: 'n/a', meaning: ['The number cannot be calculated, for example a percentage when the menu price is €0.00.'] },
             { message: '(incomplete)', meaning: ['Next to the monthly impact: some dishes with a monthly volume had to be left out, and a line below says why.'] },
             { message: 'No comparable dish became more expensive in this period.', meaning: ['None of the dishes with known prices on both dates became more expensive. Also check whether other dishes show cost unknown or no price on this date. Choose a longer period or an older date to look further back.'] },
@@ -856,7 +856,7 @@ const createContentEn = (local: boolean): HelpDocument => ({
           items: [
             ['The number is not saved yet: click its field. Hold Ctrl and press A (on a Mac: ⌘ and A). Type the correct number. Then click the save button.'],
             ['You do not want to save at all: click ', b('Cancel'), ' (in a recipe: ', b('Discard changes'), '). Nothing is saved.'],
-            ['A wrong ingredient price was already saved: open ', b('New price'), ' for that ingredient and save the right price. The newest price counts. The incorrect price stays in the history. It may still affect comparisons with dates before your correction.'],
+            ['A wrong ingredient price was already saved: open ', b('New price'), ' for that ingredient and save the right price. The price with the latest date counts; for the same date, the later entry is used. The incorrect price stays in the history. It may still affect comparisons with dates before your correction.'],
             ['A recipe was saved with a wrong number: click ', b('Recipes'), ', open the dish, correct the number and click ', b('Save changes'), '.'],
           ],
         },

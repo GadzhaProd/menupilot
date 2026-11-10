@@ -19,6 +19,7 @@ export {
   prepUnitCostCents,
   recipeCost,
   selectPriceAtDate,
+  pricesNewestFirst,
 } from '@/calc/costing.js';
 export { normalizeUnit, parseQuantityToMilli, unitPriceSuffix } from '@/calc/units.js';
 export { compare, createBaselineSnapshot, isBaselineStale, simulate } from '@/calc/simulate.js';
