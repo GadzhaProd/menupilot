@@ -8,6 +8,23 @@ const screen = (page: import('@playwright/test').Page, name: string | RegExp) =>
   expect(page.getByRole('heading', { name, exact: typeof name === 'string' })).toBeVisible();
 const menuPrice = (page: import('@playwright/test').Page) => page.getByLabel('Menu price (incl. VAT)', { exact: true });
 
+test('Recipes list shows food cost in its own column and links the computer version from Data', async ({ page }) => {
+  await page.goto('#/recipes');
+  await screen(page, 'Recipes');
+  const burger = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Classic Burger', exact: true }) });
+  await expect(burger).toContainText('40.4%');
+  await expect(page.getByRole('button', { name: 'Food cost % (excl. VAT), Sort by food cost ascending', exact: true })).toBeVisible();
+
+  await page.goto('#/data');
+  await screen(page, 'Data');
+  await expect(page.getByText('Want your data on your computer, with automatic backups?', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Run locally (opens in a new tab)', exact: true })).toHaveAttribute('href', 'https://github.com/GadzhaProd/menupilot#run-locally');
+  await page.getByRole('button', { name: 'Do not show', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Want your data on your computer, with automatic backups?', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Import backup', exact: true })).toBeFocused();
+});
+
 test('Dashboard shows exact 30-day burger impact and no change over 7 days', async ({ page }) => {
   await screen(page, 'What has changed on your menu?');
   const burger = page.getByRole('row', { name: /Classic Burger/ });

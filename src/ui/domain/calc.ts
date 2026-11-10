@@ -24,7 +24,7 @@ export {
 export { normalizeUnit, parseQuantityToMilli, unitPriceSuffix } from '@/calc/units.js';
 export { compare, createBaselineSnapshot, isBaselineStale, simulate } from '@/calc/simulate.js';
 
-/** One dish on the Dashboard. BigInt fields are derived: keep them in memory only. */
+/** One derived dish row for screens. BigInt fields stay in memory and are never serialized. */
 export interface DishRow {
   id: string;
   name: string;
@@ -36,6 +36,8 @@ export interface DishRow {
   costPerPortionMicro: bigint | null;
   /** Contribution before other costs; null = cost unknown. */
   contributionMicro: bigint | null;
+  /** Food cost percentage based on the price excl. VAT, in tenths of a percent. */
+  foodCostTenthsPct: bigint | null;
   error?: string;
 }
 
@@ -56,6 +58,7 @@ function dishRow(dish: Dish, data: Pick<MenuDocument, 'ingredients' | 'recipes'>
       priceExclVatMicro: result.priceExclVatMicro,
       costPerPortionMicro: result.recipeCostPerPortionMicro,
       contributionMicro: result.contributionMicro,
+      foodCostTenthsPct: result.foodCostTenthsPct,
     };
   } catch (error) {
     return {
@@ -66,6 +69,7 @@ function dishRow(dish: Dish, data: Pick<MenuDocument, 'ingredients' | 'recipes'>
       priceExclVatMicro: null,
       costPerPortionMicro: null,
       contributionMicro: null,
+      foodCostTenthsPct: null,
       error: error instanceof Error ? error.message : 'Calculation failed.',
     };
   }

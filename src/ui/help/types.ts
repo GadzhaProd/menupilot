@@ -60,8 +60,8 @@ export type HelpImageId =
   | 'simulator-compare'
   | 'simulator-stale';
 
-/** Inline text: plain, a button or field name as shown on screen (bold), or a link to another section. */
-export type RichPart = string | { readonly b: string } | { readonly to: HelpSectionId; readonly text: string };
+/** Inline text: plain text, a button or field name (bold), or an internal or external link. */
+export type RichPart = string | { readonly b: string } | { readonly to: HelpSectionId; readonly text: string } | { readonly href: string; readonly text: string };
 export type Rich = string | readonly RichPart[];
 
 /** Mark a button, field or menu name exactly as it appears on screen. */

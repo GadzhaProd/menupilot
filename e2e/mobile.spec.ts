@@ -69,6 +69,14 @@ test('primary mobile screens transition without error or horizontal scrolling', 
   }
 });
 
+test('mobile Recipes keeps the food cost visible without horizontal scrolling', async ({ page }) => {
+  await page.goto('#/recipes');
+  await screen(page, 'Recipes');
+  const burger = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Classic Burger', exact: true }) });
+  await expect(burger).toContainText(/Food cost %:\s*40\.4%/);
+  await noOverflow(page);
+});
+
 test('Dutch mobile saving state preserves the new ingredient draft at 375px', async ({ page }) => {
   const { holdWriter } = await import('./fixtures');
   await page.getByRole('button', { name: 'NL – Nederlands' }).click();

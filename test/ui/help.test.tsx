@@ -399,4 +399,21 @@ describe('"Help for this page" links', () => {
     const heading = await screen.findByRole('heading', { level: 2, name: /Ingredients and their prices/ });
     await waitFor(() => expect(document.activeElement).toBe(heading));
   });
+
+  it('links to the local computer instructions in EN, NL and RU in browser help', async () => {
+    (await renderApp());
+    await go('#/help/data');
+    const guideUrl = 'https://github.com/GadzhaProd/menupilot#run-locally';
+    expect(screen.getByRole('link', { name: 'Run locally (opens in a new tab)' }).getAttribute('href')).toBe(guideUrl);
+    expect(screen.getByText(/macOS or Linux/)).toBeTruthy();
+    expect(screen.getByText(/automatic backups \(about every 5 minutes\)/)).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Nederlands' }));
+    expect(screen.getByRole('link', { name: 'Lokaal gebruiken (opent in een nieuw tabblad)' }).getAttribute('href')).toBe(guideUrl);
+    expect(screen.getByText(/macOS of Linux/)).toBeTruthy();
+    expect(screen.getByText(/automatische kopieën \(ongeveer elke 5 minuten\)/)).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Русский' }));
+    expect(screen.getByRole('link', { name: 'Запуск на своём компьютере (открывается в новой вкладке)' }).getAttribute('href')).toBe(guideUrl);
+    expect(screen.getByText(/macOS или Linux/)).toBeTruthy();
+    expect(screen.getByText(/автоматическими копиями \(примерно каждые 5 минут\)/)).toBeTruthy();
+  });
 });
