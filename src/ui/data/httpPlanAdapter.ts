@@ -3,14 +3,21 @@ import { StoreError } from '@/ui/domain/store';
 
 // A pending preview carries the exact review token required by the local server.
 export type ReviewedPlan = PricePlan & { readonly consequencesFingerprint?: string };
+export type ReviewedBatch = {
+  readonly plans: readonly PricePlan[];
+  readonly effects: PricePlan['effects'];
+  readonly consequencesFingerprint: string;
+};
 type LocalPlanAdapter = Omit<PlanAdapter, 'apply'> & {
   get(id: string): Promise<ReviewedPlan>;
+  reviewAll(planIds: readonly string[]): Promise<ReviewedBatch>;
+  applyAll(planIds: readonly string[], consequencesFingerprint: string, opId: string): ReturnType<PlanAdapter['apply']>;
   apply(id: string, consequencesFingerprint: string): ReturnType<PlanAdapter['apply']>;
 };
 
 /** Separate queue notifications never pretend the document revision changed. */
 export function createHttpPlanAdapter(token: string, pollMs = 2000): LocalPlanAdapter {
-  async function request<T>(route: string, body?: Record<string, string>): Promise<T> {
+  async function request<T>(route: string, body?: Record<string, unknown>): Promise<T> {
     try {
       const response = await fetch('/api/plans' + route, {
         method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
@@ -38,7 +45,7 @@ export function createHttpPlanAdapter(token: string, pollMs = 2000): LocalPlanAd
       throw error;
     }
   }
-  async function action<T>(route: string, body: Record<string, string>): Promise<T> {
+  async function action<T>(route: string, body: Record<string, unknown>): Promise<T> {
     ++generation; // An older poll cannot restore the pre-action panel.
     try { return await request<T>(route, body); }
     finally { await refresh().catch(() => {}); }
@@ -46,6 +53,8 @@ export function createHttpPlanAdapter(token: string, pollMs = 2000): LocalPlanAd
   return {
     list: refresh,
     get: id => request('/status', { id }),
+    reviewAll: planIds => request('/review-all', { planIds }),
+    applyAll: (planIds, consequencesFingerprint, opId) => action('/apply-all', { planIds, consequencesFingerprint, opId }),
     apply: (id, consequencesFingerprint) => action('/apply', { id, consequencesFingerprint }),
     reject: id => action('/reject', { id }),
     subscribe(changed) {
