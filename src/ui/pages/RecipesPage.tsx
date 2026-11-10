@@ -53,7 +53,7 @@ export function RecipesPage() {
           {dishes.length === 0 ? <EmptyState title={t('recipes.emptyDishTitle')} description={t('recipes.emptyDishDescription')} action={<Button asChild><a href={hrefFor({ name: 'recipe-new', kind: 'dish' })}>{t('recipes.newDish')}</a></Button>} /> : (
             <>
             <div className="grid grid-cols-1 justify-items-end gap-4 border-b pb-2 text-sm font-medium text-muted-foreground md:grid-cols-[minmax(0,1fr)_minmax(10rem,auto)_minmax(9rem,auto)]">
-              <span className="hidden md:block">{t('recipes.dishName')}</span><span className="hidden md:block">{t('recipes.dishCostColumn')}</span>
+              <span className="hidden justify-self-start md:block">{t('recipes.dishName')}</span><span className="hidden md:block">{t('recipes.dishCostColumn')}</span>
               <button type="button" className="min-h-10 rounded px-2 text-right underline underline-offset-4 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 md:min-h-0 md:px-0" aria-label={`${t('recipes.foodCostExclVat')}, ${t(foodCostSort === 'asc' ? 'recipes.sortFoodCostDescending' : 'recipes.sortFoodCostAscending')}`} onClick={() => setFoodCostSort(foodCostSort === 'asc' ? 'desc' : 'asc')}>
                 {t('recipes.foodCostExclVat')} {foodCostSort === 'asc' ? '↑' : foodCostSort === 'desc' ? '↓' : '↕'}
               </button>

@@ -32,7 +32,7 @@ it('shows cost unknown when a dish has no ingredient prices', async () => {
   const row = burger.closest('li');
   expect(row).not.toBeNull();
   expect(within(row as HTMLElement).getByTestId('dish-food-cost').textContent).toContain('cost unknown');
-  expect(row?.textContent).not.toContain('Cost: cost unknown');
+  expect(row?.textContent).not.toMatch(/Cost:\s*cost unknown/);
 });
 
 it('shows n/a with the zero-price hint when menu price is zero', async () => {
