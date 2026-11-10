@@ -1,6 +1,7 @@
 import { useLocalMode } from '@/ui/data/localMode';
 import type { MenuDocument } from '@/ui/domain/types';
 import { VersionHistory } from '@/ui/data/VersionHistory';
+import { LocalVersionNotice } from '@/ui/data/LocalVersionNotice';
 import { useNow, useVersionHistory } from '@/ui/data/DataProvider';
 import { isSafetyError } from '@/ui/data/safetyErrors';
 import { useRecipeDrafts } from '@/ui/recipe/RecipeDraftProvider';
@@ -171,6 +172,7 @@ export function DataPage() {
 
       {!local && <p className="text-sm text-muted-foreground">{backupStatus.lastExportAt ? t('backup.lastExport', { date: new Date(backupStatus.lastExportAt).toLocaleString(locale === 'nl' ? 'nl-NL' : 'en-GB') }) : t('backup.never')}</p>}
       <VersionHistory />
+      {!local ? <LocalVersionNotice /> : null}
       <Surface aria-labelledby="import-title" className="space-y-4">
           <div className="space-y-1"><h2 id="import-title" className="text-xl font-semibold">{t('data.importTitle')}</h2><p className="text-muted-foreground">{t('data.importDescription')}</p></div>
           <input ref={fileInput} type="file" accept=".json,application/json" aria-label={t('data.backupFile')} className="hidden" onChange={chooseFile} />

@@ -12,7 +12,7 @@ function SectionLink({ section, children }: { section: HelpSectionId; children: 
   return <a className={LINK} {...link}>{children}</a>;
 }
 
-/** Inline text: names of buttons and fields in bold, links to other sections. */
+/** Inline text: names of buttons and fields in bold, links to guide sections or external pages. */
 export function RichText({ text }: { text: Rich }) {
   if (typeof text === 'string') return <>{text}</>;
   return (
@@ -20,6 +20,7 @@ export function RichText({ text }: { text: Rich }) {
       {text.map((part, index) => {
         if (typeof part === 'string') return part;
         if ('b' in part) return <strong key={index} className="font-semibold">{part.b}</strong>;
+        if ('href' in part) return <a key={index} className={LINK} href={part.href} target="_blank" rel="noreferrer">{part.text}</a>;
         return <SectionLink key={index} section={part.to}>{part.text}</SectionLink>;
       })}
     </>

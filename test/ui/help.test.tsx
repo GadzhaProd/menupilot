@@ -399,4 +399,15 @@ describe('"Help for this page" links', () => {
     const heading = await screen.findByRole('heading', { level: 2, name: /Ingredients and their prices/ });
     await waitFor(() => expect(document.activeElement).toBe(heading));
   });
+
+  it('links to the local computer instructions in EN, NL and RU in browser help', async () => {
+    (await renderApp());
+    await go('#/help/data');
+    const guideUrl = 'https://github.com/GadzhaProd/menupilot#run-locally';
+    expect(screen.getByRole('link', { name: 'Run locally' }).getAttribute('href')).toBe(guideUrl);
+    await userEvent.click(screen.getByRole('button', { name: 'Nederlands' }));
+    expect(screen.getByRole('link', { name: 'Lokaal gebruiken' }).getAttribute('href')).toBe(guideUrl);
+    await userEvent.click(screen.getByRole('button', { name: 'Русский' }));
+    expect(screen.getByRole('link', { name: 'Запуск на своём компьютере' }).getAttribute('href')).toBe(guideUrl);
+  });
 });
