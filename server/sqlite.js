@@ -157,6 +157,8 @@ export function createSqliteStorage(path, {
     restoreDocument,
     withinTransaction = false,
     planId,
+    planIds,
+    consequencesFingerprint,
     ingredientId
   } = {}) {
     if (!input || !['save', 'import', 'reset', 'restore', 'memory', 'backup-restore'].includes(input.kind)) {
@@ -266,7 +268,8 @@ export function createSqliteStorage(path, {
         opId: input.opId,
         documentId: next.documentId,
         revision: next.revision,
-        changed: !unchanged
+        changed: !unchanged,
+        ...(planIds && { planIds, consequencesFingerprint })
       };
       if (!unchanged) {
         // Imports/restores can retain documentId and price history. A separate durable

@@ -74,6 +74,9 @@ export async function executePlanCommand(command, args, api) {
     documentId: version.documentId,
     revision: version.revision,
     data: formatted,
+    ...(command === 'plans' && data.filter(plan => plan.status === 'pending').length >= 2 && { confirmation: locale === 'nl'
+      ? 'De eigenaar kan alle openstaande voorstellen tegelijk bevestigen met Alles toepassen in het MenuPilot-venster. De agent kan niet bevestigen.'
+      : 'The owner can confirm all pending proposals together with Apply all in the MenuPilot window. The agent cannot confirm.' }),
     warnings,
     locale
   };
@@ -130,6 +133,7 @@ export function printPlan(result) {
   if (!plans.length) {
     console.log(nl ? 'Geen prijsvoorstellen.' : 'No price proposals.');
   }
+  if (result.confirmation) console.log(result.confirmation);
   for (const plan of plans) {
     const unit = plan.ingredient.unit;
     const big = unit !== 'pc' && plan.price.packSizeMilli >= 1000000;

@@ -183,7 +183,47 @@ export function createPlans(storage, now) {
       fail('plan-' + plan.status, `This plan is ${plan.status}. Ask the agent to propose again.`);
     }
   }
+  function batchIds(ids) {
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > PLAN_LIMITS.pending
+      || ids.some(id => typeof id !== 'string' || !id || id.length > 200)
+      || new Set(ids).size !== ids.length) {
+      fail('invalid-argument', 'Provide a non-empty list of unique plan IDs (maximum 50).');
+    }
+    return [...ids].sort();
+  }
+  function batchPreview(ids) {
+    const available = refresh();
+    const plans = ids.map(id => available.find(plan => plan.id === id));
+    const current = storage.load();
+    const found = plans.filter(Boolean);
+    if (new Set(found.map(plan => plan.ingredient.id)).size !== found.length) {
+      fail('plan-duplicate-ingredient', 'Only one proposal per ingredient can be applied together.');
+    }
+    if (plans.some(plan => !plan || plan.status !== 'pending' || plan.protocolVersion !== 1 || stale(plan, current))) {
+      fail('plan-consequences-changed', 'Proposals changed. Review pending proposals again.');
+    }
+    const document = structuredClone(current.document);
+    const reviewed = plans.map(plan => {
+      const price = appendPrice(document, plan.ingredient.id, {
+        packPriceCents: Number(plan.price.packPriceCents), packSizeMilli: plan.price.packSizeMilli
+      }, plan.price.recordedAt);
+      if (JSON.stringify(encodePlan(price)) !== JSON.stringify(plan.price)) {
+        fail('plan-consequences-changed', 'Price history changed. Review pending proposals again.');
+      }
+      const ingredient = current.document.ingredients.find(i => i.id === plan.ingredient.id);
+      return { ...plan, ingredient: { ...plan.ingredient, name: ingredient.name } };
+    });
+    const effects = planEffects(current.document, document, plans.map(plan => plan.ingredient.id), timestamp());
+    // Bind membership, displayed supplier details, shared effects and the exact document revision.
+    const consequencesFingerprint = createHash('sha256').update(JSON.stringify({
+      documentId: current.documentId, revision: current.revision,
+      plans: reviewed.map(({ id, ingredient, previousPrice, proposedPrice, warnings }) =>
+        ({ id, ingredient, previousPrice, proposedPrice, warnings })), effects
+    })).digest('hex');
+    return { current, document, review: { plans: reviewed, effects, consequencesFingerprint } };
+  }
   return {
+    reviewAll: ids => transaction(() => batchPreview(batchIds(ids)).review),
     list: () => transaction(() => refresh().map(p => preview(p))),
     snapshot: () => transaction(() => ({
       ...storage.version(),
@@ -289,9 +329,16 @@ export function createPlans(storage, now) {
           fail('plan-budget', 'Too many pending plans or this plan is too large. Review pending plans first.');
         }
         // Evict oldest terminal plans only; pending plans are never silently discarded.
-        // Reserve room for receipts and lifecycle timestamps before accepting a plan.
-        const reservedBytes = p => Buffer.byteLength(JSON.stringify(p)) + 1024;
-        let total = plans.reduce((n, p) => n + reservedBytes(p), bytes + 1024);
+        // IDs generated here are UUIDs. Reserve a maximum-size batch receipt for
+        // every pending plan, including a fully JSON-escaped 200-character opId.
+        // The original 1 KiB allowance covers the remaining receipt/lifecycle fields.
+        const batchReserve = Buffer.byteLength(JSON.stringify({
+          opId: '\0'.repeat(200), planIds: Array(PLAN_LIMITS.pending).fill(plan.id),
+          consequencesFingerprint: '0'.repeat(64)
+        }));
+        const reservedBytes = p => Buffer.byteLength(JSON.stringify(p)) + 1024
+          + (p.status === 'pending' ? batchReserve : 0);
+        let total = plans.reduce((n, p) => n + reservedBytes(p), reservedBytes(plan));
         let count = plans.length + 1;
         for (const old of [...plans].reverse()) {
           if (total <= PLAN_LIMITS.bytes && count <= PLAN_LIMITS.count) {
@@ -358,6 +405,57 @@ export function createPlans(storage, now) {
         throw outcome.error;
       }
       return outcome;
+    },
+    applyAll(planIds, consequencesFingerprint, opId) {
+      const ids = batchIds(planIds);
+      if (typeof opId !== 'string' || !opId || opId.length > 200) {
+        fail('invalid-argument', 'Provide a valid operation ID.');
+      }
+      return transaction(() => {
+        const old = db.prepare('SELECT receipt FROM ops WHERE id=?').get(opId);
+        if (old) {
+          const receipt = JSON.parse(old.receipt);
+          if (JSON.stringify(receipt.planIds) !== JSON.stringify(ids)
+            || receipt.consequencesFingerprint !== consequencesFingerprint) {
+            fail('op-id-reused', 'This operation ID was already used for different content.');
+          }
+          return { ...storage.load(), receipt };
+        }
+        const { current, document, review } = batchPreview(ids);
+        if (consequencesFingerprint !== review.consequencesFingerprint) {
+          fail('plan-consequences-changed', 'Consequences changed. Review the updated figures and confirm again.');
+        }
+        // Check actual future records before writing prices. This also protects
+        // proposals accepted by older versions with only a 1 KiB receipt reserve.
+        const appliedAt = timestamp();
+        const projectedReceipt = {
+          opId, documentId: current.documentId ?? '00000000-0000-0000-0000-000000000000',
+          revision: current.revision + 1, changed: true, planIds: ids, consequencesFingerprint
+        };
+        const replacements = new Map(review.plans.map(plan => [plan.id, JSON.stringify({
+          ...plan, status: 'applied', receipt: projectedReceipt, appliedAt
+        })]));
+        const futureBytes = db.prepare('SELECT id,plan FROM plans').all().reduce((total, row) =>
+          total + Buffer.byteLength(replacements.get(row.id) ?? row.plan), 0);
+        if (futureBytes > PLAN_LIMITS.bytes
+          || [...replacements.values()].some(raw => Buffer.byteLength(raw) > PLAN_LIMITS.singleBytes)) {
+          fail('plan-budget', 'Plan storage budget reached. Apply fewer proposals at a time.');
+        }
+        const result = storage.write({
+          kind: 'save', document, expectedDocumentId: current.documentId,
+          expectedRevision: current.revision, opId
+        }, 'agent', { withinTransaction: true, planIds: ids, consequencesFingerprint });
+        if (result.conflict) {
+          fail('plan-consequences-changed', 'Data changed. Review the updated figures and confirm again.');
+        }
+        for (const plan of review.plans) {
+          plan.status = 'applied';
+          plan.receipt = result.receipt;
+          plan.appliedAt = appliedAt;
+          save(plan);
+        }
+        return result;
+      });
     },
     reject(id) {
       const plan = transaction(() => get(id));

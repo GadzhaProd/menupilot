@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -353,6 +354,76 @@ test('multi-line invoice: two proposals, sequential owner confirmations and curr
     const effect = remaining.effects.dishes.find((d: { id: string }) => d.id === 'dish_classic_burger');
     expect(current.recipeBasedIngredientCost.micro).toBe(effect.currentCostMicro.micro);
     await expect(page.locator('main').getByText(current.recipeBasedIngredientCost.display, { exact: true }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(external).toEqual([]);
+  } finally { await stop(child); await rm(dir, { recursive: true }); }
+});
+
+test('apply all: three CLI proposals, EN/NL review, keyboard confirmation and Dashboard parity', async ({ page, context }, info) => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const exec = promisify(execFile);
+  const dir = await mkdtemp(join(tmpdir(), 'menupilot-plan-e2e-')), port = await freePort();
+  const origin = `http://127.0.0.1:${port}`;
+  const env = { ...process.env, MENUPILOT_DATA_DIR: dir };
+  const cli = async (args: string[]) => JSON.parse((await exec(process.execPath, ['server/cli.js', ...args, '--json'], { env })).stdout);
+  await exec(process.execPath, ['--input-type=module', '-e', `
+    import { readFileSync } from 'node:fs';
+    import { createSqliteStorage } from './server/sqlite.js';
+    const s = createSqliteStorage(process.env.MENUPILOT_DATA_DIR + '/menupilot.db', { initialDocument: JSON.parse(readFileSync('data/demo.json', 'utf8')) });
+    s.write({ kind: 'save', document: s.load().document, expectedDocumentId: null, expectedRevision: 0, opId: 'fixture' }); s.close();
+  `], { env });
+  const external: string[] = [];
+  await context.route('**/*', async route => {
+    if (new URL(route.request().url()).origin === origin) await route.continue();
+    else { external.push(route.request().url()); await route.abort(); }
+  });
+  const child = await launch(dir, port);
+  try {
+    await page.goto(launchUrls.get(child)!);
+    await expect(page.getByTestId('local-mode')).toBeVisible();
+    const ids = [];
+    for (const [ingredient, price] of [['ing_beef', '18'], ['ing_cheddar', '12'], ['ing_tomatoes', '0']]) {
+      const proposal = await cli(['propose', 'add-price', '--ingredient', ingredient!, '--pack-price', price!, '--pack-size', '1 kg']);
+      ids.push(proposal.data.id);
+    }
+    const panel = page.getByTestId('plans-panel');
+    const apply = panel.getByRole('button', { name: 'Apply all', exact: true });
+    await apply.click();
+    const dialog = page.getByRole('alertdialog');
+    const confirm = dialog.getByRole('button', { name: 'Apply all (3)', exact: true });
+    await expect(confirm).toBeEnabled();
+    await expect(dialog).toContainText('Combined consequences');
+    await expect(dialog).toContainText('The proposed supplier price is zero');
+    await expect(dialog).toContainText('×3');
+    await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await page.screenshot({ path: info.outputPath('apply-all-en.png'), fullPage: true });
+    const axe = await new AxeBuilder({ page }).analyze();
+    expect(axe.violations.filter(v => ['serious', 'critical'].includes(v.impact ?? ''))).toEqual([]);
+    // Read the same review transport used by the dialog, using this isolated test UI session.
+    const review = await page.evaluate(async ids => {
+      const response = await fetch('/api/plans/review-all', { method: 'POST', headers: { Authorization: 'Bearer ' + sessionStorage.getItem('menupilot.local.token.v1'), 'Content-Type': 'application/json' }, body: JSON.stringify({ planIds: ids }) });
+      return response.json();
+    }, ids);
+    await page.keyboard.press('Escape'); await expect(apply).toBeFocused();
+    await page.getByRole('button', { name: 'NL – Nederlands' }).click();
+    await panel.getByRole('button', { name: 'Alles toepassen', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Alles toepassen (3)' })).toBeEnabled();
+    await expect(dialog).toContainText('Gezamenlijke gevolgen');
+    await expect(dialog).toContainText('leveranciersprijs is nul');
+    await page.screenshot({ path: info.outputPath('apply-all-nl.png'), fullPage: true });
+    await page.keyboard.press('Tab'); await page.keyboard.press('Enter');
+    await expect(dialog).toHaveCount(0);
+    const listed = await cli(['plans']);
+    expect(listed.data.filter((p: { status: string }) => p.status === 'applied')).toHaveLength(3);
+    expect(listed.revision).toBe(2); // fixture + one invoice operation
+    await page.getByRole('button', { name: 'EN – English' }).click();
+    for (const effect of review.effects.dishes) {
+      const dish = (await cli(['dish', effect.id])).data;
+      expect(dish.recipeBasedIngredientCost?.micro ?? null).toBe(effect.currentCostMicro);
+    }
+    const burger = (await cli(['dish', 'dish_classic_burger'])).data;
+    await expect(page.locator('main').getByText(burger.recipeBasedIngredientCost.display, { exact: true }).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(external).toEqual([]);
   } finally { await stop(child); await rm(dir, { recursive: true }); }

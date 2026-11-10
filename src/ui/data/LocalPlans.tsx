@@ -5,9 +5,9 @@ import { useLocale, useFormatters } from '@/ui/i18n';
 import type { PricePlan, PlanPackaging } from '@/ui/domain/plans';
 import { localizedUnit } from '@/ui/forms/numbers';
 import { useLocalMode } from './localMode';
-import { createHttpPlanAdapter, type ReviewedPlan } from './httpPlanAdapter';
+import { createHttpPlanAdapter, type ReviewedPlan, type ReviewedBatch } from './httpPlanAdapter';
 
-function Consequences({ plan }: { plan: PricePlan }) {
+function Consequences({ plan }: { plan: Pick<PricePlan, 'effects'> & { effectsUpdated?: boolean } }) {
   const { t } = useLocale(), f = useFormatters();
   const cost = (v: string | null) => v === null ? t('common.costUnknown') : <span className="whitespace-nowrap">{f.microMoney(BigInt(v))}</span>;
   const pct = (v: string | null) => v === null ? '—' : f.percent(BigInt(v));
@@ -47,12 +47,13 @@ export function LocalPlans() {
   const client = useMemo(() => local?.token ? createHttpPlanAdapter(local.token) : null, [local?.token]);
   const [plans, setPlans] = useState<readonly PricePlan[]>([]);
   const [failed, setFailed] = useState(false);
-  const [choice, setChoice] = useState<{ plans: readonly PricePlan[]; action: 'apply' | 'reject' } | null>(null);
+  const [choice, setChoice] = useState<{ plans: readonly PricePlan[]; action: 'apply' | 'apply-all' | 'reject'; opId: string } | null>(null);
   const [review, setReview] = useState<ReviewedPlan | null>(null);
+  const [batchReview, setBatchReview] = useState<ReviewedBatch | null>(null);
   const [loading, setLoading] = useState(false);
   const reviewRequest = useRef(0);
   const [busy, setBusy] = useState(false), saving = useRef(false);
-  const [error, setError] = useState<string | null>(null), [done, setDone] = useState<'applied' | 'rejected' | null>(null);
+  const [error, setError] = useState<string | null>(null), [done, setDone] = useState<'applied' | 'appliedAll' | 'rejected' | null>(null);
   const [offset, setOffset] = useState(0);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const heading = useRef<HTMLHeadingElement | null>(null);
@@ -82,15 +83,46 @@ export function LocalPlans() {
     } catch { if (request === reviewRequest.current) setError(t('plans.reviewError')); }
     finally { if (request === reviewRequest.current) setLoading(false); }
   }
-  function closeChoice() { ++reviewRequest.current; setChoice(null); setReview(null); setLoading(false); }
-  function choose(button: HTMLButtonElement, selected: readonly PricePlan[], action: 'apply' | 'reject') {
-    trigger.current = button; setReview(null); setDone(null); setError(null); setChoice({ plans: selected, action });
+  async function loadBatchReview(ids: readonly string[]) {
+    const request = ++reviewRequest.current;
+    setBatchReview(null); setLoading(true);
+    try {
+      const fresh = await client!.reviewAll(ids);
+      if (request !== reviewRequest.current) return;
+      if (!fresh.consequencesFingerprint) throw new Error('Missing review token');
+      setBatchReview(fresh);
+    } catch { if (request === reviewRequest.current) setError(t('plans.reviewError')); }
+    finally { if (request === reviewRequest.current) setLoading(false); }
+  }
+  async function refreshBatchChoice() {
+    const request = ++reviewRequest.current;
+    setBatchReview(null); setLoading(true);
+    try {
+      const fresh = (await client!.list()).filter(p => p.status === 'pending');
+      if (request !== reviewRequest.current) return;
+      setChoice(current => current ? { ...current, plans: fresh } : current);
+      if (!fresh.length) { setError(t('plans.noPending')); setLoading(false); return; }
+      await loadBatchReview(fresh.map(p => p.id));
+    } catch {
+      if (request === reviewRequest.current) { setError(t('plans.reviewError')); setLoading(false); }
+    }
+  }
+  function closeChoice() { ++reviewRequest.current; setChoice(null); setReview(null); setBatchReview(null); setLoading(false); }
+  function choose(button: HTMLButtonElement, selected: readonly PricePlan[], action: 'apply' | 'apply-all' | 'reject') {
+    trigger.current = button; setReview(null); setDone(null); setError(null); setBatchReview(null); setChoice({ plans: selected, action, opId: crypto.randomUUID() });
     if (action === 'apply') void loadReview(selected[0]!.id);
+    if (action === 'apply-all') void loadBatchReview(selected.map(p => p.id));
   }
   async function confirm() {
-    if (!choice || !client || saving.current || (choice.action === 'apply' && (!review?.consequencesFingerprint || loading))) return;
+    if (!choice || !client || saving.current || (choice.action === 'apply' && (!review?.consequencesFingerprint || loading)) || (choice.action === 'apply-all' && (!batchReview || loading))) return;
     saving.current = true; setBusy(true); setError(null); setDone(null);
     try {
+      if (choice.action === 'apply-all') {
+        await client.applyAll(choice.plans.map(p => p.id), batchReview!.consequencesFingerprint, choice.opId);
+        setPlans(current => current.map(p => choice.plans.some(selected => selected.id === p.id) ? { ...p, status: 'applied' } : p));
+        setDone('appliedAll'); closeChoice();
+        return;
+      }
       // Each rejection is idempotent; a failed bulk action can safely be retried.
       const results = await Promise.allSettled(choice.plans.map(p => choice.action === 'apply' ? client.apply(p.id, review!.consequencesFingerprint!) : client.reject(p.id)));
       const success = choice.plans.filter((_, i) => results[i]?.status === 'fulfilled').map(p => p.id);
@@ -103,13 +135,14 @@ export function LocalPlans() {
       const code = (e as { code?: string }).code;
       if (code === 'plan-consequences-changed') {
         setError(t('plans.reconfirm'));
-        await loadReview(choice.plans[0]!.id);
+        if (choice.action === 'apply-all') await refreshBatchChoice();
+        else await loadReview(choice.plans[0]!.id);
       } else setError(code === 'plan-stale' ? t('plans.stale') : code === 'plan-expired' ? t('plans.expired') : t('plans.error'));
     } finally { saving.current = false; setBusy(false); }
   }
   return <section data-testid="plans-panel" className="space-y-4 rounded-lg border-2 border-primary/50 bg-card p-4 sm:p-6" aria-labelledby="plans-title">
     <h2 ref={heading} tabIndex={-1} id="plans-title" className="text-xl font-semibold">{t(pending.length ? 'plans.title' : 'plans.recent')}</h2>
-    <p role="status" className={done ? '' : 'sr-only'}>{done ? t(done === 'applied' ? 'plans.applied' : 'plans.rejected') : t('plans.pendingCount', { count: pending.length })}</p>
+    <p role="status" className={done ? '' : 'sr-only'}>{done ? t(done === 'appliedAll' ? 'plans.appliedAll' : done === 'applied' ? 'plans.applied' : 'plans.rejected') : t('plans.pendingCount', { count: pending.length })}</p>
     {failed && <p role="alert">{t('plans.loadError')}</p>}
     {recent.length > 0 && <details className="border-t pt-3 text-sm">
       <summary className="cursor-pointer font-medium">{t('plans.inactiveList', { count: recent.length })}</summary>
@@ -119,7 +152,10 @@ export function LocalPlans() {
       </li>)}</ul>
       <p className="mt-3 text-muted-foreground">{t('plans.askAgain')}</p>
     </details>}
-    {pending.length >= 2 && <Button variant="outline" onClick={e => choose(e.currentTarget, pending, 'reject')}>{t('plans.rejectAll')}</Button>}
+    {pending.length >= 2 && <div className="flex flex-wrap gap-2">
+      <Button onClick={e => choose(e.currentTarget, pending, 'apply-all')}>{t('plans.applyAll')}</Button>
+      <Button variant="outline" onClick={e => choose(e.currentTarget, pending, 'reject')}>{t('plans.rejectAll')}</Button>
+    </div>}
     {shown.map(plan => <article key={plan.id} className="space-y-3 border-t pt-4">
       <h3 className="font-semibold">{plan.ingredient.name}</h3><p className="text-sm text-muted-foreground">{t('plans.source')}</p>
       <Warnings plan={plan} />
@@ -133,13 +169,17 @@ export function LocalPlans() {
     </div>
     {choice && <Dialog open onOpenChange={open => { if (!open && !busy) closeChoice(); }}>
       <DialogContent role="alertdialog" className="max-h-[90svh] overflow-y-auto" onCloseAutoFocus={event => { event.preventDefault(); (trigger.current?.isConnected ? trigger.current : heading.current)?.focus(); }}>
-        <DialogHeader><DialogTitle>{t(choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject')} · {choice.plans.length === 1 ? (review?.ingredient.name ?? choice.plans[0]!.ingredient.name) : t('plans.selected', { count: choice.plans.length })}</DialogTitle>
-          <DialogDescription>{t(choice.action === 'apply' ? 'plans.applyDescription' : 'plans.rejectDescription')}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{t(choice.action === 'apply-all' ? 'plans.confirmApplyAll' : choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject', { count: choice.plans.length })} · {choice.plans.length === 1 ? (review?.ingredient.name ?? choice.plans[0]!.ingredient.name) : t('plans.selected', { count: choice.plans.length })}</DialogTitle>
+          <DialogDescription>{t(choice.action === 'apply-all' ? 'plans.applyAllDescription' : choice.action === 'apply' ? 'plans.applyDescription' : 'plans.rejectDescription')}</DialogDescription></DialogHeader>
         {loading && <p role="status">{t('plans.updating')}</p>}
-        {choice.plans.length === 1 ? selected[0] && <>{prices(selected[0]!)}<Warnings plan={selected[0]!} />{choice.action === 'apply' && <Consequences plan={selected[0]!} />}</> : <ul>{choice.plans.map(p => <li key={p.id}>{p.ingredient.name}</li>)}</ul>}
+        {choice.action === 'apply-all' ? batchReview && <>
+          <p className="text-sm text-muted-foreground">{t('terms.supplierHint')}</p>
+          <ul className="space-y-4">{batchReview.plans.map(p => <li key={p.id} className="space-y-2 border-t pt-3"><h3 className="font-semibold">{p.ingredient.name}</h3>{prices(p)}<Warnings plan={p} /></li>)}</ul>
+          <h3 className="font-semibold">{t('plans.combined')}</h3><Consequences plan={batchReview} />
+        </> : choice.plans.length === 1 ? selected[0] && <>{prices(selected[0]!)}<Warnings plan={selected[0]!} />{choice.action === 'apply' && <Consequences plan={selected[0]!} />}</> : <ul>{choice.plans.map(p => <li key={p.id}>{p.ingredient.name}</li>)}</ul>}
         {error && <p role="alert" className="text-destructive">{error}</p>}
         <DialogFooter><Button variant="outline" disabled={busy} onClick={closeChoice}>{t('common.cancel')}</Button>
-          <Button disabled={busy || (choice.action === 'apply' && (loading || !review))} onClick={() => { void confirm(); }}>{t(choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject')}</Button></DialogFooter>
+          <Button disabled={busy || (choice.action === 'apply' && (loading || !review)) || (choice.action === 'apply-all' && (loading || !batchReview))} onClick={() => { void confirm(); }}>{t(choice.action === 'apply-all' ? 'plans.confirmApplyAll' : choice.action === 'apply' ? 'plans.confirmApply' : 'plans.confirmReject', { count: choice.plans.length })}</Button></DialogFooter>
       </DialogContent>
     </Dialog>}
   </section>;

@@ -282,3 +282,125 @@ test('failed fresh review cannot confirm old card consequences', async () => {
   await screen.findByText('Could not update consequences. Close this dialog and try again.');
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Confirm apply' }).disabled).toBe(true);
 });
+
+test.each(['en', 'nl'])('apply all reviews one combined total, every price and warning; keyboard cancellation and reconfirmation (%s)', async locale => {
+  const user = userEvent.setup();
+  const second = { ...plan, id: 'p2', ingredient: { id: 'i2', name: 'Butter', unit: 'g' }, warnings: [{ code: 'zero-price' }, { code: 'large-price-change' }] };
+  const third = { ...plan, id: 'p3', ingredient: { id: 'i3', name: 'Milk', unit: 'ml' } };
+  let changed = false, applied = false, writes = 0;
+  const bodies: { planIds: string[]; consequencesFingerprint: string; opId: string }[] = [];
+  let release!: () => void;
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener() {}, removeEventListener() {} })));
+  vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+    if (url.endsWith('/review-all')) {
+      if (!changed) await new Promise<void>(resolve => { release = resolve; });
+      return Response.json({ plans: [plan, second, third], consequencesFingerprint: changed ? 'new-total' : 'combined', effects: { ...plan.effects, totalMonthlyImpactCents: changed ? '-5678' : '-1234' } });
+    }
+    if (url.endsWith('/apply-all')) {
+      writes++; bodies.push(JSON.parse(String(options?.body)));
+      if (!changed) { changed = true; return Response.json({ code: 'plan-consequences-changed' }, { status: 409 }); }
+      applied = true; return Response.json({ receipt: {} });
+    }
+    if (url.endsWith('/apply')) throw new Error('Must use a single atomic request');
+    return Response.json({ plans: applied ? [] : [plan, second, third] });
+  }));
+  const mounted = mount(locale);
+  const label = locale === 'nl' ? 'Alles toepassen' : 'Apply all';
+  const trigger = await screen.findByRole('button', { name: label });
+  expect(screen.getAllByRole('article')).toHaveLength(1);
+  trigger.focus(); await user.keyboard('{Enter}');
+  const confirm = await screen.findByRole<HTMLButtonElement>('button', { name: `${label} (3)` });
+  expect(confirm.disabled).toBe(true);
+  await act(async () => release());
+  const dialog = screen.getByRole('alertdialog');
+  expect(dialog.contains(document.activeElement)).toBe(true);
+  expect(within(dialog).getByText('Milk')).toBeTruthy();
+  expect(within(dialog).getByText('Butter')).toBeTruthy();
+  expect(within(dialog).getByText(/×3/)).toBeTruthy();
+  expect(dialog.textContent?.replaceAll('\u00a0', ' ')).toContain(locale === 'nl' ? '-€ 12,34' : '-€12.34');
+  expect(within(dialog).getAllByText(/\/kg/)).toHaveLength(3);
+  await user.keyboard('{Escape}'); expect(document.activeElement).toBe(trigger); expect(writes).toBe(0);
+  await user.keyboard('{Enter}'); await act(async () => release());
+  await user.click(screen.getByRole('button', { name: `${label} (3)` }));
+  expect(screen.getByRole('alertdialog').textContent?.replaceAll('\u00a0', ' ')).toContain(locale === 'nl' ? '-€ 56,78' : '-€56.78');
+  expect(within(screen.getByRole('alertdialog')).getByRole('alert').textContent).toContain(locale === 'nl' ? 'bevestig opnieuw' : 'confirm again');
+  expect(writes).toBe(1);
+  await user.click(screen.getByRole('button', { name: `${label} (3)` }));
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  expect(bodies).toHaveLength(2);
+  expect(bodies[0]!.planIds).toEqual(['plan1', 'p2', 'p3']);
+  expect(bodies[0]!.consequencesFingerprint).toBe('combined');
+  expect(bodies[1]!.consequencesFingerprint).toBe('new-total');
+  expect(bodies[1]!.opId).toBe(bodies[0]!.opId);
+  expect(bodies[0]!.opId).toBeTruthy();
+  mounted.unmount();
+});
+
+test('apply-all lost response retries the same operation after polling observes applied plans', async () => {
+  const user = userEvent.setup(), bodies: unknown[] = [];
+  let applied = false;
+  const plans = [plan, { ...plan, id: 'p2', ingredient: { ...plan.ingredient, id: 'i2' } }];
+  vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+    if (url.endsWith('/review-all')) return Response.json({ plans, effects: plan.effects, consequencesFingerprint: 'batch' });
+    if (url.endsWith('/apply-all')) {
+      bodies.push(JSON.parse(String(options?.body)));
+      if (!applied) { applied = true; throw new Error('response lost after commit'); }
+      return Response.json({ receipt: {} });
+    }
+    return Response.json({ plans: applied ? plans.map(p => ({ ...p, status: 'applied' })) : plans });
+  }));
+  mount(); await user.click(await screen.findByRole('button', { name: 'Apply all' }));
+  await user.click(await screen.findByRole('button', { name: 'Apply all (2)' }));
+  await screen.findByRole('alert');
+  expect(screen.queryByText('All prices applied.')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Apply all (2)' }));
+  await screen.findByText('All prices applied.');
+  expect(bodies).toHaveLength(2); expect(bodies[1]).toEqual(bodies[0]);
+});
+
+test('apply-all failed refresh cannot reuse the previously reviewed total', async () => {
+  const user = userEvent.setup(); let failed = false;
+  const plans = [plan, { ...plan, id: 'p2' }];
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.endsWith('/review-all')) {
+      if (failed) throw new Error('offline');
+      return Response.json({ plans, effects: plan.effects, consequencesFingerprint: 'batch' });
+    }
+    if (url.endsWith('/apply-all')) { failed = true; return Response.json({ code: 'plan-consequences-changed' }, { status: 409 }); }
+    return Response.json({ plans });
+  }));
+  mount(); await user.click(await screen.findByRole('button', { name: 'Apply all' }));
+  await user.click(await screen.findByRole('button', { name: 'Apply all (2)' }));
+  await screen.findByText('Could not update consequences. Close this dialog and try again.');
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Apply all (2)' }).disabled).toBe(true);
+});
+
+test('apply-all conflict after a single apply refreshes remaining membership and requires confirmation again', async () => {
+  const user = userEvent.setup(); let changed = false;
+  const second = { ...plan, id: 'p2', ingredient: { ...plan.ingredient, id: 'i2', name: 'Butter' } };
+  const confirmations: { planIds: string[] }[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+    const body = options?.body ? JSON.parse(String(options.body)) : {};
+    if (url.endsWith('/review-all')) {
+      if (changed && body.planIds.includes(plan.id)) return Response.json({ code: 'plan-consequences-changed' }, { status: 409 });
+      return Response.json({ plans: changed ? [second] : [plan, second], effects: { ...plan.effects, totalMonthlyImpactCents: changed ? '-500' : '-1000' }, consequencesFingerprint: changed ? 'remaining' : 'all' });
+    }
+    if (url.endsWith('/apply-all')) {
+      confirmations.push(body);
+      if (!changed) { changed = true; return Response.json({ code: 'plan-consequences-changed' }, { status: 409 }); }
+      return Response.json({ receipt: {} });
+    }
+    return Response.json({ plans: changed ? [{ ...plan, status: 'applied' }, second] : [plan, second] });
+  }));
+  mount(); await user.click(await screen.findByRole('button', { name: 'Apply all' }));
+  await user.click(await screen.findByRole('button', { name: 'Apply all (2)' }));
+  const confirm = await screen.findByRole<HTMLButtonElement>('button', { name: 'Apply all (1)' });
+  expect(confirm.disabled).toBe(false);
+  expect(screen.getByRole('alertdialog').textContent).toContain('-€5.00');
+  expect(within(screen.getByRole('alertdialog')).queryByText('Flour')).toBeNull();
+  expect(within(screen.getByRole('alertdialog')).getByRole('alert').textContent).toContain('confirm again');
+  expect(confirmations).toHaveLength(1);
+  await user.click(confirm);
+  await screen.findByText('All prices applied.');
+  expect(confirmations[1]!.planIds).toEqual(['p2']);
+});
